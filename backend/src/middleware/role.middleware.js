@@ -1,0 +1,12 @@
+// Checks user roles so users cannot access APIs outside their permission level.
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You do not have permission to access this resource.' });
+    }
+
+    return next();
+  };
+}
+
+module.exports = { requireRole };

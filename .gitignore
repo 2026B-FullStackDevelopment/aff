@@ -1,0 +1,7 @@
+# Keep generated dependencies and build output out of Git.
+node_modules/
+dist/
+build/
+.env
+.DS_Store
+npm-debug.log*

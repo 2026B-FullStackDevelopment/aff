@@ -1,0 +1,9 @@
+/* Styles the reusable status badge used across AFF feature modules. */
+.status-badge {
+  background: #eaf6ef;
+  border-radius: 999px;
+  color: #176b4d;
+  display: inline-block;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+}

@@ -1,0 +1,7 @@
+/* Styles the food listing card component package. */
+.food-card {
+  border: 1px solid #d6ded9;
+  border-radius: 8px;
+  margin: 1rem 0;
+  padding: 1rem;
+}

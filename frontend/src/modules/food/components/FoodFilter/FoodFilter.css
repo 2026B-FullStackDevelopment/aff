@@ -1,0 +1,6 @@
+/* Styles the food listing filter component package. */
+.food-filter {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}

@@ -1,0 +1,16 @@
+/* Defines global frontend styles shared by all AFF pages. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  color: #1d2b24;
+  font-family: Arial, sans-serif;
+  margin: 0;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 2rem 1rem;
+}
