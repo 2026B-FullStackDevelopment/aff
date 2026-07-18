@@ -1,48 +1,37 @@
 # AFF Container Diagram
 
+Proposed architecture — Milestone 1
+
 ```mermaid
 flowchart LR
-  browser["User Browser\nRecipient, Donor, Admin"]
-  frontend["React/Vite Frontend\nPages, Components, Hooks, Services"]
-  backend["Node.js/Express Backend\nRoutes, Controllers, Services, Repositories"]
-  mongodb[("MongoDB Database\nUsers, Food Listings, Reservations, Subscriptions")]
+  user["AFF User<br/>[Person]<br/>A recipient, donor, or administrator who uses the AFF platform."]
 
-  subgraph modules["Backend Modules"]
-    auth["Auth Module"]
-    users["Users Module"]
-    food["Food Module"]
-    reservations["Reservations Module"]
-    subscriptions["Subscriptions Module"]
-    admin["Admin Module"]
+  subgraph aff["AFF Platform [Software System]"]
+    direction LR
+    web["AFF Web Application<br/>[Container: React single-page application, built with Vite]<br/>Provides AFF functionality through the user's web browser."]
+    backend["AFF Backend<br/>[Container: Node.js and Express]<br/>Provides AFF business functionality through a REST API."]
+    database[("AFF Database<br/>[Container: MongoDB]<br/>Stores users, food listings, reservations, subscriptions, and related AFF data.")]
+
+    web -->|"Sends REST API requests using HTTPS/JSON"| backend
+    backend -->|"Reads from and writes to using Mongoose / MongoDB protocol"| database
   end
 
-  subgraph external["Optional External Services"]
-    payment["Payment Service\nPremium subscriptions"]
-    storage["Image Storage\nAvatars and food photos"]
-    email["Email Service\nConfirmations and alerts"]
-    realtime["Real-time Notifications\nPremium listing alerts"]
-  end
+  user -->|"Uses through a web browser over HTTPS"| web
 
-  browser -->|"Uses web app"| frontend
-  frontend -->|"REST API requests"| backend
-  backend --> auth
-  backend --> users
-  backend --> food
-  backend --> reservations
-  backend --> subscriptions
-  backend --> admin
-  auth --> mongodb
-  users --> mongodb
-  food --> mongodb
-  reservations --> mongodb
-  subscriptions --> mongodb
-  admin --> mongodb
-  subscriptions -.-> payment
-  food -.-> storage
-  auth -.-> email
-  food -.-> realtime
+  classDef person fill:#E8F5E9,stroke:#2E7D32,color:#1B1B1B,stroke-width:2px;
+  classDef application fill:#E3F2FD,stroke:#1565C0,color:#1B1B1B,stroke-width:2px;
+  classDef dataStore fill:#FFF3E0,stroke:#EF6C00,color:#1B1B1B,stroke-width:2px;
+  class user person;
+  class web,backend application;
+  class database dataStore;
+  style aff fill:#F8FAFC,stroke:#475569,color:#1B1B1B,stroke-width:2px;
 ```
 
-The user works in the browser through the React/Vite frontend. The frontend calls the Express backend through REST APIs. The backend is a modular monolith: each business module owns its route/controller/service/repository/model style files, and modules talk to each other through interfaces where needed.
+| Colour | Meaning |
+|---|---|
+| Green | Person using the system |
+| Blue | Application container inside AFF |
+| Orange | Database container inside AFF |
+| Grey boundary | AFF software system boundary |
 
-MongoDB stores the application data. Optional external services are separated as integrations so the team can add payment, image storage, email, or real-time notification providers without spreading vendor-specific code through business modules.
+The AFF User uses the React web application in a browser. The web application sends HTTPS/JSON requests to the AFF Backend, and the backend reads and writes AFF data in MongoDB. Internal React components and backend modules are intentionally omitted from this container-level view.
