@@ -3,6 +3,7 @@
 Proposed architecture — Milestone 1
 
 ```mermaid
+%%{init: {"flowchart": {"curve": "linear"}}}%%
 flowchart LR
   user["AFF User<br/>[Person]<br/>A recipient, donor, or administrator who uses the AFF platform."]
 
