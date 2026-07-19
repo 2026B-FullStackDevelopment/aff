@@ -7,13 +7,13 @@ Proposed architecture — Milestone 1
 flowchart LR
   user["AFF User<br/>[Person]<br/>A recipient, donor, or administrator who uses the AFF platform."]
 
-  subgraph aff["AFF Platform [Software System]"]
+  subgraph aff["AFF Software System"]
     direction LR
     web["AFF Web Application<br/>[Container: React single-page application, Vite, Html, Jsx, Css, Typescript]<br/>Provides AFF functionality through the user's web browser."]
-    backend["AFF Backend<br/>[Container: Node.js and Express]<br/>Provides AFF business functionality through a REST API."]
+    backend["AFF Backend<br/>[Container: NodeJS and Express]<br/>Implements AFF business logic and exposes it to the Web Application through a REST API."]
     database[("AFF Database<br/>[Container: MongoDB]<br/>Stores users, food listings, reservations, subscriptions, and related AFF data.")]
 
-    web -->|"Sends REST API requests using HTTPS/JSON"| backend
+    web -->|"Sends REST API requests over HTTPS using JSON"| backend
     backend -->|"Reads from and writes to using Mongoose / MongoDB protocol"| database
   end
 
