@@ -1,6 +1,6 @@
-// Loads recipient reservations and keeps reservation page state out of JSX.
+﻿// Loads recipient reservations and keeps reservation page state out of JSX.
 import { useEffect, useState } from 'react';
-import { reservationService } from '../services/reservation.service.js';
+import { reservationService } from '../services/reservation.service';
 
 export function useReservations() {
   const [reservations, setReservations] = useState([]);

@@ -1,7 +1,7 @@
-// Food listings page screen where recipients browse available donor food.
-import { FoodCard } from '../components/FoodCard/FoodCard.jsx';
-import { FoodFilter } from '../components/FoodFilter/FoodFilter.jsx';
-import { useFoodListings } from '../hooks/useFoodListings.js';
+﻿// Food listings page screen where recipients browse available donor food.
+import { FoodCard } from '../components/FoodCard/FoodCard';
+import { FoodFilter } from '../components/FoodFilter/FoodFilter';
+import { useFoodListings } from '../hooks/useFoodListings';
 
 export function FoodListingsPage() {
   const { listings, filters, setFilters, isLoading } = useFoodListings();

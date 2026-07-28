@@ -1,7 +1,7 @@
-// Presents one food listing card and delegates behavior to useFoodCard.
-import { Button } from '../../../../shared/components/Button/Button.jsx';
-import { StatusBadge } from '../../../../shared/components/StatusBadge/StatusBadge.jsx';
-import { useFoodCard } from './useFoodCard.js';
+﻿// Presents one food listing card and delegates behavior to useFoodCard.
+import { Button } from '../../../../shared/components/Button/Button';
+import { StatusBadge } from '../../../../shared/components/StatusBadge/StatusBadge';
+import { useFoodCard } from './useFoodCard';
 import './FoodCard.css';
 
 export function FoodCard({ food }) {

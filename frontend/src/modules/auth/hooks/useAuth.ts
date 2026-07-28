@@ -1,5 +1,5 @@
-// Holds reusable auth behavior so login/register pages do not own API details.
-import { authService } from '../services/auth.service.js';
+﻿// Holds reusable auth behavior so login/register pages do not own API details.
+import { authService } from '../services/auth.service';
 
 export function useAuth() {
   async function login(credentials) {

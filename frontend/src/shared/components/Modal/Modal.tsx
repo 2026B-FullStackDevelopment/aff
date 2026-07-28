@@ -1,5 +1,5 @@
-// Reusable modal component for confirmations, forms, and focused page actions.
-import { Button } from '../Button/Button.jsx';
+﻿// Reusable modal component for confirmations, forms, and focused page actions.
+import { Button } from '../Button/Button';
 import './Modal.css';
 
 export function Modal({ title, children, onClose }) {

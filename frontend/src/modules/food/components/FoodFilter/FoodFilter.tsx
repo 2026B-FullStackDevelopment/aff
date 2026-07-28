@@ -1,5 +1,5 @@
-// Presents filters for the food listing page without owning backend API calls.
-import { useFoodFilter } from './useFoodFilter.js';
+﻿// Presents filters for the food listing page without owning backend API calls.
+import { useFoodFilter } from './useFoodFilter';
 import './FoodFilter.css';
 
 export function FoodFilter({ filters, onChange }) {

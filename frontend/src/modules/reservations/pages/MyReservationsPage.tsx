@@ -1,6 +1,6 @@
-// Reservation page screen where recipients review their reserved food.
-import { useReservations } from '../hooks/useReservations.js';
-import { StatusBadge } from '../../../shared/components/StatusBadge/StatusBadge.jsx';
+﻿// Reservation page screen where recipients review their reserved food.
+import { useReservations } from '../hooks/useReservations';
+import { StatusBadge } from '../../../shared/components/StatusBadge/StatusBadge';
 
 export function MyReservationsPage() {
   const { reservations } = useReservations();

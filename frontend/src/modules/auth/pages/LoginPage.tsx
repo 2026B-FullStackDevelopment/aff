@@ -1,6 +1,6 @@
-// Login page screen for recipient, donor, and admin sign-in.
-import { useAuth } from '../hooks/useAuth.js';
-import { Button } from '../../../shared/components/Button/Button.jsx';
+﻿// Login page screen for recipient, donor, and admin sign-in.
+import { useAuth } from '../hooks/useAuth';
+import { Button } from '../../../shared/components/Button/Button';
 
 export function LoginPage() {
   const { login } = useAuth();

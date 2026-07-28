@@ -1,6 +1,6 @@
-// Loads food listings and keeps page state separate from FoodListingsPage JSX.
+﻿// Loads food listings and keeps page state separate from FoodListingsPage JSX.
 import { useEffect, useState } from 'react';
-import { foodService } from '../services/food.service.js';
+import { foodService } from '../services/food.service';
 
 export function useFoodListings() {
   const [filters, setFilters] = useState({});

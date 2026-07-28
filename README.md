@@ -1,6 +1,6 @@
 # AFF Full-Stack Project Structure
 
-This repository is the starting structure for the AFF, Affordable Food Federation, group project. It is set up as a small full-stack monorepo: the React/Vite frontend lives in `frontend`, the Node.js/Express backend lives in `backend`, and project documentation lives in `docs`.
+This repository is the starting structure for the AFF, Affordable Food Federation, group project. It is a TypeScript full-stack monorepo: the React/Vite frontend lives in `frontend`, the Node.js/Express backend lives in `backend`, and project documentation lives in `docs`.
 
 The structure follows the SRS architecture requirements:
 
@@ -22,22 +22,22 @@ Use this guide when you create new files. The comments at the top of the source 
 
 | File pattern | What it is for | What it should contain |
 |---|---|---|
-| `*.routes.js` | Backend API endpoints | Express route definitions and middleware wiring only. |
-| `*.controller.js` | Backend HTTP request/response handling | Reads `req`, calls a service, returns a DTO response. |
-| `*.service.js` | Backend business logic | Rules, workflows, permission checks, and calls to repositories or module interfaces. |
-| `*.repository.js` | Backend database queries | Mongoose query methods such as `find`, `create`, and `findByIdAndUpdate`. |
-| `*.model.js` | Backend MongoDB schema | Mongoose schema and model definitions. |
-| `*.dto.js` | Backend response shaping | Functions that return safe data for frontend or module-to-module use. |
-| `*.interface.js` | Backend module public API | Safe functions other modules may call instead of importing internal services. |
-| `*.middleware.js` | Backend request guards | Authentication, role authorization, error handling, and similar request checks. |
-| `*.provider.js` | Third-party integration wrapper | Vendor-facing code for payment, email, storage, maps, or notifications. |
-| `*Page.jsx` | Frontend page | A full screen connected to a frontend route. |
-| Component `*.jsx` | Frontend visible UI piece | Markup and props for one UI responsibility. |
-| `use*.js` | Frontend hook | Reusable state and behavior for pages or components. |
-| Frontend `*.service.js` | Frontend API calls | Calls to the backend through `httpClient`. |
+| `*.routes.ts` | Backend API endpoints | Express route definitions and middleware wiring only. |
+| `*.controller.ts` | Backend HTTP request/response handling | Reads `req`, calls a service, returns a DTO response. |
+| `*.service.ts` | Backend business logic | Rules, workflows, permission checks, and calls to repositories or module interfaces. |
+| `*.repository.ts` | Backend database queries | Mongoose query methods such as `find`, `create`, and `findByIdAndUpdate`. |
+| `*.model.ts` | Backend MongoDB schema | Mongoose schema and model definitions. |
+| `*.dto.ts` | Backend response shaping | Functions that return safe data for frontend or module-to-module use. |
+| `*.interface.ts` | Backend module public API | Safe functions other modules may call instead of importing internal services. |
+| `*.middleware.ts` | Backend request guards | Authentication, role authorization, error handling, and similar request checks. |
+| `*.provider.ts` | Third-party integration wrapper | Vendor-facing code for payment, email, storage, maps, or notifications. |
+| `*Page.tsx` | Frontend page | A full screen connected to a frontend route. |
+| Component `*.tsx` | Frontend visible UI piece | JSX markup and typed props for one UI responsibility. |
+| `use*.ts` | Frontend hook | Reusable state and behavior for pages or components. |
+| Frontend `*.service.ts` | Frontend API calls | Calls to the backend through `httpClient`. |
 | Component `*.css` | Component styling | Styling for the nearby component package. |
-| `apiRoutes.js` | Frontend API route config | Backend route strings grouped by business domain. |
-| `httpClient.js` | Frontend REST helper | Shared `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` request logic. |
+| `apiRoutes.ts` | Frontend API route config | Backend route strings grouped by business domain. |
+| `httpClient.ts` | Frontend REST helper | Shared, typed `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` request logic. |
 
 ## Backend Structure
 
@@ -48,6 +48,8 @@ Route -> Controller -> Service -> Repository -> Model -> MongoDB
 ```
 
 `routes` define the API endpoints. A route should be thin: it connects a URL and HTTP method to a controller function.
+
+`backend/src/routes.ts` registers each module's top-level API base path. A module's own `*.routes.ts` file defines the remaining path and HTTP method. For example, mounting `food.routes.ts` at `/api/food` and defining `router.get('/')` produces `GET /api/food`.
 
 `controllers` handle HTTP details. They read `req`, call services, and send JSON responses. Controllers should not contain database query code.
 
@@ -94,28 +96,59 @@ Page -> Component -> Hook -> Service -> Backend API
 
 `shared/components` contains reusable UI used across many features, such as `Button`, `Modal`, and `StatusBadge`.
 
-`config/apiRoutes.js` stores backend route strings in one place so we do not scatter API paths across the frontend.
+`config/apiRoutes.ts` stores backend route strings in one place so we do not scatter API paths across the frontend.
+
+## Frontend Page Routes
+
+Browser page routes are defined in `frontend/src/app/router.tsx`. These are different from backend API routes:
+
+| Page/module home | Browser URL |
+|---|---|
+| Application entry (currently redirects to food listings) | `/` |
+| Authentication login | `/login` |
+| Authentication registration | `/register` |
+| User profile and account information | `/profile` |
+| Food listings | `/food` |
+| Recipient reservations | `/reservations` |
+| Premium subscription | `/subscription` |
+| Administration | `/admin` |
+
+## Backend API Base Routes
+
+The backend has six business-module base paths plus one health endpoint:
+
+| Module | API base URL |
+|---|---|
+| Authentication | `/api/auth` |
+| Users | `/api/users` |
+| Food listings | `/api/food` |
+| Reservations | `/api/reservations` |
+| Subscriptions | `/api/subscriptions` |
+| Administration | `/api/admin` |
+| Service health check | `/api/health` |
+
+The protected `/profile` page currently reads account data through `GET /api/users/me`. Profile and password update endpoints are intentionally not prescribed here; the team member responsible for the users module will choose their HTTP methods and paths.
 
 ## Component Packages
 
-For small components, one `.jsx` file is fine.
+For small components, one `.tsx` file is fine.
 
 For complex business components, use a package folder:
 
 ```text
 FoodCard/
-  FoodCard.jsx
-  useFoodCard.js
+  FoodCard.tsx
+  useFoodCard.ts
   FoodCard.css
 ```
 
-Only add a component-specific service file if that component genuinely owns backend calls. Most backend calls should stay in the module service, such as `modules/food/services/food.service.js`.
+Only add a component-specific service file if that component genuinely owns backend calls. Most backend calls should stay in the module service, such as `modules/food/services/food.service.ts`.
 
 ## Interfaces And External Services
 
 In the SRS, "external services via interfaces" most likely means external to a backend module, not necessarily a third-party API.
 
-Example: the `reservations` module may need user data. It should call `users/user.interface.js`, not `users/user.service.js`. This keeps module internals private and makes dependencies easier to understand.
+Example: the `reservations` module may need user data. It should call `users/user.interface.ts`, not `users/user.service.ts`. This keeps module internals private and makes dependencies easier to understand.
 
 ```text
 Good: reservations.service -> user.interface
@@ -149,6 +182,12 @@ Then start both apps in separate terminals:
 ```bash
 npm run dev:backend
 npm run dev:frontend
+```
+
+Check TypeScript across both workspaces with:
+
+```bash
+npm run typecheck
 ```
 
 ## Container Diagram

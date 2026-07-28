@@ -1,6 +1,6 @@
-// Subscription page screen where recipients can start premium membership.
-import { Button } from '../../../shared/components/Button/Button.jsx';
-import { subscriptionService } from '../services/subscription.service.js';
+﻿// Subscription page screen where recipients can start premium membership.
+import { Button } from '../../../shared/components/Button/Button';
+import { subscriptionService } from '../services/subscription.service';
 
 export function SubscriptionPage() {
   function handleSubscribe() {

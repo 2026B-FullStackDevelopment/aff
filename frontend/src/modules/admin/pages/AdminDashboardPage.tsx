@@ -1,5 +1,5 @@
-// Admin dashboard page screen for admin-only system management.
-import { UserTable } from '../components/UserTable/UserTable.jsx';
+﻿// Admin dashboard page screen for admin-only system management.
+import { UserTable } from '../components/UserTable/UserTable';
 
 export function AdminDashboardPage() {
   return (

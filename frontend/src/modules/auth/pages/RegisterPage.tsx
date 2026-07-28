@@ -1,6 +1,6 @@
-// Registration page screen for new AFF recipients and donors.
-import { useAuth } from '../hooks/useAuth.js';
-import { Button } from '../../../shared/components/Button/Button.jsx';
+﻿// Registration page screen for new AFF recipients and donors.
+import { useAuth } from '../hooks/useAuth';
+import { Button } from '../../../shared/components/Button/Button';
 
 export function RegisterPage() {
   const { register } = useAuth();
