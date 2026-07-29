@@ -18,9 +18,9 @@ flowchart TB
       admin["AdminRoutes<br/>/api/admin"]
     end
 
-    authentication["Authentication Middleware"]
-    role["Role Middleware"]
-    errorMiddleware["Error Middleware"]
+    authentication["AuthenticationMiddleware"]
+    role["RoleMiddleware"]
+    errorMiddleware["ErrorMiddleware"]
 
     subgraph controllers["Controller - HTTP Request Handlers"]
       direction LR
