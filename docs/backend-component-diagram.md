@@ -1,6 +1,6 @@
-# AFF Backend Component Diagram - Routes, Validation Middleware, and Controllers
+# AFF Backend Component Diagram - Routes, Authentication and Role Middleware, and Controllers
 
-This diagram shows only the route, request-validation middleware, and controller components inside the AFF Express backend. Other backend components will be added after their responsibilities have been studied.
+This diagram shows only the route, authentication and role middleware, and controller components inside the AFF Express backend.
 
 ```mermaid
 flowchart TB
@@ -18,7 +18,8 @@ flowchart TB
       admin["AdminRoutes<br/>/api/admin"]
     end
 
-    validation["ValidationMiddleware<br/>Request Input Validation"]
+    authentication["Authentication Middleware"]
+    role["Role Middleware"]
 
     subgraph controllers["Controller - HTTP Request Handlers"]
       direction LR
@@ -31,19 +32,20 @@ flowchart TB
       adminController["AdminController"]
     end
 
-    routes --> validation
-    validation --> controllers
+    routes --> authentication
+    authentication --> role
+    role --> controllers
 
   end
 
   classDef registryComponent fill:#E3F2FD,stroke:#1565C0,color:#1B1B1B,stroke-width:2px;
   classDef routeComponent fill:#FFF3E0,stroke:#EF6C00,color:#1B1B1B,stroke-width:2px;
-  classDef validationComponent fill:#FCE4EC,stroke:#C2185B,color:#1B1B1B,stroke-width:2px;
+  classDef middlewareComponent fill:#FCE4EC,stroke:#C2185B,color:#1B1B1B,stroke-width:2px;
   classDef controllerComponent fill:#FFF8E1,stroke:#F9A825,color:#1B1B1B,stroke-width:2px;
 
   class registry registryComponent;
   class auth,users,food,reservations,subscriptions,admin routeComponent;
-  class validation validationComponent;
+  class authentication,role middlewareComponent;
   class authController,userController,foodController,reservationController,subscriptionController,adminController controllerComponent;
 
   style backend fill:#F8FAFC,stroke:#475569,color:#1B1B1B,stroke-width:2px;
@@ -62,7 +64,8 @@ flowchart TB
 
 | Middleware | Responsibility |
 |---|---|
-| `ValidationMiddleware` | Validates request input and returns validation errors before invalid requests reach a controller. |
+| `AuthenticationMiddleware` | Checks whether a user is logged in before allowing access to a protected route. |
+| `RoleMiddleware` | Checks whether the logged-in user has permission to access a role-protected route. |
 
 | Controller | Responsibility |
 |---|---|
@@ -73,4 +76,4 @@ flowchart TB
 | `SubscriptionController` | Handles premium-subscription requests. |
 | `AdminController` | Handles administration requests. |
 
-The base URLs identify backend route groups. Route requests pass through request-input validation before reaching the corresponding controller. Frontend page URLs and individual HTTP endpoints are intentionally omitted.
+The base URLs identify backend route groups. Protected routes pass through authentication and, where required, role middleware before reaching the corresponding controller. Frontend page URLs and individual HTTP endpoints are intentionally omitted.
