@@ -29,7 +29,7 @@ Use this guide when you create new files. The comments at the top of the source 
 | `*.model.ts` | Backend MongoDB schema | Mongoose schema and model definitions. |
 | `*.dto.ts` | Backend response shaping | Functions that return safe data for frontend or module-to-module use. |
 | `*.interface.ts` | Backend module public API | Safe functions other modules may call instead of importing internal services. |
-| `*.middleware.ts` | Backend request guards | Authentication, role authorization, error handling, and similar request checks. |
+| `*.middleware.ts` | Backend request guards | auth.middleware for login authorization, checks whether a request includes login information; role.middleware checks whether a user has permissions to use a feature; error.middleware handles all errors forwarded by controllers, send clear and consistent error messages |
 | `*.provider.ts` | Third-party integration wrapper | Vendor-facing code for payment, email, storage, maps, or notifications. |
 | `*Page.tsx` | Frontend page | A full screen connected to a frontend route. |
 | Component `*.tsx` | Frontend visible UI piece | JSX markup and typed props for one UI responsibility. |
