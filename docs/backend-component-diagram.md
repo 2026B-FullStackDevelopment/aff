@@ -16,6 +16,7 @@ flowchart TB
       reservations["ReservationRoutes<br/>/api/reservations"]
       subscriptions["SubscriptionRoutes<br/>/api/subscriptions"]
       admin["AdminRoutes<br/>/api/admin"]
+      auth ~~~ users ~~~ food ~~~ reservations ~~~ subscriptions ~~~ admin
     end
 
     authentication["AuthenticationMiddleware"]
@@ -31,6 +32,7 @@ flowchart TB
       reservationController["ReservationController"]
       subscriptionController["SubscriptionController"]
       adminController["AdminController"]
+      authController ~~~ userController ~~~ foodController ~~~ reservationController ~~~ subscriptionController ~~~ adminController
     end
 
     subgraph services["Service - Business Logic"]
@@ -42,6 +44,7 @@ flowchart TB
       reservationService["ReservationService"]
       subscriptionService["SubscriptionService"]
       adminService["AdminService"]
+      authService ~~~ userService ~~~ foodService ~~~ reservationService ~~~ subscriptionService ~~~ adminService
     end
 
     moduleInterfaces["Module Interfaces"]
@@ -54,6 +57,7 @@ flowchart TB
       foodRepository["FoodRepository"]
       reservationRepository["ReservationRepository"]
       subscriptionRepository["SubscriptionRepository"]
+      userRepository ~~~ foodRepository ~~~ reservationRepository ~~~ subscriptionRepository
     end
 
     subgraph models["Model - Mongoose Schemas"]
@@ -63,6 +67,7 @@ flowchart TB
       foodModel["FoodListing Model"]
       reservationModel["Reservation Model"]
       subscriptionModel["Subscription Model"]
+      userModel ~~~ foodModel ~~~ reservationModel ~~~ subscriptionModel
     end
 
     routes -->|"Sends protected requests"| authentication
