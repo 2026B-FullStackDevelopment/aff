@@ -1,6 +1,6 @@
-# AFF Backend Component Diagram - Routes, Middleware, Controllers, and Services
+# AFF Backend Component Diagram
 
-This diagram shows only the route, authentication and role middleware, controller, and service components inside the AFF Express backend.
+This diagram shows the main request-processing and data-access components inside the AFF Express backend, together with the MongoDB database used to store application data.
 
 ```mermaid
 flowchart TB
@@ -20,6 +20,7 @@ flowchart TB
 
     authentication["Authentication Middleware"]
     role["Role Middleware"]
+    errorMiddleware["Error Middleware"]
 
     subgraph controllers["Controller - HTTP Request Handlers"]
       direction LR
@@ -43,29 +44,58 @@ flowchart TB
       adminService["AdminService"]
     end
 
+    subgraph repositories["Repository - Database Operations"]
+      direction LR
+
+      userRepository["UserRepository"]
+      foodRepository["FoodRepository"]
+      reservationRepository["ReservationRepository"]
+      subscriptionRepository["SubscriptionRepository"]
+    end
+
+    subgraph models["Model - Mongoose Schemas"]
+      direction LR
+
+      userModel["User Model"]
+      foodModel["FoodListing Model"]
+      reservationModel["Reservation Model"]
+      subscriptionModel["Subscription Model"]
+    end
+
     routes -->|"Sends protected requests"| authentication
     authentication -->|"Passes authenticated user"| role
     role -->|"Allows permitted requests"| controllers
     controllers -->|"Calls business logic"| services
+    services -->|"Requests data operations"| repositories
+    repositories -->|"Uses data models"| models
+    controllers -.->|"Forwards errors"| errorMiddleware
 
   end
 
-  classDef registryComponent fill:#E3F2FD,stroke:#1565C0,color:#1B1B1B,stroke-width:2px;
+  models -->|"Reads and writes data"| mongoDatabase[("MongoDB")]
+
   classDef routeComponent fill:#FFF3E0,stroke:#EF6C00,color:#1B1B1B,stroke-width:2px;
   classDef middlewareComponent fill:#FCE4EC,stroke:#C2185B,color:#1B1B1B,stroke-width:2px;
   classDef controllerComponent fill:#FFF8E1,stroke:#F9A825,color:#1B1B1B,stroke-width:2px;
   classDef serviceComponent fill:#E8EAF6,stroke:#3949AB,color:#1B1B1B,stroke-width:2px;
+  classDef repositoryComponent fill:#F3E5F5,stroke:#8E24AA,color:#1B1B1B,stroke-width:2px;
+  classDef modelComponent fill:#E0F2F1,stroke:#00897B,color:#1B1B1B,stroke-width:2px;
+  classDef databaseComponent fill:#FFEBEE,stroke:#C62828,color:#1B1B1B,stroke-width:2px;
 
-  class registry registryComponent;
   class auth,users,food,reservations,subscriptions,admin routeComponent;
-  class authentication,role middlewareComponent;
+  class authentication,role,errorMiddleware middlewareComponent;
   class authController,userController,foodController,reservationController,subscriptionController,adminController controllerComponent;
   class authService,userService,foodService,reservationService,subscriptionService,adminService serviceComponent;
+  class userRepository,foodRepository,reservationRepository,subscriptionRepository repositoryComponent;
+  class userModel,foodModel,reservationModel,subscriptionModel modelComponent;
+  class mongoDatabase databaseComponent;
 
   style backend fill:#F8FAFC,stroke:#475569,color:#1B1B1B,stroke-width:2px;
   style routes fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
   style controllers fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
   style services fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
+  style repositories fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
+  style models fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
 ```
 
 | Component | Base URL | Responsibility |
@@ -81,6 +111,7 @@ flowchart TB
 |---|---|
 | `AuthenticationMiddleware` | Checks whether a user is logged in before allowing access to a protected route. |
 | `RoleMiddleware` | Checks whether the logged-in user has permission to access a role-protected route. |
+| `ErrorMiddleware` | Catches errors forwarded by controllers and returns a consistent error response. |
 
 | Controller | Responsibility |
 |---|---|
@@ -100,4 +131,22 @@ flowchart TB
 | `SubscriptionService` | Contains premium-subscription rules. |
 | `AdminService` | Contains administration rules. |
 
-The base URLs identify backend route groups. Protected routes pass through authentication and, where required, role middleware before reaching the corresponding controller. Controllers pass work to services, where the business rules are handled. Frontend page URLs and individual HTTP endpoints are intentionally omitted.
+| Repository | Responsibility |
+|---|---|
+| `UserRepository` | Performs user database operations. |
+| `FoodRepository` | Performs food-listing database operations. |
+| `ReservationRepository` | Performs reservation database operations. |
+| `SubscriptionRepository` | Performs subscription database operations. |
+
+| Model | Responsibility |
+|---|---|
+| `User Model` | Defines the MongoDB structure for users. |
+| `FoodListing Model` | Defines the MongoDB structure for food listings. |
+| `Reservation Model` | Defines the MongoDB structure for reservations. |
+| `Subscription Model` | Defines the MongoDB structure for subscriptions. |
+
+| Database | Responsibility |
+|---|---|
+| `MongoDB` | Stores user, food-listing, reservation, and subscription data. |
+
+The main request path is Routes to Middleware to Controllers to Services to Repositories to Models and finally MongoDB. The dotted arrow to Error Middleware represents the separate path used when a controller forwards an error. Only the Users, Food, Reservations, and Subscriptions modules currently have repository and model components; Auth and Admin do not.
