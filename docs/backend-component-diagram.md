@@ -44,6 +44,9 @@ flowchart TB
       adminService["AdminService"]
     end
 
+    moduleInterfaces["Module Interfaces"]
+    responseDtos["DTOs"]
+
     subgraph repositories["Repository - Database Operations"]
       direction LR
 
@@ -69,6 +72,9 @@ flowchart TB
     services -->|"Requests data operations"| repositories
     repositories -->|"Uses data models"| models
     controllers -.->|"Forwards errors"| errorMiddleware
+    services -.->|"Calls module APIs"| moduleInterfaces
+    controllers -.->|"Shapes responses with"| responseDtos
+    errorMiddleware -.->|"Shapes errors with"| responseDtos
 
   end
 
@@ -78,6 +84,8 @@ flowchart TB
   classDef middlewareComponent fill:#FCE4EC,stroke:#C2185B,color:#1B1B1B,stroke-width:2px;
   classDef controllerComponent fill:#FFF8E1,stroke:#F9A825,color:#1B1B1B,stroke-width:2px;
   classDef serviceComponent fill:#E8EAF6,stroke:#3949AB,color:#1B1B1B,stroke-width:2px;
+  classDef interfaceComponent fill:#E3F2FD,stroke:#1565C0,color:#1B1B1B,stroke-width:2px;
+  classDef dtoComponent fill:#ECEFF1,stroke:#546E7A,color:#1B1B1B,stroke-width:2px;
   classDef repositoryComponent fill:#F3E5F5,stroke:#8E24AA,color:#1B1B1B,stroke-width:2px;
   classDef modelComponent fill:#E0F2F1,stroke:#00897B,color:#1B1B1B,stroke-width:2px;
   classDef databaseComponent fill:#FFEBEE,stroke:#C62828,color:#1B1B1B,stroke-width:2px;
@@ -86,6 +94,8 @@ flowchart TB
   class authentication,role,errorMiddleware middlewareComponent;
   class authController,userController,foodController,reservationController,subscriptionController,adminController controllerComponent;
   class authService,userService,foodService,reservationService,subscriptionService,adminService serviceComponent;
+  class moduleInterfaces interfaceComponent;
+  class responseDtos dtoComponent;
   class userRepository,foodRepository,reservationRepository,subscriptionRepository repositoryComponent;
   class userModel,foodModel,reservationModel,subscriptionModel modelComponent;
   class mongoDatabase databaseComponent;
@@ -131,6 +141,11 @@ flowchart TB
 | `SubscriptionService` | Contains premium-subscription rules. |
 | `AdminService` | Contains administration rules. |
 
+| Ultimo component | Requirement | Responsibility |
+|---|---|---|
+| `Module Interfaces` | `A.3.1` | Exposes selected service functions so modules can communicate without directly accessing another module's internal service. |
+| `DTOs` | `A.3.2` | Shapes controller and error responses so only necessary information leaves the backend. |
+
 | Repository | Responsibility |
 |---|---|
 | `UserRepository` | Performs user database operations. |
@@ -149,4 +164,4 @@ flowchart TB
 |---|---|
 | `MongoDB` | Stores user, food-listing, reservation, and subscription data. |
 
-The main request path is Routes to Middleware to Controllers to Services to Repositories to Models and finally MongoDB. The dotted arrow to Error Middleware represents the separate path used when a controller forwards an error. Only the Users, Food, Reservations, and Subscriptions modules currently have repository and model components; Auth and Admin do not.
+The solid arrows show the main request and data-access path: Routes to Middleware to Controllers to Services to Repositories to Models and finally MongoDB. The dotted arrows show supporting relationships. Controllers use DTOs to shape responses, ErrorMiddleware uses an error DTO, and services use module interfaces when they need functions owned by another module. Only the Users, Food, Reservations, and Subscriptions modules currently have repository and model components; Auth and Admin do not.
