@@ -1,6 +1,6 @@
-# AFF Backend Component Diagram - Routes, Authentication and Role Middleware, and Controllers
+# AFF Backend Component Diagram - Routes, Middleware, Controllers, and Services
 
-This diagram shows only the route, authentication and role middleware, and controller components inside the AFF Express backend.
+This diagram shows only the route, authentication and role middleware, controller, and service components inside the AFF Express backend.
 
 ```mermaid
 flowchart TB
@@ -32,9 +32,21 @@ flowchart TB
       adminController["AdminController"]
     end
 
-    routes --> authentication
-    authentication --> role
-    role --> controllers
+    subgraph services["Service - Business Logic"]
+      direction LR
+
+      authService["AuthService"]
+      userService["UserService"]
+      foodService["FoodService"]
+      reservationService["ReservationService"]
+      subscriptionService["SubscriptionService"]
+      adminService["AdminService"]
+    end
+
+    routes -->|"Sends protected requests"| authentication
+    authentication -->|"Passes authenticated user"| role
+    role -->|"Allows permitted requests"| controllers
+    controllers -->|"Calls business logic"| services
 
   end
 
@@ -42,15 +54,18 @@ flowchart TB
   classDef routeComponent fill:#FFF3E0,stroke:#EF6C00,color:#1B1B1B,stroke-width:2px;
   classDef middlewareComponent fill:#FCE4EC,stroke:#C2185B,color:#1B1B1B,stroke-width:2px;
   classDef controllerComponent fill:#FFF8E1,stroke:#F9A825,color:#1B1B1B,stroke-width:2px;
+  classDef serviceComponent fill:#E8EAF6,stroke:#3949AB,color:#1B1B1B,stroke-width:2px;
 
   class registry registryComponent;
   class auth,users,food,reservations,subscriptions,admin routeComponent;
   class authentication,role middlewareComponent;
   class authController,userController,foodController,reservationController,subscriptionController,adminController controllerComponent;
+  class authService,userService,foodService,reservationService,subscriptionService,adminService serviceComponent;
 
   style backend fill:#F8FAFC,stroke:#475569,color:#1B1B1B,stroke-width:2px;
   style routes fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
   style controllers fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
+  style services fill:#FFFFFF,stroke:#94A3B8,color:#1B1B1B,stroke-width:1px;
 ```
 
 | Component | Base URL | Responsibility |
@@ -76,4 +91,13 @@ flowchart TB
 | `SubscriptionController` | Handles premium-subscription requests. |
 | `AdminController` | Handles administration requests. |
 
-The base URLs identify backend route groups. Protected routes pass through authentication and, where required, role middleware before reaching the corresponding controller. Frontend page URLs and individual HTTP endpoints are intentionally omitted.
+| Service | Responsibility |
+|---|---|
+| `AuthService` | Contains login and registration rules. |
+| `UserService` | Contains user account and profile rules. |
+| `FoodService` | Contains food-listing rules. |
+| `ReservationService` | Contains food-reservation rules. |
+| `SubscriptionService` | Contains premium-subscription rules. |
+| `AdminService` | Contains administration rules. |
+
+The base URLs identify backend route groups. Protected routes pass through authentication and, where required, role middleware before reaching the corresponding controller. Controllers pass work to services, where the business rules are handled. Frontend page URLs and individual HTTP endpoints are intentionally omitted.
