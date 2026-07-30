@@ -1,6 +1,13 @@
+---
+name: Meeting Minute
+about: Documenting status, decisions, and action items of a meeting
+title: "[MEETING MINUTE] - [DATE]"
+labels: meeting-minute
+assignees: ""
+---
 # Meeting Minutes — [Date]
 
-**Date:**
+**Date and Time:**
 **Attendees:**
 
 ## Member Updates
