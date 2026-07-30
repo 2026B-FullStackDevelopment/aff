@@ -9,7 +9,7 @@ flowchart LR
 
   subgraph aff["AFF Software System"]
     direction LR
-    web["AFF Web Application<br/>[Container: React single-page application, Vite]<br/>[HTML/JSX, CSS, TypeScript]<br/>Provides AFF functionality through<br/>the user's web browser."]
+    web["AFF Web Application<br/>[Container: React single-page application, Vite]<br/>[HTML/TSX, CSS, TypeScript]<br/>Provides AFF functionality through<br/>the user's web browser."]
     backend["AFF Backend<br/>[Container: Node.js and Express]<br/>Implements AFF business logic and<br/>exposes it through a REST API."]
     database[("AFF Database<br/>[Container: MongoDB]<br/>Stores users, food listings, reservations,<br/>subscriptions, and related AFF data.")]
 
