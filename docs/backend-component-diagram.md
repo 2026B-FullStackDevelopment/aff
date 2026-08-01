@@ -56,11 +56,11 @@ flowchart TB
       foodInterface --> foodService
     end
 
-    subgraph sharedMiddleware["Shared Middleware"]
+    subgraph sharedMiddleware["Middleware"]
       direction LR
-      authentication["Authentication"]
-      role["Role Authorization"]
-      errorMiddleware["Error Handling"]
+      authentication["auth.middleware"]
+      role["role.middleware"]
+      errorMiddleware["error.middleware"]
 
       authentication -->|"Role check when required"| role
       role ~~~ errorMiddleware
