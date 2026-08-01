@@ -1,6 +1,6 @@
 # AFF Container Diagram
 
-Proposed container architecture for the AFF system. AFF is deployed as a React web application, one Express modular-monolith backend, and MongoDB. Required and planned third-party services are shown outside the AFF software-system boundary.
+Proposed container architecture for the AFF system. AFF is deployed as a React web application, one Express modular-monolith backend, and MongoDB.
 
 ```mermaid
 C4Container
@@ -9,26 +9,35 @@ C4Container
   Person(user, "AFF User", "A recipient, donor, or administrator.")
 
   Container_Boundary(aff, "AFF Software System") {
-    Container(web, "AFF Web Application", "React, Vite, TypeScript", "Provides the AFF browser interface, geolocation, and maps.")
-    Container(backend, "AFF Backend/API", "Node.js, Express, TypeScript", "Runs the AFF REST API and modular-monolith business logic.")
-    ContainerDb(database, "AFF Database", "MongoDB with Mongoose", "Stores AFF application data.")
+    Container(web, "AFF Web Application", "React, Vite, TypeScript, HTML/TSX, CSS", "Provides AFF functionality through the user's web browser.")
+    Container(backend, "AFF Backend / API", "Node.js, Express, TypeScript", "Runs the REST API and modular-monolith business logic.")
+    ContainerDb(database, "AFF Database", "MongoDB with Mongoose", "Stores users, food listings, reservations,<br/>subscriptions, and related AFF data.")
   }
 
-  System_Ext(emailService, "Email Delivery Service", "Sends payment-confirmation emails.")
-  System_Ext(openStreetMap, "OpenStreetMap", "Provides map data and tiles for donor locations.")
-  System_Ext(stripe, "Stripe", "Third-party payment processor.")
-  System_Ext(objectStorage, "Object Storage Service", "Stores profile and food-listing images.")
+  Boundary(externalSystems, "External Systems (outside AFF)") {
+    System_Ext(openStreetMap, "OpenStreetMap", "Provides map data and tiles for donor locations.")
+    System_Ext(stripe, "Stripe", "Processes credit-card payments.")
+    System_Ext(emailService, "Email Delivery Service", "Delivers payment-confirmation emails to AFF users.")
+    System_Ext(objectStorage, "Object Storage Service", "Stores profile and food-listing images.")
+  }
 
-  Rel_Down(user, web, "Uses", "HTTPS")
-  Rel_Right(web, backend, "REST API", "HTTPS/JSON")
-  Rel_Down(backend, database, "Reads/writes data", "Mongoose/MongoDB")
-  Rel_Up(backend, stripe, "Payments", "HTTPS/JSON")
-  Rel_Up(web, openStreetMap, "Map data", "HTTPS")
-  Rel_Up(backend, emailService, "Sends email", "Provider API/SMTP")
-  Rel_Left(emailService, user, "Confirmation email", "Email")
-  Rel_Up(backend, objectStorage, "Stores images", "HTTPS")
+  Rel_Down(user, web, "Uses through a browser", "HTTPS")
+  UpdateRelStyle(user, web, $offsetX="0", $offsetY="-40")
+  Rel_Down(web, backend, "Calls REST API", "HTTPS / JSON")
+  Rel_Down(backend, database, "Reads and writes data", "Mongoose / MongoDB")
 
-  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
+  Rel_Right(web, openStreetMap, "Loads map data", "HTTPS")
+  Rel_Right(backend, stripe, "Processes payments", "HTTPS / JSON")
+  Rel_Right(backend, emailService, "Requests confirmation-email delivery", "Provider API / SMTP")
+  Rel_Up(emailService, user, "Sends confirmation email", "Email / SMTP")
+  Rel_Right(backend, objectStorage, "Stores and retrieves images", "HTTPS")
+
+  UpdateRelStyle(web, openStreetMap, $offsetY="-20")
+  UpdateRelStyle(backend, stripe, $offsetY="-55")
+  UpdateRelStyle(backend, emailService, $offsetY="0")
+  UpdateRelStyle(backend, objectStorage, $offsetY="55")
+
+  UpdateLayoutConfig($c4ShapeInRow="1", $c4BoundaryInRow="2")
 ```
 
 ## External-system decisions
@@ -39,20 +48,24 @@ The project has four planned external-system dependencies, not only Stripe and O
 |---|---|---|
 | Stripe | Credit-card payments for priced food orders and premium subscriptions (SRS 5.2.3 and 6.2.1) | AFF Backend/API |
 | OpenStreetMap | Displaying donor locations on a map (SRS 5.3.4) | AFF Web Application |
-| Email Delivery Service | Successful-payment email notification (SRS 6.1.2) | AFF Backend/API |
+| Email Delivery Service | Successful-payment email notification delivered to the AFF user (SRS 6.1.2) | AFF Backend/API |
 | Object Storage Service | Uploaded profile and food-listing images (SRS 3.2.1 and the planned storage integration) | AFF Backend/API |
 
 External systems should connect to the container that directly communicates with them, not automatically to the backend. In this design, Stripe, email delivery, and object storage are backend integrations. OpenStreetMap connects to the web application because the browser loads map data for display. If map geocoding is later implemented by the backend, an additional Backend/API to OpenStreetMap relationship should be added.
+
+The external-systems boundary is a visual grouping only; it does not imply that the four providers share ownership or infrastructure.
+
+The email relationship is shown as a single Backend/API-to-provider integration. Its label states that the requested email is delivered to the AFF user; omitting a second, long provider-to-user arrow keeps the container view readable without losing the delivery outcome.
 
 Real-time in-app notifications are AFF functionality rather than a separate external system. Access to the user's current location is supplied by the browser's geolocation capability, so it is described inside the web container instead of being shown as another software system.
 
 ## Shape and notation choices
 
-The diagram uses C4 container notation to match the reference examples:
+The diagram uses C4 container notation. A one-shape-per-row layout creates a top-to-bottom AFF flow, while the two-boundary row places the external-systems lane to the right. Relationship-label offsets separate the three backend integration descriptions.
 
 | Representation | Meaning |
 |---|---|
-| Human-like person icon | AFF user outside the system boundary |
+| Person node | AFF user above and outside the system boundary |
 | Container box | Independently running AFF application or API container |
 | Database cylinder | MongoDB data store |
 | External-system box | Third-party system outside AFF |
