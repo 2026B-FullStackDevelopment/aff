@@ -8,7 +8,7 @@ C4Container
   Person(user, "AFF User", "A recipient, donor, or administrator.")
 
   Container_Boundary(aff, "AFF Software System") {
-    Container(web, "AFF Web Application", "React, Vite, TypeScript, HTML/TSX, CSS", "Provides AFF functionality through the user's web browser.")
+    Container(web, "AFF Web Application"  , "React, Vite, TypeScript, HTML/TSX, CSS", "Provides AFF functionality through the user's web browser.")
     Container(backend, "AFF Backend / API", "Node.js, Express, TypeScript", "Runs the REST API and modular-monolith business logic.")
     ContainerDb(database, "AFF Database", "MongoDB with Mongoose", "Stores users, food listings, reservations,<br/>subscriptions, and related AFF data.")
   }
