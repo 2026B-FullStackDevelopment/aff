@@ -5,8 +5,6 @@ Proposed container architecture for the AFF system. AFF is deployed as a React w
 ```mermaid
 
 C4Container
-  title AFF Container Diagram
-
   Person(user, "AFF User", "A recipient, donor, or administrator.")
 
   Container_Boundary(aff, "AFF Software System") {
