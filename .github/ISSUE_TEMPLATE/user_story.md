@@ -1,7 +1,7 @@
 ---
 name: User Story
 about: A piece of work described from a user's perspective
-title: "[STORY] "
+title: "[STORY][MODULE] "
 labels: user-story
 assignees: ""
 ---

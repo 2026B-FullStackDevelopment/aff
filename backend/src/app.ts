@@ -9,7 +9,7 @@ import { registerRoutes } from './routes.js';
 function createApp() {
   const app = express();
 
-  app.use(cors({ origin: env.clientOrigin, credentials: true }));
+  app.use(cors({ origin: env.clientUrl, credentials: true }));
   app.use(morgan('dev'));
   app.use(express.json());
 
