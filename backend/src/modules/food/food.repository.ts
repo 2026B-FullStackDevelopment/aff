@@ -1,5 +1,5 @@
 // Contains food listing database queries so services do not call Mongoose directly.
-const FoodListing = require('./food.model');
+import FoodListing from './food.model.js';
 
 function findAvailableFood(filters = {}) {
   return FoodListing.find({ ...filters, status: 'AVAILABLE' }).lean();
@@ -17,4 +17,4 @@ function updateFoodListing(id, data) {
   return FoodListing.findByIdAndUpdate(id, data, { new: true }).lean();
 }
 
-module.exports = { findAvailableFood, createFoodListing, findFoodListingById, updateFoodListing };
+export { findAvailableFood, createFoodListing, findFoodListingById, updateFoodListing };

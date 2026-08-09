@@ -1,6 +1,6 @@
 // Contains reservation rules and uses other modules through interfaces only.
-const reservationRepository = require('./reservation.repository');
-const { foodInterface } = require('../food/food.interface');
+import * as reservationRepository from './reservation.repository.js';
+import { foodInterface } from '../food/food.interface.js';
 
 async function listReservationsForRecipient(recipientId) {
   return reservationRepository.findReservationsByRecipient(recipientId);
@@ -25,4 +25,4 @@ async function createReservation(recipientId, foodListingId) {
   return reservation;
 }
 
-module.exports = { listReservationsForRecipient, createReservation };
+export { listReservationsForRecipient, createReservation };

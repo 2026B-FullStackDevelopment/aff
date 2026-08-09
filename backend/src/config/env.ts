@@ -1,5 +1,5 @@
 // Reads backend environment variables in one place so modules do not access process.env directly.
-require('dotenv').config();
+import 'dotenv/config';
 
 const env = {
   port: Number(process.env.PORT || 5000),
@@ -7,4 +7,4 @@ const env = {
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
 };
 
-module.exports = { env };
+export { env };

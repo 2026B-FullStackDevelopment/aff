@@ -1,7 +1,7 @@
 // Handles admin HTTP requests and returns admin DTOs.
-const adminService = require('./admin.service');
-const { toAdminDashboardDto } = require('./admin.dto');
-const { ok } = require('../../shared/http/response');
+import * as adminService from './admin.service.js';
+import { toAdminDashboardDto } from './admin.dto.js';
+import { ok } from '../../shared/http/response.js';
 
 async function getDashboardSummary(req, res, next) {
   try {
@@ -12,4 +12,4 @@ async function getDashboardSummary(req, res, next) {
   }
 }
 
-module.exports = { getDashboardSummary };
+export { getDashboardSummary };

@@ -1,12 +1,12 @@
 // Defines reservation API endpoints and connects them to reservation controller functions.
-const express = require('express');
-const reservationController = require('./reservation.controller');
-const { requireAuth } = require('../../middleware/auth.middleware');
-const { requireRole } = require('../../middleware/role.middleware');
+import express from 'express';
+import * as reservationController from './reservation.controller.js';
+import { requireAuth } from '../../middleware/auth.middleware.js';
+import { requireRole } from '../../middleware/role.middleware.js';
 
 const router = express.Router();
 
 router.get('/me', requireAuth, requireRole('RECIPIENT'), reservationController.listMyReservations);
 router.post('/', requireAuth, requireRole('RECIPIENT'), reservationController.createReservation);
 
-module.exports = router;
+export default router;

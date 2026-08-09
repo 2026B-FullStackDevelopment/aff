@@ -6,4 +6,4 @@ async function sendEmail(message) {
   };
 }
 
-module.exports = { sendEmail };
+export { sendEmail };

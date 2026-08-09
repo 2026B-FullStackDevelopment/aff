@@ -11,4 +11,4 @@ function toUserDto(user) {
   };
 }
 
-module.exports = { toUserDto };
+export { toUserDto };

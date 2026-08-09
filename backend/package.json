@@ -4,6 +4,7 @@
   "private": true,
   "description": "Node.js/Express backend for AFF.",
   "main": "dist/server.js",
+  "type": "module",
   "scripts": {
     "dev": "node ../node_modules/tsx/dist/cli.mjs watch src/server.ts",
     "build": "node ../node_modules/typescript/bin/tsc",

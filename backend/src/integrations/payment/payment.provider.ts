@@ -6,4 +6,4 @@ async function createPaymentIntent(subscriptionRequest) {
   };
 }
 
-module.exports = { createPaymentIntent };
+export { createPaymentIntent };

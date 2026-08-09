@@ -1,5 +1,5 @@
 // Defines the MongoDB shape for donor food listings.
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const foodListingSchema = new mongoose.Schema(
   {
@@ -14,4 +14,4 @@ const foodListingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('FoodListing', foodListingSchema);
+export default mongoose.model('FoodListing', foodListingSchema);

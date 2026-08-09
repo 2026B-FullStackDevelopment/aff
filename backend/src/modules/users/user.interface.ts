@@ -1,5 +1,5 @@
 // Exposes safe user operations for other modules without importing user.service directly.
-const userService = require('./user.service');
+import * as userService from './user.service.js';
 
 const userInterface = {
   createUser: userService.createUser,
@@ -8,4 +8,4 @@ const userInterface = {
   updatePremiumStatus: userService.updatePremiumStatus,
 };
 
-module.exports = { userInterface };
+export { userInterface };

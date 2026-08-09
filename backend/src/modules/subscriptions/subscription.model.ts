@@ -1,5 +1,5 @@
 // Defines the MongoDB shape for premium recipient subscriptions.
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const subscriptionSchema = new mongoose.Schema(
   {
@@ -11,4 +11,4 @@ const subscriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Subscription', subscriptionSchema);
+export default mongoose.model('Subscription', subscriptionSchema);

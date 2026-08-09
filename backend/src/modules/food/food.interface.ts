@@ -1,9 +1,9 @@
 // Exposes safe food listing operations for other modules without importing food.service directly.
-const foodService = require('./food.service');
+import * as foodService from './food.service.js';
 
 const foodInterface = {
   getFoodListingById: foodService.getFoodListingById,
   markFoodReserved: foodService.markFoodReserved,
 };
 
-module.exports = { foodInterface };
+export { foodInterface };

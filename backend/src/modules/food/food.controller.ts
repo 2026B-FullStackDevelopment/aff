@@ -1,7 +1,7 @@
 // Handles food listing HTTP requests and returns food DTOs.
-const foodService = require('./food.service');
-const { toFoodDto } = require('./food.dto');
-const { created, ok } = require('../../shared/http/response');
+import * as foodService from './food.service.js';
+import { toFoodDto } from './food.dto.js';
+import { created, ok } from '../../shared/http/response.js';
 
 async function listAvailableFood(req, res, next) {
   try {
@@ -21,4 +21,4 @@ async function createFoodListing(req, res, next) {
   }
 }
 
-module.exports = { listAvailableFood, createFoodListing };
+export { listAvailableFood, createFoodListing };

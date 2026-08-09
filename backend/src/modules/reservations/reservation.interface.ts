@@ -1,8 +1,8 @@
 // Exposes safe reservation operations for other modules without importing reservation.service directly.
-const reservationService = require('./reservation.service');
+import * as reservationService from './reservation.service.js';
 
 const reservationInterface = {
   listReservationsForRecipient: reservationService.listReservationsForRecipient,
 };
 
-module.exports = { reservationInterface };
+export { reservationInterface };

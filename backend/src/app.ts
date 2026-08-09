@@ -1,9 +1,9 @@
 // Builds the Express app and wires shared middleware plus module routes.
-const express = require('express');
-const cors = require('cors');
-const { env } = require('./config/env');
-const { errorMiddleware } = require('./middleware/error.middleware');
-const { registerRoutes } = require('./routes');
+import express from 'express';
+import cors from 'cors';
+import { env } from './config/env.js';
+import { errorMiddleware } from './middleware/error.middleware.js';
+import { registerRoutes } from './routes.js';
 
 function createApp() {
   const app = express();
@@ -18,4 +18,4 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp };
+export { createApp };

@@ -1,7 +1,7 @@
 // Handles auth HTTP requests and returns safe auth DTO responses.
-const authService = require('./auth.service');
-const { toAuthDto } = require('./auth.dto');
-const { created, ok } = require('../../shared/http/response');
+import * as authService from './auth.service.js';
+import { toAuthDto } from './auth.dto.js';
+import { created, ok } from '../../shared/http/response.js';
 
 async function register(req, res, next) {
   try {
@@ -21,4 +21,4 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, login };
+export { register, login };

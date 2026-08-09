@@ -1,12 +1,11 @@
 // Registers the AFF API's top-level URLs. Feature-specific paths remain in each module's routes file.
 import type { Express, Request, Response } from 'express';
-
-const authRoutes = require('./modules/auth/auth.routes');
-const userRoutes = require('./modules/users/user.routes');
-const foodRoutes = require('./modules/food/food.routes');
-const reservationRoutes = require('./modules/reservations/reservation.routes');
-const subscriptionRoutes = require('./modules/subscriptions/subscription.routes');
-const adminRoutes = require('./modules/admin/admin.routes');
+import authRoutes from './modules/auth/auth.routes.js';
+import userRoutes from './modules/users/user.routes.js';
+import foodRoutes from './modules/food/food.routes.js';
+import reservationRoutes from './modules/reservations/reservation.routes.js';
+import subscriptionRoutes from './modules/subscriptions/subscription.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 
 function registerRoutes(app: Express) {
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -21,4 +20,4 @@ function registerRoutes(app: Express) {
   app.use('/api/admin', adminRoutes);
 }
 
-module.exports = { registerRoutes };
+export { registerRoutes };

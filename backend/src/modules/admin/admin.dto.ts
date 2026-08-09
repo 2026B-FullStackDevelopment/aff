@@ -8,4 +8,4 @@ function toAdminDashboardDto(summary) {
   };
 }
 
-module.exports = { toAdminDashboardDto };
+export { toAdminDashboardDto };

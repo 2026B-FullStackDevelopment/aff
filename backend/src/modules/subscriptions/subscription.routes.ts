@@ -1,11 +1,11 @@
 // Defines premium subscription API endpoints and connects them to subscription controller functions.
-const express = require('express');
-const subscriptionController = require('./subscription.controller');
-const { requireAuth } = require('../../middleware/auth.middleware');
-const { requireRole } = require('../../middleware/role.middleware');
+import express from 'express';
+import * as subscriptionController from './subscription.controller.js';
+import { requireAuth } from '../../middleware/auth.middleware.js';
+import { requireRole } from '../../middleware/role.middleware.js';
 
 const router = express.Router();
 
 router.post('/premium', requireAuth, requireRole('RECIPIENT'), subscriptionController.startPremiumSubscription);
 
-module.exports = router;
+export default router;

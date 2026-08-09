@@ -1,7 +1,7 @@
 // Contains premium subscription rules and talks to payments through an integration wrapper.
-const subscriptionRepository = require('./subscription.repository');
-const { userInterface } = require('../users/user.interface');
-const { createPaymentIntent } = require('../../integrations/payment/payment.provider');
+import * as subscriptionRepository from './subscription.repository.js';
+import { userInterface } from '../users/user.interface.js';
+import { createPaymentIntent } from '../../integrations/payment/payment.provider.js';
 
 async function startPremiumSubscription(userId, payload) {
   const payment = await createPaymentIntent({ plan: payload.plan || 'premium-monthly' });
@@ -21,4 +21,4 @@ async function isPremiumRecipient(userId) {
   return Boolean(user?.isPremium);
 }
 
-module.exports = { startPremiumSubscription, isPremiumRecipient };
+export { startPremiumSubscription, isPremiumRecipient };

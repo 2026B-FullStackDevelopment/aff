@@ -5,4 +5,4 @@ function toErrorDto(error) {
   };
 }
 
-module.exports = { toErrorDto };
+export { toErrorDto };

@@ -8,4 +8,4 @@ async function getDashboardSummary() {
   };
 }
 
-module.exports = { getDashboardSummary };
+export { getDashboardSummary };

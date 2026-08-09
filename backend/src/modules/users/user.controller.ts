@@ -1,7 +1,7 @@
 // Handles user HTTP requests and delegates profile rules to the user service.
-const userService = require('./user.service');
-const { toUserDto } = require('./user.dto');
-const { ok } = require('../../shared/http/response');
+import * as userService from './user.service.js';
+import { toUserDto } from './user.dto.js';
+import { ok } from '../../shared/http/response.js';
 
 async function getMyProfile(req, res, next) {
   try {
@@ -21,4 +21,4 @@ async function getUserById(req, res, next) {
   }
 }
 
-module.exports = { getMyProfile, getUserById };
+export { getMyProfile, getUserById };

@@ -10,4 +10,4 @@ function toReservationDto(reservation) {
   };
 }
 
-module.exports = { toReservationDto };
+export { toReservationDto };

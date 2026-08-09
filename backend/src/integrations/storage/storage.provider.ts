@@ -6,4 +6,4 @@ async function uploadFile(file) {
   };
 }
 
-module.exports = { uploadFile };
+export { uploadFile };

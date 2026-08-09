@@ -7,4 +7,4 @@ function created(res, data) {
   return ok(res, data, 201);
 }
 
-module.exports = { ok, created };
+export { ok, created };

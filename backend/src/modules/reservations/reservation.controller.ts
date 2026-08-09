@@ -1,7 +1,7 @@
 // Handles reservation HTTP requests and returns reservation DTOs.
-const reservationService = require('./reservation.service');
-const { toReservationDto } = require('./reservation.dto');
-const { created, ok } = require('../../shared/http/response');
+import * as reservationService from './reservation.service.js';
+import { toReservationDto } from './reservation.dto.js';
+import { created, ok } from '../../shared/http/response.js';
 
 async function listMyReservations(req, res, next) {
   try {
@@ -21,4 +21,4 @@ async function createReservation(req, res, next) {
   }
 }
 
-module.exports = { listMyReservations, createReservation };
+export { listMyReservations, createReservation };

@@ -1,5 +1,5 @@
 // Contains user database queries so services do not call Mongoose directly.
-const User = require('./user.model');
+import User from './user.model.js';
 
 function createUser(data) {
   return User.create(data);
@@ -17,4 +17,4 @@ function updateUser(id, data) {
   return User.findByIdAndUpdate(id, data, { new: true }).lean();
 }
 
-module.exports = { createUser, findUserByEmail, findUserById, updateUser };
+export { createUser, findUserByEmail, findUserById, updateUser };

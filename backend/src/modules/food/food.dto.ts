@@ -13,4 +13,4 @@ function toFoodDto(food) {
   };
 }
 
-module.exports = { toFoodDto };
+export { toFoodDto };

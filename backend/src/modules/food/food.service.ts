@@ -1,5 +1,5 @@
 // Contains food listing business rules and calls the food repository for database work.
-const foodRepository = require('./food.repository');
+import * as foodRepository from './food.repository.js';
 
 async function listAvailableFood(filters = {}) {
   return foodRepository.findAvailableFood(filters);
@@ -24,4 +24,4 @@ async function markFoodReserved(id) {
   return foodRepository.updateFoodListing(id, { status: 'RESERVED' });
 }
 
-module.exports = { listAvailableFood, createFoodListing, getFoodListingById, markFoodReserved };
+export { listAvailableFood, createFoodListing, getFoodListingById, markFoodReserved };

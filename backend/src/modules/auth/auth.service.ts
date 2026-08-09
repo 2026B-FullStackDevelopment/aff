@@ -1,5 +1,5 @@
 // Contains authentication business rules such as registering and logging in users.
-const { userInterface } = require('../users/user.interface');
+import { userInterface } from '../users/user.interface.js';
 
 async function register(payload) {
   const user = await userInterface.createUser(payload);
@@ -32,4 +32,4 @@ function buildSession(user) {
   };
 }
 
-module.exports = { register, login, verifyAccessToken };
+export { register, login, verifyAccessToken };

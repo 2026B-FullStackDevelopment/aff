@@ -1,11 +1,11 @@
 // Defines user API endpoints and keeps routing separate from user business logic.
-const express = require('express');
-const userController = require('./user.controller');
-const { requireAuth } = require('../../middleware/auth.middleware');
+import express from 'express';
+import * as userController from './user.controller.js';
+import { requireAuth } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
 router.get('/me', requireAuth, userController.getMyProfile);
 router.get('/:id', requireAuth, userController.getUserById);
 
-module.exports = router;
+export default router;

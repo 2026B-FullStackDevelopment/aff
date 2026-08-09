@@ -1,10 +1,6 @@
 // Collects module interfaces when a feature needs to depend on another module safely.
-const { userInterface } = require('../../modules/users/user.interface');
-const { foodInterface } = require('../../modules/food/food.interface');
-const { subscriptionInterface } = require('../../modules/subscriptions/subscription.interface');
+import { userInterface } from '../../modules/users/user.interface.js';
+import { foodInterface } from '../../modules/food/food.interface.js';
+import { subscriptionInterface } from '../../modules/subscriptions/subscription.interface.js';
 
-module.exports = {
-  userInterface,
-  foodInterface,
-  subscriptionInterface,
-};
+export { userInterface, foodInterface, subscriptionInterface };

@@ -1,7 +1,7 @@
 // Handles subscription HTTP requests and returns subscription DTOs.
-const subscriptionService = require('./subscription.service');
-const { toSubscriptionDto } = require('./subscription.dto');
-const { created } = require('../../shared/http/response');
+import * as subscriptionService from './subscription.service.js';
+import { toSubscriptionDto } from './subscription.dto.js';
+import { created } from '../../shared/http/response.js';
 
 async function startPremiumSubscription(req, res, next) {
   try {
@@ -12,4 +12,4 @@ async function startPremiumSubscription(req, res, next) {
   }
 }
 
-module.exports = { startPremiumSubscription };
+export { startPremiumSubscription };
