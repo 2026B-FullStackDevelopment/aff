@@ -1,7 +1,7 @@
 // Handles user HTTP requests and delegates profile rules to the user service.
-const userService = require('./user.service');
-const { toUserDto } = require('./user.dto');
-const { ok } = require('../../shared/http/response');
+import * as userService from './user.service.js';
+import { toUserDto } from './user.dto.js';
+import { ok, notImplemented } from '../../shared/http/response.js';
 
 async function getMyProfile(req, res, next) {
   try {
@@ -12,13 +12,14 @@ async function getMyProfile(req, res, next) {
   }
 }
 
-async function getUserById(req, res, next) {
-  try {
-    const user = await userService.getUserById(req.params.id);
-    return ok(res, toUserDto(user));
-  } catch (error) {
-    return next(error);
-  }
+// Field-level update rules (per-role editable fields) aren't built yet — see docs/api_design.md §5.
+async function updateMyProfile(_req, res) {
+  return notImplemented(res);
 }
 
-module.exports = { getMyProfile, getUserById };
+// Supabase Storage upload isn't wired up yet — see docs/api_design.md §5.
+async function uploadAvatar(_req, res) {
+  return notImplemented(res);
+}
+
+export { getMyProfile, updateMyProfile, uploadAvatar };

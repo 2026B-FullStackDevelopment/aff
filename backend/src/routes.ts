@@ -1,12 +1,14 @@
 // Registers the AFF API's top-level URLs. Feature-specific paths remain in each module's routes file.
+// Path/module list matches docs/api_design.md's Endpoint Quick Reference (§1.1).
 import type { Express, Request, Response } from 'express';
-
-const authRoutes = require('./modules/auth/auth.routes');
-const userRoutes = require('./modules/users/user.routes');
-const foodRoutes = require('./modules/food/food.routes');
-const reservationRoutes = require('./modules/reservations/reservation.routes');
-const subscriptionRoutes = require('./modules/subscriptions/subscription.routes');
-const adminRoutes = require('./modules/admin/admin.routes');
+import authRoutes from './modules/auth/auth.routes.js';
+import userRoutes from './modules/users/user.routes.js';
+import listingRoutes from './modules/listings/listing.routes.js';
+import orderRoutes from './modules/orders/order.routes.js';
+import subscriptionRoutes, { recipientPreferencesRoutes } from './modules/subscriptions/subscription.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
+import deliveryRoutes from './modules/delivery/delivery.routes.js';
+import paymentsRoutes from './modules/payments/payments.routes.js';
 
 function registerRoutes(app: Express) {
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -15,10 +17,13 @@ function registerRoutes(app: Express) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
-  app.use('/api/food', foodRoutes);
-  app.use('/api/reservations', reservationRoutes);
+  app.use('/api/listings', listingRoutes);
+  app.use('/api/orders', orderRoutes);
   app.use('/api/subscriptions', subscriptionRoutes);
+  app.use('/api/recipients', recipientPreferencesRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/deliveries', deliveryRoutes);
+  app.use('/api/webhooks', paymentsRoutes);
 }
 
-module.exports = { registerRoutes };
+export { registerRoutes };

@@ -1,4 +1,4 @@
-// Wraps future image/file storage providers for avatars and food listing photos.
+// Wraps future image/file storage providers for avatars and listing photos.
 async function uploadFile(file) {
   return {
     provider: 'placeholder-storage-provider',
@@ -6,4 +6,4 @@ async function uploadFile(file) {
   };
 }
 
-module.exports = { uploadFile };
+export { uploadFile };

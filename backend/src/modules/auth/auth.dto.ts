@@ -1,5 +1,5 @@
 // Shapes auth responses so password hashes and internal user fields are never returned.
-const { toUserDto } = require('../users/user.dto');
+import { toUserDto } from '../users/user.dto.js';
 
 function toAuthDto(session) {
   return {
@@ -8,4 +8,4 @@ function toAuthDto(session) {
   };
 }
 
-module.exports = { toAuthDto };
+export { toAuthDto };

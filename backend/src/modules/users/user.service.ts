@@ -1,5 +1,5 @@
 // Contains user business rules and calls the user repository for database work.
-const userRepository = require('./user.repository');
+import * as userRepository from './user.repository.js';
 
 async function createUser(payload) {
   return userRepository.createUser({
@@ -30,4 +30,4 @@ async function updatePremiumStatus(userId, isPremium) {
   return userRepository.updateUser(userId, { isPremium });
 }
 
-module.exports = { createUser, findUserByEmail, getUserById, updatePremiumStatus };
+export { createUser, findUserByEmail, getUserById, updatePremiumStatus };

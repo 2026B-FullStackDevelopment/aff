@@ -1,7 +1,7 @@
 // Starts the backend server after the database connection is ready.
-const { createApp } = require('./app');
-const { connectDatabase } = require('./config/database');
-const { env } = require('./config/env');
+import { createApp } from './app.js';
+import { connectDatabase } from './config/database.js';
+import { env } from './config/env.js';
 
 async function startServer() {
   await connectDatabase();

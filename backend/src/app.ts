@@ -1,14 +1,16 @@
 // Builds the Express app and wires shared middleware plus module routes.
-const express = require('express');
-const cors = require('cors');
-const { env } = require('./config/env');
-const { errorMiddleware } = require('./middleware/error.middleware');
-const { registerRoutes } = require('./routes');
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import { env } from './config/env.js';
+import { errorMiddleware } from './middleware/error.middleware.js';
+import { registerRoutes } from './routes.js';
 
 function createApp() {
   const app = express();
 
-  app.use(cors({ origin: env.clientOrigin, credentials: true }));
+  app.use(cors({ origin: env.clientUrl, credentials: true }));
+  app.use(morgan('dev'));
   app.use(express.json());
 
   registerRoutes(app);
@@ -18,4 +20,4 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp };
+export { createApp };

@@ -1,9 +1,9 @@
 // Converts thrown backend errors into consistent HTTP JSON responses.
-const { toErrorDto } = require('../shared/dtos/error.dto');
+import { toErrorDto } from '../shared/dtos/error.dto.js';
 
 function errorMiddleware(error, req, res, next) {
   const statusCode = error.statusCode || 500;
   res.status(statusCode).json(toErrorDto(error));
 }
 
-module.exports = { errorMiddleware };
+export { errorMiddleware };

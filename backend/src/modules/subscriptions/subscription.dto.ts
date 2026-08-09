@@ -10,4 +10,4 @@ function toSubscriptionDto(subscription) {
   };
 }
 
-module.exports = { toSubscriptionDto };
+export { toSubscriptionDto };

@@ -1,8 +1,8 @@
 // Exposes safe subscription operations for other modules without importing subscription.service directly.
-const subscriptionService = require('./subscription.service');
+import * as subscriptionService from './subscription.service.js';
 
 const subscriptionInterface = {
   isPremiumRecipient: subscriptionService.isPremiumRecipient,
 };
 
-module.exports = { subscriptionInterface };
+export { subscriptionInterface };
