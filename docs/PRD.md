@@ -1,32 +1,5 @@
 # AFF (Affordable Food Federation) Platform — Product Requirements Document
 
-**Course:** COSC2769 Full Stack Development — Milestone 1
-**Version:** 2.0
-**Date:** 2026-08-09
-**Status:** Draft — reflects confirmed team decisions as of this date; supersedes the 2026-07-22 PRD in full (not a patch — that document should be retired)
-
----
-
-## 0. What Changed Since v1 (2026-07-22)
-
-The previous draft assumed a fully cashless, fully courier-delivered system. Several of those assumptions have since been reversed or refined:
-
-| Area | v1 assumption | v2 (confirmed) |
-|---|---|---|
-| Payment | Stripe-only, zero cash, zero wallet | **Cash + Stripe both supported.** Still no wallet. |
-| Cash + Courier | Couriers explicitly do **not** handle cash | **Couriers collect cash on delivery** (exact cash only, no change given) |
-| Fulfillment | Zero self-pickup, Courier for 100% of orders | Courier mandatory for Reservation + Donor-initiated orders only. **Per-Request is untracked** — no Order record, no payment, no Courier; app shows the Donor's address for self-collection |
-| Cancellation | Not allowed once an order is placed | **Allowed while the order is unclaimed** (`AWAITING_COURIER`); locked the moment a Courier claims it |
-| Recipient address | Captured at signup | Captured **per-order, at checkout** |
-| Notifications | Persisted center with read/unread state | **Live feed only** — no read/unread tracking |
-| Stripe card on file | Required at signup | Only required at the **first card-based checkout** |
-| Architecture tier | Ultimo across A.1–A.3 | Unchanged — still Ultimo |
-| Additional Feature | Courier Delivery, sole feature | Unchanged |
-| Subscription payment | Stripe recurring only | Unchanged |
-
-Everything below reflects the confirmed state, not the old draft.
-
----
 
 ## 1. Executive Summary
 
@@ -131,25 +104,25 @@ Any Courier can claim an unclaimed order from a shared, oldest-first queue; clai
 
 Each story below is a **full vertical slice** — UI, API, and data model behavior are specified together so a single story is independently implementable and demonstrable, rather than split across frontend/backend tickets. SRS requirement IDs are in parentheses for traceability.
 
-### Epic A — Account, Authentication & Profile
-*Traceability: `1A`, `1B`, `2`, `3`. Ultimo throughout.*
+### Epic A — Authentication
+*Traceability: `1A`, `1B`, `2`. Ultimo throughout.*
 
 **A1. Recipient Registration** (`1A.1`, `1A.2`, `1A.3.1`)
 > As a Recipient, I want to register with username, email, password, and city, so I can access the marketplace.
-- UI: dropdown-based city selector (VN provinces/municipalities only); inline field errors with cause + valid-format example. No address field at this stage.
+- UI: dropdown-based city selector (VN provinces/municipalities only, sourced from the `country-state-city` npm package); inline field errors with cause + valid-format example. No address field at this stage.
 - API: `POST /auth/register/recipient` enforces unique email, validates username/email/password rules server-side (mirroring frontend rules), hashes the password before persisting.
 - Data: creates `USER` (role=RECIPIENT, status=ACTIVE) + `RECIPIENT` (tier=STANDARD, empty `notificationPreferences`).
 
 **A2. Donor Registration** (`1B.1`, `1B.2`, `1B.3.1`)
 > As a Donor, I want to register with company name, email, password, tax code, city, and pickup address, so Couriers and Recipients have accurate location data.
-- UI: same validation pattern as A1, plus an address field that geocodes via OSM Nominatim and confirms on a Leaflet map with a draggable pin before submission completes.
+- UI: same validation pattern as A1, plus an address field that queries OSM Nominatim for matching candidates as the Donor types; the Donor must select one of the returned options before submission completes (no pin-drop/map interaction).
 - API: `POST /auth/register/donor` validates company name/tax code format server-side alongside the shared email/password rules.
 - Data: creates `USER` (role=DONOR) + `DONOR` (companyName, taxCode, addressText, location).
 
 **A3. Login with Lockout** (`2.2.1`)
 > As any user, I want to log in with username/email + password, and be protected from brute-force attempts.
 - UI: login form; generic error after a failed attempt (no hint about whether email exists).
-- API: `POST /auth/login` blocks authentication for an account after 5 failed attempts within 60 seconds, tracked via `USER.failedLoginCount`/`windowStartedAt`/`lockedUntil`.
+- API: `POST /auth/login` blocks authentication for an account after 5 failed attempts within 60 seconds, locking it for 5 minutes, tracked via `USER.failedLoginCount`/`windowStartedAt`/`lockedUntil`.
 - Data: updates `USER.failedLoginCount` and lockout fields on each attempt; resets on success.
 
 **A4. JWT Issuance & Server-Side Revocation** (`2.3.1`, `2.3.2`)
@@ -158,78 +131,77 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: successful login issues a JWS containing user ID + role; `POST /auth/logout` inserts the token's `jti` into `REVOKED_TOKEN`; auth middleware checks `REVOKED_TOKEN` before every protected route.
 - Data: `REVOKED_TOKEN` (jti, userId, reason, revokedAt, expiresAt) with a TTL index for auto-purge.
 
-**A5. Profile Edit & Avatar Upload** (`3.1.1`, `3.2.1`)
+---
+
+### Epic B — Profile Management
+*Traceability: `3`. Ultimo throughout.*
+
+**B1. Profile Edit & Avatar Upload** (`3.1.1`, `3.2.1`)
 > As a Recipient or Donor, I want to edit my contact info and upload an avatar/logo.
 - UI: profile form with image upload control and live preview.
 - API: `PATCH /users/me` for text fields; `POST /users/me/avatar` uploads to Supabase Storage and auto-resizes to a defined standard size.
 - Data: updates `USER.avatarUrl` and relevant contact fields.
 
-**A6. Stripe Card Registration at First Card Checkout** (new, supports `5.2.3`/`6.2.1`)
-> As a Recipient, the first time I choose to pay by card, I want to register a Stripe payment method, so I don't need to re-enter card details on future card purchases.
-- UI: card capture only appears inside the checkout flow when "Pay by card" is selected — never at signup, never forced on cash-only users.
-- API: creates a Stripe Customer + attaches the payment method on first use; reused on subsequent card checkouts.
-- Data: sets `RECIPIENT.stripeCustomerId` on first successful card registration.
-
 ---
 
-### Epic B — Donor Food Donation Management
+### Epic C — Donor Food Donation Management
 *Traceability: `4`. Ultimo throughout, with §10 deviations on `4.1.4`/`4.2.1`.*
 
-**B1. Create Listing** (`4.1.1`)
+**C1. Create Listing** (`4.1.1`)
 > As a Donor, I want to create a food listing with name, description, unit, category, vegetarian flag, donation limit, and price.
 - UI: creation form; selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
 - API: `POST /listings` validates unit/category enums and price rule (free or > 1000 VND).
 - Data: creates `LISTING` (status=ACTIVE, quantityRemaining=donationLimit).
 
-**B2. Active vs. Past Donations Dashboard** (`4.1.2`)
+**C2. Active vs. Past Donations Dashboard** (`4.1.2`)
 > As a Donor, I want to see Active and Past donations with full stats, so I can track my impact.
 - UI: two visually separated sections, Active listed first.
 - API: `GET /listings/mine` returns both groups with computed stats (donated quantity, revenue).
 - Data: reads `LISTING` filtered by `donorId`; computes aggregates from associated `ORDER`s.
 
-**B3. Clone Listing** (`4.1.3`)
+**C3. Clone Listing** (`4.1.3`)
 > As a Donor, I want to create a new listing pre-filled from a previous one.
 - UI: "Duplicate" action on any past listing opens the creation form pre-populated.
 - API: `POST /listings/:id/clone` copies static fields, resets quantity/status/dates.
 - Data: new `LISTING` document; no reference back to the original.
 
-**B4. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
+**C4. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
 > As a Donor, I want to manually create a donation for a registered Recipient and quantity, so I can hand out food I've already committed outside the app.
 - UI: Donor searches by Recipient username (no free-text names); if priced, the Recipient is prompted (via notification) to choose Stripe or cash-on-delivery.
 - API: `POST /listings/:id/donations` creates an `ORDER` (intakePath=DONOR_INITIATED); if priced, `paymentStatus=PAYMENT_PENDING` until Stripe succeeds or cash is confirmed at delivery; if free, `paymentStatus=FREE` and it enters the Courier queue immediately.
 - Data: `ORDER` (recipientId, listingId, intakePath=DONOR_INITIATED, quantity, amount, paymentStatus).
 
-**B5. Search/Filter/Sort Own Listings** (`4.2.2`)
+**C5. Search/Filter/Sort Own Listings** (`4.2.2`)
 > As a Donor, I want to search/filter/sort my listings by name, category, date range, and revenue.
 - UI: search bar + filter panel + sort toggle (asc/desc).
 - API: `GET /listings/mine?search=&category=&from=&to=&sort=`.
 - Data: query against `LISTING` indexed on `donorId`, `name`, `category`, `createdAt`.
 
-**B6. Pause / Resume / Cancel Listing** (`4.2.3`)
+**C6. Pause / Resume / Cancel Listing** (`4.2.3`)
 > As a Donor, I want to pause, resume, or cancel an active listing.
 - UI: status controls on each listing; cancel shows a confirmation naming how many pending orders will be auto-cancelled.
 - API: `PATCH /listings/:id/status`; cancel cascades to auto-cancel all associated `ORDER`s still in `AWAITING_COURIER` (not ones already `ASSIGNED` or later).
 - Data: `LISTING.status`; cascaded `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<donor's userId>`.
 
-**B7. Ration Limit Per Person** (`4.2.4`)
+**C7. Ration Limit Per Person** (`4.2.4`)
 > As a Donor, I want to cap how much a single Recipient can reserve from a listing.
 - UI: optional "ration per person" field on listing creation.
 - API: reservation endpoint rejects quantities above `rationLimitPerPerson`.
 - Data: `LISTING.rationLimitPerPerson`.
 
-**B8. Per-Request Listing (Untracked, Self-Collection)** (`4.2.1`, unchanged SRS intent)
+**C8. Per-Request Listing (Untracked, Self-Collection)** (`4.2.1`, unchanged SRS intent)
 > As a Donor, I want to post a "Per Request" listing so Recipients can come collect food in person without me managing individual orders.
 - UI: listing displays the Donor's address prominently instead of a "Reserve" button; the SRS warning is shown on both the Donor's creation form and the Recipient-facing listing page.
 - API: no reservation endpoint accepts this listing's ID; no `ORDER` is ever created for it.
 - Data: `LISTING` with `unit=PER_REQUEST`; no `ORDER`, no `PAYMENT`, no `DELIVERY` ever reference it.
 
-**B9. View Orders Against a Listing** (`4.2.5`, status vocabulary aligned to schema)
+**C9. View Orders Against a Listing** (`4.2.5`, status vocabulary aligned to schema)
 > As a Donor, I want to see every tracked order against a listing — Recipient, quantity, delivery status, payment info, and feedback.
 - UI: table per listing, showing Recipient username, quantity, `orderStatus`, payment method + status, and any feedback.
 - API: `GET /listings/:id/orders` (Reservation + Donor-initiated only — Per-Request has nothing to show here).
 - Data: reads `ORDER` filtered by `listingId`, joined with `PAYMENT` and `feedback`.
 
-**B10. Sold-Out Alert & Visual Stats** (`4.3.1`, `4.3.2`)
+**C10. Sold-Out Alert & Visual Stats** (`4.3.1`, `4.3.2`)
 > As a Donor, I want a real-time alert when a listing sells out, and visual stats on my donations.
 - UI: in-app toast + audible alert on sell-out; charts (category/unit breakdown) on the dashboard.
 - API: Socket.IO event emitted from the Service layer when `quantityRemaining` hits zero.
@@ -237,46 +209,52 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ---
 
-### Epic C — Recipient Food Ordering
+### Epic D — Recipient Food Ordering
 *Traceability: `5.1`, `5.2`, `5.3.4`. Ultimo throughout, with §10 payment/cancellation deviations.*
 
-**C1. Browse Active Listings** (`5.1.1`)
+**D1. Browse Active Listings** (`5.1.1`)
 > As a Recipient, I want to browse active listings with key details.
 - UI: listing grid/list with name, category, vegetarian flag, quantity, unit, price, Donor municipality, created date.
 - API: `GET /listings?status=ACTIVE`.
 - Data: reads `LISTING`.
 
-**C2. Reserve & Pay** (`5.1.2`, `5.1.3`, `5.2.3`, revised per §10)
+**D2. Reserve & Pay** (`5.1.2`, `5.1.3`, `5.2.3`, revised per §10)
 > As a Recipient, I want to reserve a listing and choose how to pay, so my order enters the delivery queue.
 - UI: reserve action enforces all SRS eligibility checks (active, not paused/cancelled, not Per-Request, sufficient quantity, one reservation per listing per Recipient); payment step offers "Pay by card" (Stripe checkout) or "Pay cash on delivery."
 - API: `POST /listings/:id/reserve` creates `ORDER` (intakePath=RESERVATION); Stripe path sets `paymentStatus=PAID` on webhook success before entering the queue; cash path sets `paymentStatus=PAYMENT_PENDING` and enters the queue immediately.
 - Data: `ORDER`, decrements `LISTING.quantityRemaining`; triggers `DeliveryService.createForOrder`.
 
-**C3. Cancel Order Before Courier Claim** (new, replaces v1's "no cancellation" exclusion)
+**D3. Stripe Card Registration at First Card Checkout** (new, supports `5.2.3`/`6.2.1`)
+> As a Recipient, the first time I choose to pay by card, I want to register a Stripe payment method, so I don't need to re-enter card details on future card purchases.
+- UI: card capture only appears inside the checkout flow when "Pay by card" is selected (D2) — never at signup, never forced on cash-only users.
+- API: creates a Stripe Customer + attaches the payment method on first use; reused on subsequent card checkouts, including Premium subscription checkout (F1).
+- Data: sets `RECIPIENT.stripeCustomerId` on first successful card registration.
+
+**D4. Cancel Order Before Courier Claim** (new, replaces v1's "no cancellation" exclusion)
 > As a Recipient, I want to cancel my order before a Courier claims it, so I'm not locked into a mistaken purchase.
 - UI: "Cancel Order" button visible only while the order's delivery is still `AWAITING_COURIER`.
 - API: `DELETE /orders/:id` atomically checks the Delivery record's stage; rejects with a conflict error if already `ASSIGNED` or later.
 - Data: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<recipient's own userId>`, `cancelledAt`; restores `LISTING.quantityRemaining`. *(Stripe refund handling on cancellation is an open question — see §11.)*
 
-**C4. Order/Delivery History** (`5.1.4`, relabeled)
+**D5. Order/Delivery History** (`5.1.4`, relabeled)
 > As a Recipient, I want to view my past orders and their delivery status.
 - UI: history list — donation, Donor, quantity, price paid, payment method, delivery status, date.
 - API: `GET /orders/mine`.
 - Data: reads `ORDER` filtered by `recipientId`.
 
-**C5. Search/Filter/Sort Listings** (`5.2.1`, `5.2.2`)
+**D6. Search/Filter/Sort Listings** (`5.2.1`, `5.2.2`)
 > As a Recipient, I want case-insensitive partial-match search and filters for municipality/category/price, with sortable price.
 - UI: search bar + filter panel + price sort toggle.
 - API: `GET /listings?search=&city=&category=&priceMin=&priceMax=&sort=price`.
 - Data: query against `LISTING`.
 
-**C6. Feedback on Delivered Order** (`5.2.4`)
+**D7. Feedback on Delivered Order** (`5.2.4`)
 > As a Recipient, I want to leave feedback on a delivered order, visible to the Donor.
 - UI: feedback form appears once `orderStatus=DELIVERED`.
 - API: `POST /orders/:id/feedback`.
 - Data: `ORDER.feedback` (comment, createdAt).
 
-**C7. View Donor Location** (`5.3.4`)
+**D8. View Donor Location** (`5.3.4`)
 > As a Recipient, I want to see a Donor's location on a map from a listing page.
 - UI: map marker on the listing page. For Reservation/Donor-initiated listings this is informational context; for Per-Request listings this **is** the actual meetup point.
 - API: `GET /listings/:id` includes `donorId` → `DONOR.location`.
@@ -284,75 +262,75 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ---
 
-### Epic D — Courier Delivery & Real-Time Tracking *(sole Additional Feature, Ultimo tier)*
+### Epic E — Courier Delivery & Real-Time Tracking *(sole Additional Feature, Ultimo tier)*
 
-**D1. Admin Creates Courier Accounts** (new)
+**E1. Admin Creates Courier Accounts** (new)
 > As an Admin, I want to create Courier accounts, so delivery staff can log in without public self-registration.
 - UI: Admin "Create Courier" form (username, email, temp password, full name).
 - API: `POST /admin/couriers`.
 - Data: creates `USER` (role=COURIER) + `COURIER`.
 
-**D2. Shared Oldest-First Queue** (new)
+**E2. Shared Oldest-First Queue** (new)
 > As a Courier, I want a shared, oldest-first queue of unclaimed orders from both tracked intake paths, so I always work the longest-waiting order first.
 - UI: queue list sorted by `ORDER.createdAt` ascending.
 - API: `GET /deliveries/queue?stage=AWAITING_COURIER`.
 - Data: reads `DELIVERY` where `stage=AWAITING_COURIER`, joined with `ORDER`.
 
-**D3. Atomic Claim** (new)
+**E3. Atomic Claim** (new)
 > As a Courier, I want to claim an order atomically, so there's no double-claim race under concurrent access.
 - UI: "Claim" button per queue row.
 - API: `PATCH /deliveries/:id/claim` uses an atomic conditional update (`stage=AWAITING_COURIER` → `ASSIGNED` only if still unclaimed); returns a conflict if another Courier claimed it first.
-- Data: `DELIVERY.stage=ASSIGNED`, `courierId=<self>`. This same atomicity check is what enforces C3's cancellation cutoff.
+- Data: `DELIVERY.stage=ASSIGNED`, `courierId=<self>`. This same atomicity check is what enforces D4's cancellation cutoff.
 
-**D4. One Active Delivery at a Time** (new)
+**E4. One Active Delivery at a Time** (new)
 > As a Courier, I want to be blocked from claiming a second order while one is in progress.
 - UI: claim button disabled/hidden while an active delivery exists.
 - API: claim endpoint rejects if the Courier already has a `DELIVERY` in `ASSIGNED` or `PICKED_UP`.
 - Data: query on `DELIVERY.courierId` + `stage`.
 
-**D5. Pickup Address as Text** (new)
+**E5. Pickup Address as Text** (new)
 > As a Courier, I want the Donor's pickup address as text after claiming.
 - UI: address text shown on the claimed-order screen, no map needed for this leg.
 - API: `GET /deliveries/:id` includes `DONOR.addressText`.
 - Data: reads `DONOR.addressText`.
 
-**D6. Start Live Tracking** (new)
+**E6. Start Live Tracking** (new)
 > As a Courier, I want to tap "Picked Up" to start live GPS broadcasting.
 - UI: "Picked Up" button; map centers on the Recipient's delivery address.
 - API: `PATCH /deliveries/:id/pickup` sets `stage=PICKED_UP`, `pickedUpAt`; opens a WebSocket channel for location pings.
 - Data: `DELIVERY.stage=PICKED_UP`, `pickedUpAt`; `courierLastLocation` updated on each ping.
 
-**D7. Complete Delivery (with Cash Confirmation)** (new)
+**E7. Complete Delivery (with Cash Confirmation)** (new)
 > As a Courier, I want to tap "Delivered" as the final action — confirming cash received if applicable.
 - UI: "Delivered" button; if the order's payment method is cash, a confirmation step ("Cash received — exact amount, no change given") must be checked first.
 - API: `PATCH /deliveries/:id/deliver` sets `stage=DELIVERED`, `deliveredAt`; if cash, also flips `ORDER.paymentStatus` from `PAYMENT_PENDING` to `PAID`.
 - Data: `DELIVERY.stage=DELIVERED`; `ORDER.orderStatus=DELIVERED`, `paymentStatus=PAID` (cash case).
 
-**D8. Live Order Status for Recipient** (new)
+**E8. Live Order Status for Recipient** (new)
 > As a Recipient, I want my order's status to update live without refreshing.
 - UI: status stepper (preparing → picked up → out for delivery → delivered) updates over WebSocket.
 - API: Socket.IO events emitted on each `DELIVERY.stage` transition.
 - Data: driven by `DELIVERY.stage`.
 
-**D9. Live Courier Position** (new)
+**E9. Live Courier Position** (new)
 > As a Recipient, while out for delivery, I want to see the Courier's live position on a map.
 - UI: map visible only during `PICKED_UP`, updates from WebSocket pings.
 - API: Socket.IO room scoped to that order's Recipient only.
 - Data: `DELIVERY.courierLastLocation`.
 
-**D10. Delivered State** (new)
+**E10. Delivered State** (new)
 > As a Recipient, once delivered, I want the map replaced with a permanent "Your order has arrived" state.
 - UI: static confirmation screen, no further live updates.
 - API: n/a (client renders based on `DELIVERY.stage=DELIVERED`).
 - Data: n/a.
 
-**D11. Admin Read-Only Delivery Oversight** (extends `7.1.1`/`7.3.1`)
+**E11. Admin Read-Only Delivery Oversight** (extends `7.1.1`/`7.3.1`)
 > As an Admin, I want Couriers listed alongside Recipients/Donors, plus a read-only view of all deliveries.
 - UI: Courier accounts appear in account management; a deliveries table shows Courier, status, timestamps — no assignment controls.
 - API: `GET /admin/couriers`, `GET /admin/deliveries`.
 - Data: reads `COURIER`, `DELIVERY`.
 
-**D12. Single Delivery Entry Point** (new)
+**E12. Single Delivery Entry Point** (new)
 > As the Delivery module, I want one `createForOrder(orderId, ...)` entry point called identically by the Reservation and Donor-initiated flows, so both paths converge on one pipeline with no divergent logic.
 - UI: n/a.
 - API: internal service interface, not exposed to the frontend.
@@ -362,28 +340,28 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ---
 
-### Epic E — Premium Subscription
+### Epic F — Premium Subscription
 *Traceability: `5.3.1`–`5.3.3`, `6`. Ultimo, with §10 deviation on `6.1.1`.*
 
-**E1. Stripe Recurring Subscription** (`6.2.1`; `6.1.1`'s wallet path not implemented)
+**F1. Stripe Recurring Subscription** (`6.2.1`; `6.1.1`'s wallet path not implemented)
 > As a Recipient, I want to subscribe to Premium for $5/month via Stripe recurring billing, and get an email confirmation on success.
 - UI: "Upgrade to Premium" flow, Stripe subscription checkout.
 - API: Stripe webhook on `invoice.paid` triggers confirmation email (Nodemailer) and creates a new `SUBSCRIPTION` row.
 - Data: `SUBSCRIPTION` (append-only, new row per billing cycle); `RECIPIENT.tier` derived from an unexpired subscription's existence.
 
-**E2. Notification Preferences** (`5.3.1`)
+**F2. Notification Preferences** (`5.3.1`)
 > As a Premium Recipient, I want to set notification preferences (categories, vegetarian status, price range, city).
 - UI: preference form, supports multiple saved preferences.
 - API: `PUT /recipients/me/preferences`.
 - Data: `RECIPIENT.notificationPreferences` (embedded list).
 
-**E3. Real-Time Match Alerts** (`5.3.2`)
+**F3. Real-Time Match Alerts** (`5.3.2`)
 > As a Premium Recipient, I want a live alert when a new listing matches my preferences.
 - UI: in-app toast (live feed, not persisted) linking to the matching listing.
 - API: on listing creation, Service layer compares against all Premium preferences and emits a Socket.IO event to matches.
 - Data: reads `RECIPIENT.notificationPreferences`; creates a transient `NOTIFICATION` (type=PREMIUM_MATCH) for the feed, no read-state tracking.
 
-**E4. Location-Aware Ranking** (`5.3.3`)
+**F4. Location-Aware Ranking** (`5.3.3`)
 > As a Premium Recipient, I want matching listings ranked by my location (if granted) or my city (if not).
 - UI: browser geolocation permission prompt.
 - API: `GET /listings?rank=proximity` uses granted coordinates, else falls back to `RECIPIENT`'s selected city.
@@ -391,42 +369,42 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ---
 
-### Epic F — Admin Functionality
-*Traceability: `7`. Ultimo, extended per Epic D.*
+### Epic G — Admin Functionality
+*Traceability: `7`. Ultimo, extended per Epic E.*
 
-**F1. View All Accounts** (`7.1.1`, extended)
+**G1. View All Accounts** (`7.1.1`, extended)
 > As an Admin, I want to see all Recipients, Donors, and Couriers with ID, name, email, role, and status.
 - UI: filterable account table.
 - API: `GET /admin/users`.
 - Data: reads `USER` joined with role-specific collection.
 
-**F2. Deactivate/Reactivate Account** (`7.2.1`)
+**G2. Deactivate/Reactivate Account** (`7.2.1`)
 > As an Admin, I want to deactivate or reactivate any account.
 - UI: toggle per account row.
 - API: `PATCH /admin/users/:id/status`.
 - Data: `USER.status`.
 
-**F3. Cancel Any Active Listing** (`7.2.2`)
+**G3. Cancel Any Active Listing** (`7.2.2`)
 > As an Admin, I want to cancel any active listing, hiding it and blocking new orders.
-- UI: cancel action in the admin listings table, same cascade confirmation as B6.
-- API: `PATCH /admin/listings/:id/cancel` — same cascade rule as B6 (only `AWAITING_COURIER` orders auto-cancel).
+- UI: cancel action in the admin listings table, same cascade confirmation as C6.
+- API: `PATCH /admin/listings/:id/cancel` — same cascade rule as C6 (only `AWAITING_COURIER` orders auto-cancel).
 - Data: `LISTING.status=CANCELLED`; cascaded `ORDER.cancelledByUserId=<admin's userId>`.
 
-**F4. Searchable Listing Directory** (`7.3.1`, `7.3.2`)
+**G4. Searchable Listing Directory** (`7.3.1`, `7.3.2`)
 > As an Admin, I want a searchable list of all active listings by Donor name/ID or listing ID, with full detail.
 - UI: admin listings table with search.
 - API: `GET /admin/listings?search=`.
 - Data: reads `LISTING`.
 
-**F5. Real-Time Cancellation Notice** (`7.3.3`)
+**G5. Real-Time Cancellation Notice** (`7.3.3`)
 > As a Recipient whose order's listing gets Admin-cancelled, I want a live notification without refreshing.
 - UI: in-app toast (live feed).
-- API: Socket.IO event emitted on the F3 cascade.
+- API: Socket.IO event emitted on the G3 cascade.
 - Data: transient `NOTIFICATION` (type=ADMIN_CANCEL).
 
-**F6. Read-Only Courier Oversight** (see D11)
+**G6. Read-Only Courier Oversight** (see E11)
 > As an Admin, I want visibility into the Courier delivery queue and history.
-- (Same as D11 — listed here for `7`-group traceability.)
+- (Same as E11 — listed here for `7`-group traceability.)
 
 ---
 
@@ -453,7 +431,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ### Dependencies
 - **Tech stack**: React frontend, Node/Express/MongoDB backend — fixed by the SRS.
-- **Stripe**: two integration surfaces — (1) one-off Checkout Sessions for card-paid food orders (Paths 1–2), and (2) Stripe Subscriptions for recurring Premium billing (Epic E1). Cash orders never touch Stripe. Sandbox/test-mode keys needed early.
+- **Stripe**: two integration surfaces — (1) one-off Checkout Sessions for card-paid food orders (Paths 1–2), and (2) Stripe Subscriptions for recurring Premium billing (Epic F1). Cash orders never touch Stripe. Sandbox/test-mode keys needed early.
 - **Real-time layer**: Socket.IO, shared by the base SRS's notification requirements and Courier tracking.
 - **Geocoding/mapping**: OSM Nominatim (geocoding, rate-limited ~1 req/sec) + Leaflet (rendering) — free, no API key, matches the SRS's "no paid Map SDK" note [`5.3.4`]. Used for Donor addresses only now (Recipient addresses are per-order, not geocoded at signup).
 - **Browser Geolocation API** for Courier tracking — requires HTTPS in production (satisfied by Render) and explicit permission; test on the deployed origin, not just localhost.
@@ -461,9 +439,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ### Risks & Mitigations
 - **Risk**: schema gap — `ORDER`/`PAYMENT` have no `paymentMethod` field to distinguish cash from Stripe. **Mitigation**: small additive schema change before Path 1/2 development starts; flag to the team now rather than discover it mid-sprint.
-- **Risk**: concurrent claim races double-assign a delivery. **Mitigation**: atomic conditional DB update, explicitly unit-tested — the same check also enforces the cancellation cutoff (C3/D3).
+- **Risk**: concurrent claim races double-assign a delivery. **Mitigation**: atomic conditional DB update, explicitly unit-tested — the same check also enforces the cancellation cutoff (D4/E3).
 - **Risk**: cash confirmed-but-not-actually-collected (Courier error or dishonesty) has no deeper audit trail than a boolean + timestamp. **Mitigation**: accepted as out of scope for a course project — log Courier ID + timestamp on the confirm action for basic traceability, nothing further.
-- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the one-off Checkout Session path first (C2/B4, highest-traffic), treat Subscriptions (E1) as a separable second increment.
+- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the one-off Checkout Session path first (D2/C4, highest-traffic), treat Subscriptions (F1) as a separable second increment.
 - **Risk**: weak/late GitHub usage costs graded points independent of code quality [`P1`, `P2`]. **Mitigation**: slice the epics above into small, frequently-committed issues.
 - **Risk**: adding cash-handling to the Courier role blurs the "one clean rail" simplicity the team previously relied on. **Mitigation**: keep the rule bright-line simple — exact cash only, no change, confirmed with a single tap — rather than modeling partial payments or disputes.
 - **Risk**: "Ultimo everywhere" is a large scope commitment. **Mitigation**: the Gold Data Set requirement (§6) forces early, incremental proof that each path — including both payment methods — works end-to-end before the demo.
@@ -487,10 +465,9 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 
 ## 11. Open Questions (implementation-level — nothing here blocks starting work)
 
-- **Stripe refund on pre-claim cancellation**: if a Stripe-paid order is cancelled before a Courier claims it (C3), does the system trigger an automatic Stripe refund, or is that a manual Admin action? Not yet decided.
+- **Stripe refund on pre-claim cancellation**: if a Stripe-paid order is cancelled before a Courier claims it (D4), does the system trigger an automatic Stripe refund, or is that a manual Admin action? Not yet decided.
 - **Cash confirmation audit depth**: is a Courier-ID + timestamp log sufficient (current assumption), or does the team want anything more before Milestone 2?
 - **Schema change ownership**: who adds the `paymentMethod` field to `ORDER`/`PAYMENT`, and by when — needs to land before Path 1/2 implementation starts.
-- **Vietnamese city/municipality list source**: standard 63-province/municipality list; exact data source (static JSON vs. a package) is a build-phase implementation detail.
 - **Charting library** for Donor/Admin statistics (`4.3.2`) — e.g. Recharts vs. Chart.js; either satisfies the requirement.
 - **Transactional email provider** for `6.1.2`/payment-confirmation emails — e.g. Nodemailer + a free SMTP sandbox for development; finalize before the Gold Data Set is built.
 - **Stripe webhook handling** specifics (which events, retry/idempotency handling) — standard integration work, detailed in the implementation plan rather than here.
