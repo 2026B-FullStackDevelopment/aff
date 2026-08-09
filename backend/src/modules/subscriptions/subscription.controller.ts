@@ -1,15 +1,20 @@
 // Handles subscription HTTP requests and returns subscription DTOs.
 import * as subscriptionService from './subscription.service.js';
 import { toSubscriptionDto } from './subscription.dto.js';
-import { created } from '../../shared/http/response.js';
+import { created, notImplemented } from '../../shared/http/response.js';
 
-async function startPremiumSubscription(req, res, next) {
-  try {
-    const subscription = await subscriptionService.startPremiumSubscription(req.user.id, req.body);
-    return created(res, toSubscriptionDto(subscription));
-  } catch (error) {
-    return next(error);
-  }
+// The following need the Stripe recurring-billing integration and the SUBSCRIPTION schema
+// (append-only ledger, RECIPIENT.tier derivation) — see docs/api_design.md §10 and docs/blockers.md.
+async function getMySubscription(_req, res) {
+  return notImplemented(res);
 }
 
-export { startPremiumSubscription };
+async function createSubscriptionCheckoutSession(_req, res) {
+  return notImplemented(res);
+}
+
+async function updateNotificationPreferences(_req, res) {
+  return notImplemented(res);
+}
+
+export { getMySubscription, createSubscriptionCheckoutSession, updateNotificationPreferences };

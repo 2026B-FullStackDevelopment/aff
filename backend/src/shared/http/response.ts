@@ -7,4 +7,9 @@ function created(res, data) {
   return ok(res, data, 201);
 }
 
-export { ok, created };
+// Marks routes that exist per docs/api_design.md but have no business logic behind them yet.
+function notImplemented(res) {
+  return res.status(501).json({ message: 'Not implemented yet.' });
+}
+
+export { ok, created, notImplemented };

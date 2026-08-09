@@ -1,7 +1,7 @@
 // Handles order HTTP requests and returns order DTOs.
 import * as orderService from './order.service.js';
 import { toOrderDto } from './order.dto.js';
-import { created, ok } from '../../shared/http/response.js';
+import { ok, notImplemented } from '../../shared/http/response.js';
 
 async function listMyOrders(req, res, next) {
   try {
@@ -12,13 +12,18 @@ async function listMyOrders(req, res, next) {
   }
 }
 
-async function createOrder(req, res, next) {
-  try {
-    const order = await orderService.createOrder(req.user.id, req.body.listingId);
-    return created(res, toOrderDto(order));
-  } catch (error) {
-    return next(error);
-  }
+// The following need the order schema rebuild (paymentMethod/paymentStatus/orderStatus, intakePath, etc.),
+// the Stripe integration, and the Delivery module — see docs/api_design.md §7 and docs/blockers.md.
+async function cancelOrder(_req, res) {
+  return notImplemented(res);
 }
 
-export { listMyOrders, createOrder };
+async function submitFeedback(_req, res) {
+  return notImplemented(res);
+}
+
+async function createCheckoutSession(_req, res) {
+  return notImplemented(res);
+}
+
+export { listMyOrders, cancelOrder, submitFeedback, createCheckoutSession };
