@@ -2,8 +2,8 @@
 function toAdminDashboardDto(summary) {
   return {
     userCount: summary.users,
-    foodListingCount: summary.foodListings,
-    reservationCount: summary.reservations,
+    listingCount: summary.listings,
+    orderCount: summary.orders,
     note: summary.note,
   };
 }

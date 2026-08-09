@@ -1,7 +1,7 @@
-// Defines the MongoDB shape for donor food listings.
+// Defines the MongoDB shape for a Donor's food listing (docs/database_design.md § LISTING).
 import mongoose from 'mongoose';
 
-const foodListingSchema = new mongoose.Schema(
+const listingSchema = new mongoose.Schema(
   {
     donorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
@@ -14,4 +14,4 @@ const foodListingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model('FoodListing', foodListingSchema);
+export default mongoose.model('Listing', listingSchema);
