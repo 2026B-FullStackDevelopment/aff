@@ -30,7 +30,7 @@ The backend is structured as a **Modular Monolith** using Express and Mongoose. 
 - **Services (`*.service.ts`):** Contain domain business logic and rules.
 - **Repositories (`*.repository.ts`):** Contain Mongoose database query methods.
 - **Models (`*.model.ts`):** Define MongoDB/Mongoose schemas.
-- **DTOs (`*.dto.ts`):** Shape data before it leaves the backend.
+- **DTOs (`*.dto.ts`):** Shape data crossing the backend's external boundary. Response DTOs (`<Entity>ResponseDto`, built by a `to<Entity>ResponseDto()` mapper) shape outbound data; request DTOs (`<Verb><Entity>RequestDto`) shape inbound HTTP request bodies. Both live in the same module's `*.dto.ts` file.
 - **Interfaces (`*.interface.ts`):** Expose safe public APIs for other modules to call. Cross-module communication must happen via interfaces (e.g. `reservations.service -> user.interface`), not directly via services.
 
 ### Frontend Architecture

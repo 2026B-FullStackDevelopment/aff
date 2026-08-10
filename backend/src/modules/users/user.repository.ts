@@ -1,20 +1,30 @@
 // Contains user database queries so services do not call Mongoose directly.
-import User from './user.model.js';
+import User, { type UserDocument, type Role } from './user.model.js';
+import type { Types } from 'mongoose';
 
-function createUser(data) {
+interface CreateUserInput {
+  username: string;
+  email: string;
+  passwordHash: string;
+  role: Role;
+  country?: string;
+  city?: string;
+}
+
+function createUser(data: CreateUserInput) {
   return User.create(data);
 }
 
-function findUserByEmail(email) {
-  return User.findOne({ email }).lean();
+function findUserByEmail(email: string) {
+  return User.findOne({ email }).lean<UserDocument>();
 }
 
-function findUserById(id) {
-  return User.findById(id).lean();
+function findUserById(id: string | Types.ObjectId) {
+  return User.findById(id).lean<UserDocument>();
 }
 
-function updateUser(id, data) {
-  return User.findByIdAndUpdate(id, data, { new: true }).lean();
+function updateUser(id: string | Types.ObjectId, data: Partial<CreateUserInput>) {
+  return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
 }
 
 export { createUser, findUserByEmail, findUserById, updateUser };

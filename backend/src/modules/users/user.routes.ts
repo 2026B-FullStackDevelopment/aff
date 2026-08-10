@@ -8,6 +8,5 @@ const router = express.Router();
 
 router.get('/me', requireAuth, userController.getMyProfile);
 router.patch('/me', requireAuth, userController.updateMyProfile);
-router.post('/me/avatar', requireAuth, userController.uploadAvatar);
 
 export default router;
