@@ -1,0 +1,37 @@
+import mongoose, { Schema } from 'mongoose';
+
+type PayableType = 'ORDER' | 'SUBSCRIPTIONS';
+type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+
+interface PaymentAttrs {
+  payableType: PayableType;
+  payableId: mongoose.Types.ObjectId;
+  stripeSessionId: string;
+  stripeInvoiceId?: string;
+  amount: number;
+  currency: string;
+  status: TransactionStatus;
+  paidAt?: Date;
+  lastProcessedEventId: string;
+  createdAt: Date;
+}
+
+interface PaymentDocument extends PaymentAttrs, mongoose.Document {}
+
+const paymentSchema = new Schema<PaymentDocument>(
+  {
+    payableType: { type: String, enum: ['ORDER', 'SUBSCRIPTIONS'], required: true },
+    payableId: { type: Schema.Types.ObjectId, required: true },
+    stripeSessionId: { type: String, required: true },
+    stripeInvoiceId: { type: String },
+    amount: { type: Number, required: true },
+    currency: { type: String, required: true },
+    status: { type: String, enum: ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED'], default: 'PENDING' },
+    paidAt: { type: Date },
+    lastProcessedEventId: { type: String, required: true },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+export default mongoose.model<PaymentDocument>('Payment', paymentSchema);
+export type { PayableType, TransactionStatus, PaymentDocument };
