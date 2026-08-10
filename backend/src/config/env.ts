@@ -1,27 +1,39 @@
 // Reads backend environment variables in one place so modules do not access process.env directly.
 import 'dotenv/config';
 
-const env = {
-  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/aff',
+function requireVar(vars: NodeJS.ProcessEnv, key: string): string {
+  const value = vars[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
 
-  jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+function loadEnv(vars: NodeJS.ProcessEnv = process.env) {
+  return {
+    mongoUri: requireVar(vars, 'MONGO_URI'),
 
-  port: Number(process.env.PORT || 5000),
-  nodeEnv: process.env.NODE_ENV || 'development',
+    jwtSecret: requireVar(vars, 'JWT_SECRET'),
+    jwtExpiresIn: vars.JWT_EXPIRES_IN || '1h',
 
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    port: Number(vars.PORT || 5000),
+    nodeEnv: vars.NODE_ENV || 'development',
 
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+    stripeSecretKey: vars.STRIPE_SECRET_KEY,
+    stripeWebhookSecret: vars.STRIPE_WEBHOOK_SECRET,
 
-  emailHost: process.env.EMAIL_HOST,
-  emailPort: Number(process.env.EMAIL_PORT || 587),
-  emailUser: process.env.EMAIL_USER,
-  emailPass: process.env.EMAIL_PASS,
+    supabaseUrl: vars.SUPABASE_URL,
+    supabaseServiceKey: vars.SUPABASE_SERVICE_KEY,
 
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
-};
+    emailHost: vars.EMAIL_HOST,
+    emailPort: Number(vars.EMAIL_PORT || 587),
+    emailUser: vars.EMAIL_USER,
+    emailPass: vars.EMAIL_PASS,
 
-export { env };
+    clientUrl: vars.CLIENT_URL || 'http://localhost:5173',
+  };
+}
+
+const env = loadEnv();
+
+export { env, loadEnv };
