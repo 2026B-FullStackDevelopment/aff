@@ -8,7 +8,7 @@
 
 AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared Socket.IO layer for live events. This section is a scannable index — full request/response detail, error cases, and business rules live in the numbered sections below.
 
-**Jump to:** §2 Conventions · §3 Shared DTOs · §4 Auth · §5 Users · §6 Listings · §7 Orders · §8 Payments (Stripe webhook) · §9 Delivery · §10 Subscriptions · §11 Admin · §12 Real-Time Events · §13 Explicit Non-Endpoints
+**Jump to:** §2 Conventions · §3 Shared DTOs · §4 Auth · §5 Users · §5A Media · §6 Listings · §7 Orders · §8 Payments (Stripe webhook) · §9 Delivery · §10 Subscriptions · §11 Admin · §12 Real-Time Events · §13 Explicit Non-Endpoints
 
 ### 1.1 Endpoint Quick Reference
 
@@ -20,7 +20,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Auth (§4) | `POST /auth/logout` | any role |
 | Users (§5) | `GET /users/me` | any role |
 | Users (§5) | `PATCH /users/me` | any role |
-| Users (§5) | `POST /users/me/avatar` | any role |
+| Media (§5A) | `POST /media/upload-url` | any role |
 | Listings (§6) | `POST /listings` | DONOR |
 | Listings (§6) | `GET /listings/mine` | DONOR |
 | Listings (§6) | `POST /listings/:id/clone` | DONOR |
@@ -244,17 +244,32 @@ Response `200`: role-appropriate DTO (`RecipientDTO` \| `DonorDTO` \| `CourierDT
 ### `PATCH /users/me` — *`3.1.1`*
 **Auth:** any authenticated role
 
-Request body: subset of editable contact fields (`username`, `city`, `country`, plus role-specific: Donor `companyName`/`addressText`/`location`, Recipient — none beyond base fields).
+Request body: subset of editable contact fields (`username`, `city`, `country`, `avatarUrl`, plus role-specific: Donor `companyName`/`addressText`/`location`, Recipient — none beyond base fields). `avatarUrl` is normally set to the `mediaUrl` returned by `POST /media/upload-url` (§5A), not typed in directly.
 Response `200`: updated DTO
 Errors: `400` invalid field values
 
-### `POST /users/me/avatar` — *`3.2.1`*
-**Auth:** any authenticated role
+---
 
-Request: `multipart/form-data`, field `avatar` (image file)
-Behavior: uploads to Supabase Storage, resizes to the platform's standard avatar size, sets `USER.avatarUrl`.
-Response `200`: `{ avatarUrl: string }`
-Errors: `400` invalid file type/size
+## 5A. Media Module — `/api/media`
+
+One shared endpoint for both avatar and listing-image uploads. The backend never receives the image bytes — it only ever hands out permission to write to Supabase Storage (via its `SUPABASE_SERVICE_KEY`) and, once that's done, tells the caller where the object will end up.
+
+### `POST /media/upload-url` *(supporting endpoint — not an explicit PRD story, but required by both Users §5 and Listings §6 to get an image into Supabase Storage before it can be referenced)*
+**Auth:** any authenticated role — see per-`purpose` role check below
+
+Request body: `{ purpose: 'AVATAR' | 'LISTING_IMAGE', contentType }` (e.g. `image/png`)
+Behavior: `purpose` resolves server-side to a bucket, path prefix, and role check — the client never chooses the bucket directly:
+
+| `purpose` | role required | bucket | path pattern |
+|---|---|---|---|
+| `AVATAR` | any authenticated role | `avatars` | `avatars/<userId>/<uuid>.<ext>` |
+| `LISTING_IMAGE` | `DONOR` | `listings` | `listings/<donorId>/<uuid>.<ext>` |
+
+Generates a Supabase Storage signed upload URL for that path (60s expiry) and, since Supabase's public URL is deterministic and doesn't require the object to exist yet, returns the eventual `mediaUrl` in the same response — there's no separate confirm step.
+Response `200`: `{ uploadUrl: string, path: string, token: string, mediaUrl: string, expiresIn: number }`. The client `PUT`s the raw image bytes to `uploadUrl`, then persists `mediaUrl` itself via `PATCH /users/me` (`avatarUrl`, §5) or `POST /listings` (`imageUrl`, §6).
+Errors: `400` invalid/unsupported `contentType`; `403` `purpose: 'LISTING_IMAGE'` requested by a non-`DONOR`
+
+**Note:** no image resizing happens server-side — the backend never receives the bytes. Standard avatar/thumbnail sizing is either enforced client-side before upload or deferred to a follow-up using Supabase's on-the-fly image transforms at read time.
 
 ---
 
