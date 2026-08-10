@@ -9,22 +9,27 @@
     "dev": "node ../node_modules/tsx/dist/cli.mjs watch src/server.ts",
     "build": "node ../node_modules/typescript/bin/tsc",
     "start": "node dist/server.js",
-    "typecheck": "node ../node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node ../node_modules/typescript/bin/tsc --noEmit",
+    "test": "vitest run",
+    "send-test-email": "node ../node_modules/tsx/dist/cli.mjs src/scripts/send-test-email.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "mongoose": "^9.0.1",
-    "morgan": "^1.11.0"
+    "morgan": "^1.11.0",
+    "nodemailer": "^9.0.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.10.1",
+    "@types/nodemailer": "^8.0.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=18.0.0"
