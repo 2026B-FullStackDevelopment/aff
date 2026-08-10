@@ -1,8 +1,6 @@
 // Shapes subscription data before sending it to the frontend, and the request/response bodies for the module's other endpoints.
 import type { SubscriptionDocument, SubscriptionStatus } from './subscription.model.js';
-
-// Duplicated here until the listings module is typed and exports its own FoodCategory type.
-type FoodCategory = 'FRUIT' | 'VEGETABLE' | 'MEAT' | 'COOKED_DISH' | 'BAKED_GOODS' | 'DRINK';
+import type { FoodCategory } from '../listings/listing.model.js';
 
 interface NotificationPreference {
   id: string;
