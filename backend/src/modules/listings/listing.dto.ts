@@ -1,12 +1,6 @@
 // Shapes listing data before sending it to the frontend or another module, and the request/response bodies for the module's other endpoints.
 import type { ListingDocument, MeasurementUnit, FoodCategory, ListingStatus } from './listing.model.js';
-
-// Duplicated here until a shared location exists; also used by ORDER.deliveryLocation and DELIVERY.courierLastLocation once those are typed.
-interface GeoLocation {
-  latitude: number;
-  longitude: number;
-  updatedAt: Date;
-}
+import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface ListingDonorSummary {
   id: string;
