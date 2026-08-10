@@ -1,24 +1,27 @@
 // Contains user business rules and calls the user repository for database work.
 import * as userRepository from './user.repository.js';
+import type { CreateUserRequestDto } from './user.dto.js';
 
-async function createUser(payload) {
+async function createUser(payload: CreateUserRequestDto) {
   return userRepository.createUser({
-    name: payload.name,
+    username: payload.username,
     email: payload.email,
     passwordHash: payload.password || 'replace-with-hash',
     role: payload.role || 'RECIPIENT',
+    country: payload.country,
+    city: payload.city,
   });
 }
 
-async function findUserByEmail(email) {
+async function findUserByEmail(email: string) {
   return userRepository.findUserByEmail(email);
 }
 
-async function getUserById(id) {
+async function getUserById(id: string) {
   const user = await userRepository.findUserById(id);
 
   if (!user) {
-    const error = new Error('User not found.');
+    const error: Error = new Error('User not found.');
     error.statusCode = 404;
     throw error;
   }
@@ -26,8 +29,4 @@ async function getUserById(id) {
   return user;
 }
 
-async function updatePremiumStatus(userId, isPremium) {
-  return userRepository.updateUser(userId, { isPremium });
-}
-
-export { createUser, findUserByEmail, getUserById, updatePremiumStatus };
+export { createUser, findUserByEmail, getUserById };

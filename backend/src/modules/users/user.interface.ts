@@ -5,7 +5,6 @@ const userInterface = {
   createUser: userService.createUser,
   findUserByEmail: userService.findUserByEmail,
   getUserById: userService.getUserById,
-  updatePremiumStatus: userService.updatePremiumStatus,
 };
 
 export { userInterface };
