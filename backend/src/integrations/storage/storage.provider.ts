@@ -1,4 +1,5 @@
-// Uploads avatar/listing images to Supabase Storage and returns their public URL.
+// Generates Supabase Storage presigned upload URLs for avatars/listing images.
+// Clients upload bytes directly to Supabase using the returned URL — they never pass through the backend.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.js';
 
@@ -14,25 +15,29 @@ function getClient() {
   return client;
 }
 
-async function uploadFile(file: { bucket: string; path: string; buffer: Buffer; contentType?: string }) {
-  const bucket = getClient().storage.from(file.bucket);
-
-  const { error } = await bucket.upload(file.path, file.buffer, {
-    contentType: file.contentType,
-    upsert: true,
-  });
+async function createUploadUrl({ bucket, path }: { bucket: string; path: string }) {
+  const { data, error } = await getClient().storage.from(bucket).createSignedUploadUrl(path);
 
   if (error) {
-    throw new Error(`Failed to upload file to Supabase Storage: ${error.message}`);
+    throw new Error(`Failed to create signed upload URL: ${error.message}`);
   }
-
-  const { data } = bucket.getPublicUrl(file.path);
 
   return {
     provider: 'supabase',
-    path: file.path,
+    path: data.path,
+    uploadUrl: data.signedUrl,
+    token: data.token,
+  };
+}
+
+function getPublicUrl({ bucket, path }: { bucket: string; path: string }) {
+  const { data } = getClient().storage.from(bucket).getPublicUrl(path);
+
+  return {
+    provider: 'supabase',
+    path,
     url: data.publicUrl,
   };
 }
 
-export { uploadFile };
+export { createUploadUrl, getPublicUrl };
