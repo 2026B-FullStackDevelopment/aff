@@ -1,9 +1,10 @@
 // Handles auth HTTP requests and returns safe auth DTO responses.
+import type { Request, Response, NextFunction } from 'express';
 import * as authService from './auth.service.js';
 import { toAuthDto } from './auth.dto.js';
 import { created, ok, notImplemented } from '../../shared/http/response.js';
 
-async function registerRecipient(req, res, next) {
+async function registerRecipient(req: Request, res: Response, next: NextFunction) {
   try {
     const session = await authService.register({ ...req.body, role: 'RECIPIENT' });
     return created(res, toAuthDto(session));
@@ -12,7 +13,7 @@ async function registerRecipient(req, res, next) {
   }
 }
 
-async function registerDonor(req, res, next) {
+async function registerDonor(req: Request, res: Response, next: NextFunction) {
   try {
     const session = await authService.register({ ...req.body, role: 'DONOR' });
     return created(res, toAuthDto(session));
@@ -21,7 +22,7 @@ async function registerDonor(req, res, next) {
   }
 }
 
-async function login(req, res, next) {
+async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const session = await authService.login(req.body);
     return ok(res, toAuthDto(session));
@@ -31,7 +32,7 @@ async function login(req, res, next) {
 }
 
 // Real server-side revocation (REVOKED_TOKEN, jti tracking) isn't built yet — see docs/api_design.md §4.
-async function logout(_req, res) {
+async function logout(_req: Request, res: Response) {
   return notImplemented(res);
 }
 

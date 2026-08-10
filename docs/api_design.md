@@ -222,7 +222,7 @@ Errors: `400` invalid company/tax-code format; `409` email already registered
 ### `POST /auth/login` — *`2.2.1`*
 **Auth:** public
 
-Request body: `{ identifier, password }` (`identifier` = username or email)
+Request body: `{ email, password }`
 Response `200`: `{ user: UserDTO, token: string }`
 Errors: `401` invalid credentials (generic message, no hint whether the account exists); `429` account locked — `5` failed attempts within a rolling 60s window sets `USER.lockedUntil`; response body includes `{ lockedUntilSeconds: number }`
 

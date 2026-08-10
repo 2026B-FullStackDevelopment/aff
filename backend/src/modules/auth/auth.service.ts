@@ -1,16 +1,19 @@
 // Contains authentication business rules such as registering and logging in users.
 import { userInterface } from '../users/user.interface.js';
+import type { CreateUserRequestDto } from '../users/user.dto.js';
+import type { UserDocument, Role } from '../users/user.model.js';
+import type { AuthSession, LoginRequestDto } from './auth.dto.js';
 
-async function register(payload) {
+async function register(payload: CreateUserRequestDto): Promise<AuthSession> {
   const user = await userInterface.createUser(payload);
   return buildSession(user);
 }
 
-async function login(payload) {
+async function login(payload: LoginRequestDto): Promise<AuthSession> {
   const user = await userInterface.findUserByEmail(payload.email);
 
   if (!user) {
-    const error = new Error('Invalid email or password.');
+    const error: Error = new Error('Invalid email or password.');
     error.statusCode = 401;
     throw error;
   }
@@ -18,16 +21,16 @@ async function login(payload) {
   return buildSession(user);
 }
 
-async function verifyAccessToken(token) {
+async function verifyAccessToken(token: string): Promise<{ userId: string; role: Role }> {
   return {
     userId: token || 'demo-user-id',
     role: 'RECIPIENT',
   };
 }
 
-function buildSession(user) {
+function buildSession(user: UserDocument): AuthSession {
   return {
-    accessToken: `demo-token-for-${user.id || user._id}`,
+    accessToken: `demo-token-for-${String(user._id)}`,
     user,
   };
 }
