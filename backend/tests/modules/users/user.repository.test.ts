@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, findOneMock, findByIdMock, findByIdAndUpdateMock, leanMock } = vi.hoisted(() => {
-  const leanMock = vi.fn();
-  return {
-    createMock: vi.fn(),
-    findOneMock: vi.fn(() => ({ lean: leanMock })),
-    findByIdMock: vi.fn(() => ({ lean: leanMock })),
-    findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
-    leanMock,
-  };
-});
+const { createMock, findOneMock, findByIdMock, findByIdAndUpdateMock, updateOneMock, deleteOneMock, leanMock } =
+  vi.hoisted(() => {
+    const leanMock = vi.fn();
+    return {
+      createMock: vi.fn(),
+      findOneMock: vi.fn(() => ({ lean: leanMock })),
+      findByIdMock: vi.fn(() => ({ lean: leanMock })),
+      findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
+      updateOneMock: vi.fn(),
+      deleteOneMock: vi.fn(),
+      leanMock,
+    };
+  });
 
 vi.mock('../../../src/modules/users/user.model.js', () => ({
   default: {
@@ -17,6 +20,8 @@ vi.mock('../../../src/modules/users/user.model.js', () => ({
     findOne: findOneMock,
     findById: findByIdMock,
     findByIdAndUpdate: findByIdAndUpdateMock,
+    updateOne: updateOneMock,
+    deleteOne: deleteOneMock,
   },
 }));
 
@@ -25,6 +30,8 @@ import {
   findUserByEmail,
   findUserById,
   updateUser,
+  updateLoginState,
+  deleteUser,
 } from '../../../src/modules/users/user.repository.js';
 
 describe('user.repository', () => {
@@ -33,6 +40,8 @@ describe('user.repository', () => {
     findOneMock.mockClear();
     findByIdMock.mockClear();
     findByIdAndUpdateMock.mockClear();
+    updateOneMock.mockClear();
+    deleteOneMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue({ _id: 'u1' });
   });
@@ -75,5 +84,23 @@ describe('user.repository', () => {
 
     expect(findByIdAndUpdateMock).toHaveBeenCalledWith('u1', { city: 'Paris' }, { new: true });
     expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('updateLoginState writes the three lockout columns', async () => {
+    const windowStartedAt = new Date('2026-08-11T10:00:00.000Z');
+    const lockedUntil = new Date('2026-08-11T10:05:00.000Z');
+
+    await updateLoginState('u1', { failedLoginCount: 3, windowStartedAt, lockedUntil });
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { _id: 'u1' },
+      { failedLoginCount: 3, windowStartedAt, lockedUntil }
+    );
+  });
+
+  it('deleteUser removes the user by id', async () => {
+    await deleteUser('u1');
+
+    expect(deleteOneMock).toHaveBeenCalledWith({ _id: 'u1' });
   });
 });

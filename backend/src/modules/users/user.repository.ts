@@ -27,4 +27,19 @@ function updateUser(id: string | Types.ObjectId, data: Partial<CreateUserInput>)
   return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
 }
 
-export { createUser, findUserByEmail, findUserById, updateUser };
+interface LoginStateUpdate {
+  failedLoginCount: number;
+  windowStartedAt: Date | null;
+  lockedUntil: Date | null;
+}
+
+function updateLoginState(id: string | Types.ObjectId, state: LoginStateUpdate) {
+  return User.updateOne({ _id: id }, { ...state });
+}
+
+function deleteUser(id: string | Types.ObjectId) {
+  return User.deleteOne({ _id: id });
+}
+
+export { createUser, findUserByEmail, findUserById, updateUser, updateLoginState, deleteUser };
+export type { CreateUserInput, LoginStateUpdate };

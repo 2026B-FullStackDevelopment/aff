@@ -16,7 +16,7 @@ interface UserResponseDto {
 interface CreateUserRequestDto {
   username: string;
   email: string;
-  password?: string;
+  password: string;
   role?: Role;
   country?: string;
   city?: string;

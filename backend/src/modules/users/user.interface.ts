@@ -5,6 +5,10 @@ const userInterface = {
   createUser: userService.createUser,
   findUserByEmail: userService.findUserByEmail,
   getUserById: userService.getUserById,
+  deleteUser: userService.deleteUser,
+  updateLoginState: userService.updateLoginState,
+  createRecipientProfile: userService.createRecipientProfile,
+  createDonorProfile: userService.createDonorProfile,
 };
 
 export { userInterface };
