@@ -1,10 +1,12 @@
 ﻿// Defines frontend page routes and applies role guards for protected pages.
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
+import { RootRedirect } from './RootRedirect';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
-import { RegisterPage } from '../modules/auth/pages/RegisterPage';
+import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
+import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
-import { FoodListingsPage } from '../modules/food/pages/FoodListingsPage';
+import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
 import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage';
@@ -13,9 +15,11 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/food" replace />} />
+        {/* Root redirect: authenticated → role home, unauthenticated → /login */}
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register/recipient" element={<RecipientRegisterPage />} />
+        <Route path="/register/donor" element={<DonorRegisterPage />} />
         <Route
           path="/profile"
           element={
@@ -24,7 +28,8 @@ export function AppRouter() {
             </ProtectedRoute>
           }
         />
-        <Route path="/food" element={<FoodListingsPage />} />
+        <Route path="/marketplace" element={<FoodListingsPage />} />
+        <Route path="/listing/create" element={<FoodListingsPage />} />
         <Route
           path="/reservations"
           element={
@@ -42,7 +47,7 @@ export function AppRouter() {
           }
         />
         <Route
-          path="/admin"
+          path="/admin/user-directory"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminDashboardPage />

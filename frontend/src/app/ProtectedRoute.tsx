@@ -10,7 +10,7 @@ export function ProtectedRoute({ allowedRoles, children }) {
   }
 
   if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/food" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;
