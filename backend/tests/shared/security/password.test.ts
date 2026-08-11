@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import bcrypt from 'bcryptjs';
 import { hashPassword, verifyPassword, dummyCompare } from '../../../src/shared/security/password.js';
 
 describe('shared/security/password', () => {
@@ -34,5 +35,14 @@ describe('shared/security/password', () => {
 
   it('dummyCompare resolves without throwing', async () => {
     await expect(dummyCompare()).resolves.toBeUndefined();
+  });
+
+  it('dummyCompare actually calls into bcrypt', async () => {
+    const spy = vi.spyOn(bcrypt, 'compare');
+
+    await dummyCompare();
+
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
