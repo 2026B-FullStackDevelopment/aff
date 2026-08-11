@@ -2,7 +2,12 @@
 import { userInterface } from '../users/user.interface.js';
 import type { CreateUserRequestDto } from '../users/user.dto.js';
 import type { UserDocument, Role } from '../users/user.model.js';
-import type { AuthSession, LoginRequestDto } from './auth.dto.js';
+import type { LoginRequestDto } from './auth.dto.js';
+
+interface AuthSession {
+  accessToken: string;
+  user: UserDocument;
+}
 
 async function register(payload: CreateUserRequestDto): Promise<AuthSession> {
   const user = await userInterface.createUser(payload);
