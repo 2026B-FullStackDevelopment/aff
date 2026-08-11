@@ -16,6 +16,6 @@
     "typecheck": "npm --workspace backend run typecheck && npm --workspace frontend run typecheck"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   }
 }
