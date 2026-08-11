@@ -1,8 +1,8 @@
-// Exposes safe auth functions for other modules without importing auth.service directly.
-import * as authService from './auth.service.js';
+// Exposes safe auth functions for other modules without importing auth services directly.
+import * as authTokenService from './auth.token.service.js';
 
 const authInterface = {
-  verifyAccessToken: authService.verifyAccessToken,
+  verifyAccessToken: authTokenService.verifyAccessToken,
 };
 
 export { authInterface };
