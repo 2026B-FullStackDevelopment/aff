@@ -3,12 +3,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const {
   findUserByEmailMock,
   updateLoginStateMock,
+  recordFailedLoginMock,
+  lockAccountMock,
   verifyPasswordMock,
   dummyCompareMock,
   issueSessionMock,
 } = vi.hoisted(() => ({
   findUserByEmailMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
+  recordFailedLoginMock: vi.fn(),
+  lockAccountMock: vi.fn(),
   verifyPasswordMock: vi.fn(),
   dummyCompareMock: vi.fn(),
   issueSessionMock: vi.fn(),
@@ -18,6 +22,8 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   userInterface: {
     findUserByEmail: findUserByEmailMock,
     updateLoginState: updateLoginStateMock,
+    recordFailedLogin: recordFailedLoginMock,
+    lockAccount: lockAccountMock,
   },
 }));
 
@@ -31,6 +37,7 @@ vi.mock('../../../src/modules/auth/auth.token.service.js', () => ({
 }));
 
 import { login } from '../../../src/modules/auth/auth.login.service.js';
+import { env } from '../../../src/config/env.js';
 
 const NOW = new Date('2026-08-11T10:00:00.000Z');
 const credentials = { email: 'john@example.com', password: 'Str0ng!Pass' };
@@ -67,6 +74,8 @@ describe('auth.login.service', () => {
     findUserByEmailMock.mockResolvedValue(activeUser());
     verifyPasswordMock.mockResolvedValue(true);
     updateLoginStateMock.mockResolvedValue(undefined);
+    recordFailedLoginMock.mockResolvedValue(1);
+    lockAccountMock.mockResolvedValue(undefined);
     issueSessionMock.mockReturnValue({ accessToken: 't1', jti: 'j1', user: { _id: 'u1' } });
   });
 
@@ -130,6 +139,7 @@ describe('auth.login.service', () => {
 
       await captureError(login(credentials));
 
+      expect(recordFailedLoginMock).not.toHaveBeenCalled();
       expect(updateLoginStateMock).not.toHaveBeenCalled();
     });
   });
@@ -156,83 +166,107 @@ describe('auth.login.service', () => {
     });
   });
 
+  // recordFailedAttempt now delegates the read-modify-write to userInterface.recordFailedLogin,
+  // which atomically increments (or restarts) the counter in the database and hands back the
+  // resulting count. These tests drive that returned count directly; the fact that the
+  // increment/restart itself is atomic is proven at the repository level (see
+  // user.repository.test.ts), not here — see the honesty note in the final report about what
+  // a mocked Mongoose can and cannot prove.
   describe('failed-attempt window', () => {
-    it('starts a new window on the first failure', async () => {
+    it('computes the window cutoff as now minus env.loginWindowSeconds and forwards it', async () => {
       verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(1);
 
       await captureError(login(credentials));
 
-      expect(updateLoginStateMock).toHaveBeenCalledWith('u1', {
-        failedLoginCount: 1,
-        windowStartedAt: NOW,
-        lockedUntil: null,
-      });
+      const expectedWindowStartedAfter = new Date(NOW.getTime() - env.loginWindowSeconds * 1000);
+      expect(recordFailedLoginMock).toHaveBeenCalledWith('u1', expectedWindowStartedAfter, NOW);
+    });
+
+    it('starts a new window on the first failure', async () => {
+      verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(1);
+
+      const error = await captureError(login(credentials));
+
+      expect(error.statusCode).toBe(401);
+      expect(error.message).toBe(GENERIC);
+      expect(lockAccountMock).not.toHaveBeenCalled();
     });
 
     it('increments within the window', async () => {
-      const windowStartedAt = new Date(NOW.getTime() - 30_000);
-      findUserByEmailMock.mockResolvedValue(activeUser({ failedLoginCount: 2, windowStartedAt }));
       verifyPasswordMock.mockResolvedValue(false);
-
-      await captureError(login(credentials));
-
-      expect(updateLoginStateMock).toHaveBeenCalledWith('u1', {
-        failedLoginCount: 3,
-        windowStartedAt,
-        lockedUntil: null,
-      });
-    });
-
-    it('does not lock on the 4th failure at 59 seconds', async () => {
-      const windowStartedAt = new Date(NOW.getTime() - 59_000);
-      findUserByEmailMock.mockResolvedValue(activeUser({ failedLoginCount: 3, windowStartedAt }));
-      verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(3);
 
       const error = await captureError(login(credentials));
 
       expect(error.statusCode).toBe(401);
-      expect(updateLoginStateMock).toHaveBeenCalledWith('u1', {
-        failedLoginCount: 4,
-        windowStartedAt,
-        lockedUntil: null,
-      });
+      expect(lockAccountMock).not.toHaveBeenCalled();
     });
 
-    it('restarts the window when the last failure was more than 60 seconds ago', async () => {
-      const windowStartedAt = new Date(NOW.getTime() - 61_000);
-      findUserByEmailMock.mockResolvedValue(activeUser({ failedLoginCount: 4, windowStartedAt }));
+    it('does not lock on the 4th failure', async () => {
       verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(4);
 
       const error = await captureError(login(credentials));
 
       expect(error.statusCode).toBe(401);
-      expect(updateLoginStateMock).toHaveBeenCalledWith('u1', {
-        failedLoginCount: 1,
-        windowStartedAt: NOW,
-        lockedUntil: null,
+      expect(error.message).toBe(GENERIC);
+      expect(lockAccountMock).not.toHaveBeenCalled();
+    });
+
+    // Pins the deliberate boundary shift: the repository's filter is
+    // `windowStartedAt: { $gt: windowStartedAfter }`, so a window that started exactly
+    // env.loginWindowSeconds ago is excluded (treated as expired), unlike the old
+    // `age > windowSeconds` check where exactly 60s still counted as live. Since
+    // recordFailedLogin is mocked here, this test simulates what the real repository call
+    // does with a $gt filter for a stored window that is exactly at the cutoff, proving the
+    // service composes correctly with that semantics; the operator itself ($gt, not $gte)
+    // is asserted directly against Mongoose in user.repository.test.ts.
+    it('treats a window exactly env.loginWindowSeconds old as expired, restarting the counter at 1', async () => {
+      const storedWindowStartedAt = new Date(NOW.getTime() - env.loginWindowSeconds * 1000);
+      verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockImplementation(async (_id, windowStartedAfter) => {
+        // Mirrors the repository's `windowStartedAt: { $gt: windowStartedAfter }` filter.
+        return storedWindowStartedAt.getTime() > windowStartedAfter.getTime() ? 99 : 1;
       });
+
+      const error = await captureError(login(credentials));
+
+      expect(error.statusCode).toBe(401);
+      expect(error.message).toBe(GENERIC);
+      expect(recordFailedLoginMock).toHaveBeenCalledWith('u1', storedWindowStartedAt, NOW);
+      expect(lockAccountMock).not.toHaveBeenCalled();
+    });
+
+    it('restarts the window when the last failure was more than env.loginWindowSeconds ago', async () => {
+      verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(1);
+
+      const error = await captureError(login(credentials));
+
+      expect(error.statusCode).toBe(401);
+      expect(error.message).toBe(GENERIC);
+      expect(lockAccountMock).not.toHaveBeenCalled();
     });
   });
 
   describe('lockout', () => {
     it('locks on the 5th failure inside the window', async () => {
-      const windowStartedAt = new Date(NOW.getTime() - 30_000);
-      findUserByEmailMock.mockResolvedValue(activeUser({ failedLoginCount: 4, windowStartedAt }));
       verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(5);
 
       await captureError(login(credentials));
 
-      expect(updateLoginStateMock).toHaveBeenCalledWith('u1', {
-        failedLoginCount: 0,
-        windowStartedAt: null,
-        lockedUntil: new Date(NOW.getTime() + 5 * 60_000),
-      });
+      expect(lockAccountMock).toHaveBeenCalledWith('u1', new Date(NOW.getTime() + 5 * 60_000));
+      // The failure path never touches updateLoginState; only lockAccount sets lockedUntil,
+      // and only the successful-login reset clears it.
+      expect(updateLoginStateMock).not.toHaveBeenCalled();
     });
 
     it('answers the locking attempt with 429 and the remaining seconds', async () => {
-      const windowStartedAt = new Date(NOW.getTime() - 30_000);
-      findUserByEmailMock.mockResolvedValue(activeUser({ failedLoginCount: 4, windowStartedAt }));
       verifyPasswordMock.mockResolvedValue(false);
+      recordFailedLoginMock.mockResolvedValue(5);
 
       const error = await captureError(login(credentials));
 
@@ -249,6 +283,7 @@ describe('auth.login.service', () => {
       expect(error.statusCode).toBe(429);
       expect(error.lockedUntilSeconds).toBe(120);
       expect(verifyPasswordMock).not.toHaveBeenCalled();
+      expect(recordFailedLoginMock).not.toHaveBeenCalled();
     });
 
     it('allows login again once the lockout has expired', async () => {

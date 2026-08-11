@@ -1,18 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, findOneMock, findByIdMock, findByIdAndUpdateMock, updateOneMock, deleteOneMock, leanMock } =
-  vi.hoisted(() => {
-    const leanMock = vi.fn();
-    return {
-      createMock: vi.fn(),
-      findOneMock: vi.fn(() => ({ lean: leanMock })),
-      findByIdMock: vi.fn(() => ({ lean: leanMock })),
-      findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
-      updateOneMock: vi.fn(),
-      deleteOneMock: vi.fn(),
-      leanMock,
-    };
-  });
+const {
+  createMock,
+  findOneMock,
+  findByIdMock,
+  findByIdAndUpdateMock,
+  findOneAndUpdateMock,
+  updateOneMock,
+  deleteOneMock,
+  leanMock,
+} = vi.hoisted(() => {
+  const leanMock = vi.fn();
+  return {
+    createMock: vi.fn(),
+    findOneMock: vi.fn(() => ({ lean: leanMock })),
+    findByIdMock: vi.fn(() => ({ lean: leanMock })),
+    findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
+    findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
+    updateOneMock: vi.fn(),
+    deleteOneMock: vi.fn(),
+    leanMock,
+  };
+});
 
 vi.mock('../../../src/modules/users/user.model.js', () => ({
   default: {
@@ -20,6 +29,7 @@ vi.mock('../../../src/modules/users/user.model.js', () => ({
     findOne: findOneMock,
     findById: findByIdMock,
     findByIdAndUpdate: findByIdAndUpdateMock,
+    findOneAndUpdate: findOneAndUpdateMock,
     updateOne: updateOneMock,
     deleteOne: deleteOneMock,
   },
@@ -31,6 +41,9 @@ import {
   findUserById,
   updateUser,
   updateLoginState,
+  incrementFailedLoginInWindow,
+  startFailedLoginWindow,
+  lockAccount,
   deleteUser,
 } from '../../../src/modules/users/user.repository.js';
 
@@ -40,6 +53,7 @@ describe('user.repository', () => {
     findOneMock.mockClear();
     findByIdMock.mockClear();
     findByIdAndUpdateMock.mockClear();
+    findOneAndUpdateMock.mockClear();
     updateOneMock.mockClear();
     deleteOneMock.mockClear();
     leanMock.mockClear();
@@ -95,6 +109,43 @@ describe('user.repository', () => {
     expect(updateOneMock).toHaveBeenCalledWith(
       { _id: 'u1' },
       { failedLoginCount: 3, windowStartedAt, lockedUntil }
+    );
+  });
+
+  it('incrementFailedLoginInWindow uses $inc and filters on a live window', async () => {
+    const windowStartedAfter = new Date('2026-08-11T09:59:00.000Z');
+
+    await incrementFailedLoginInWindow('u1', windowStartedAfter);
+
+    expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+      { _id: 'u1', windowStartedAt: { $gt: windowStartedAfter } },
+      { $inc: { failedLoginCount: 1 } },
+      { new: true }
+    );
+    expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('startFailedLoginWindow sets the counter to 1 and stamps the window start', async () => {
+    const now = new Date('2026-08-11T10:00:00.000Z');
+
+    await startFailedLoginWindow('u1', now);
+
+    expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+      { _id: 'u1' },
+      { $set: { failedLoginCount: 1, windowStartedAt: now } },
+      { new: true }
+    );
+    expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('lockAccount resets the counter and window while setting lockedUntil', async () => {
+    const lockedUntil = new Date('2026-08-11T10:05:00.000Z');
+
+    await lockAccount('u1', lockedUntil);
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { _id: 'u1' },
+      { $set: { failedLoginCount: 0, windowStartedAt: null, lockedUntil } }
     );
   });
 

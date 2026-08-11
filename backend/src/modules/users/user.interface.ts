@@ -7,6 +7,8 @@ const userInterface = {
   getUserById: userService.getUserById,
   deleteUser: userService.deleteUser,
   updateLoginState: userService.updateLoginState,
+  recordFailedLogin: userService.recordFailedLogin,
+  lockAccount: userService.lockAccount,
   createRecipientProfile: userService.createRecipientProfile,
   createDonorProfile: userService.createDonorProfile,
 };

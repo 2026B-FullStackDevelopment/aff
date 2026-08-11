@@ -29,30 +29,16 @@ function lockedOut(lockedUntil: Date, now: Date): Error {
 }
 
 async function recordFailedAttempt(user: UserDocument, now: Date): Promise<Error> {
-  const windowAgeMs = user.windowStartedAt ? now.getTime() - user.windowStartedAt.getTime() : null;
-  const windowExpired = windowAgeMs === null || windowAgeMs > env.loginWindowSeconds * 1000;
-
-  const failedLoginCount = windowExpired ? 1 : user.failedLoginCount + 1;
-  const windowStartedAt = windowExpired ? now : user.windowStartedAt;
+  // The window is live if it started within the last env.loginWindowSeconds.
+  const windowStartedAfter = new Date(now.getTime() - env.loginWindowSeconds * 1000);
+  const failedLoginCount = await userInterface.recordFailedLogin(user._id, windowStartedAfter, now);
 
   if (failedLoginCount >= env.loginMaxAttempts) {
     const lockedUntil = new Date(now.getTime() + env.lockoutMinutes * 60_000);
-
-    // Counters reset so the window starts clean once the lockout expires.
-    await userInterface.updateLoginState(user._id, {
-      failedLoginCount: 0,
-      windowStartedAt: null,
-      lockedUntil,
-    });
+    await userInterface.lockAccount(user._id, lockedUntil);
 
     return lockedOut(lockedUntil, now);
   }
-
-  await userInterface.updateLoginState(user._id, {
-    failedLoginCount,
-    windowStartedAt,
-    lockedUntil: null,
-  });
 
   return invalidCredentials();
 }

@@ -6,9 +6,10 @@ const UNAUTHENTICATED = 'Authentication is required.';
 
 async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  const [scheme, token] = (authHeader || '').split(' ');
+  const parts = (authHeader || '').split(' ');
+  const [scheme, token] = parts;
 
-  if (scheme !== 'Bearer' || !token) {
+  if (scheme?.toLowerCase() !== 'bearer' || !token || parts.length > 2) {
     return res.status(401).json({ message: UNAUTHENTICATED });
   }
 
@@ -22,7 +23,13 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     return next();
   } catch (error) {
-    return res.status(error.statusCode || 401).json({ message: error.message || UNAUTHENTICATED });
+    // Only auth errors answer here; anything else (e.g. the database being down
+    // during the revocation lookup) is a 500, not a dead session.
+    if (!error.statusCode) {
+      return next(error);
+    }
+
+    return res.status(error.statusCode).json({ message: error.message });
   }
 }
 

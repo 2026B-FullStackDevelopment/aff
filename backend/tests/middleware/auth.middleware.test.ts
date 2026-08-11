@@ -53,6 +53,29 @@ describe('requireAuth', () => {
     }
   );
 
+  it('rejects a header with more than two space-separated parts', async () => {
+    const res = buildRes();
+    const next = vi.fn();
+
+    await requireAuth({ headers: { authorization: 'Bearer t1 extra' } }, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(next).not.toHaveBeenCalled();
+    expect(verifyAccessTokenMock).not.toHaveBeenCalled();
+  });
+
+  it.each([['bearer t1'], ['BEARER t1'], ['BeArEr t1']])(
+    'accepts the case-insensitive scheme %s',
+    async (authorization) => {
+      const next = vi.fn();
+
+      await requireAuth({ headers: { authorization } }, buildRes(), next);
+
+      expect(verifyAccessTokenMock).toHaveBeenCalledWith('t1');
+      expect(next).toHaveBeenCalled();
+    }
+  );
+
   it('rejects when the token service throws', async () => {
     const tokenError: Error = new Error('Your session is invalid or has expired.');
     tokenError.statusCode = 401;
@@ -65,6 +88,19 @@ describe('requireAuth', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ message: 'Your session is invalid or has expired.' });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('delegates errors with no statusCode to next() instead of answering 401', async () => {
+    const infraError = new Error('connect ECONNREFUSED 127.0.0.1:27017');
+    verifyAccessTokenMock.mockRejectedValue(infraError);
+    const res = buildRes();
+    const next = vi.fn();
+
+    await requireAuth({ headers: { authorization: 'Bearer t1' } }, res, next);
+
+    expect(next).toHaveBeenCalledWith(infraError);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 
   it('passes the bare token to the token service', async () => {

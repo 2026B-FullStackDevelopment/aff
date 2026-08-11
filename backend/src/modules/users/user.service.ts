@@ -73,6 +73,22 @@ async function updateLoginState(id: string | Types.ObjectId, state: LoginStateUp
   await userRepository.updateLoginState(id, state);
 }
 
+async function recordFailedLogin(
+  id: string | Types.ObjectId,
+  windowStartedAfter: Date,
+  now: Date,
+): Promise<number> {
+  const updated =
+    (await userRepository.incrementFailedLoginInWindow(id, windowStartedAfter)) ||
+    (await userRepository.startFailedLoginWindow(id, now));
+
+  return updated.failedLoginCount;
+}
+
+async function lockAccount(id: string | Types.ObjectId, lockedUntil: Date) {
+  await userRepository.lockAccount(id, lockedUntil);
+}
+
 async function createRecipientProfile(userId: string | Types.ObjectId) {
   return recipientRepository.createRecipient({ userId });
 }
@@ -87,6 +103,8 @@ export {
   getUserById,
   deleteUser,
   updateLoginState,
+  recordFailedLogin,
+  lockAccount,
   createRecipientProfile,
   createDonorProfile,
 };

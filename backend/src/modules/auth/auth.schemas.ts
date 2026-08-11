@@ -9,11 +9,16 @@ const passwordSchema = z
   .regex(/[^A-Za-z0-9]/, {
     message: 'Password must contain at least 1 special character, for example $ # @ !',
   })
-  .regex(/[A-Z]/, { message: 'Password must contain at least 1 capitalized letter.' });
+  .regex(/[A-Z]/, { message: 'Password must contain at least 1 capitalized letter.' })
+  .max(72, { message: 'Password must be at most 72 characters.' });
 
 // Four refinements rather than one regex, because each rule owns a distinct message.
+// Trimmed first so incidental leading/trailing whitespace (e.g. pasted from another
+// field) does not trip the "no spaces" refine below; case is normalised afterwards
+// via .transform so the refinement messages above are unaffected.
 const emailSchema = z
   .string({ message: 'Email is required.' })
+  .trim()
   .refine((value) => value.split('@').length === 2, {
     message: 'Email must contain exactly one @ symbol.',
   })
@@ -23,7 +28,8 @@ const emailSchema = z
   .refine((value) => value.length < 255, { message: 'Email must be under 255 characters.' })
   .refine((value) => !/[\s();:]/.test(value), {
     message: 'Email must not contain spaces or the characters ( ) ; :',
-  });
+  })
+  .transform((value) => value.toLowerCase());
 
 const usernameSchema = z
   .string({ message: 'Username is required.' })

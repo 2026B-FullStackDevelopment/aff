@@ -43,6 +43,23 @@ describe('auth.schemas', () => {
       expect(firstError(registerRecipientSchema, { ...validRecipient, password })).toBe(message);
     });
 
+    // bcrypt silently truncates beyond 72 bytes, so anything longer is rejected outright.
+    it('rejects a password over 72 characters', () => {
+      const password = `${'Aa1!'.repeat(18)}X`; // 73 chars, still satisfies every other rule
+
+      expect(password).toHaveLength(73);
+      expect(firstError(registerRecipientSchema, { ...validRecipient, password })).toBe(
+        'Password must be at most 72 characters.'
+      );
+    });
+
+    it('accepts a password of exactly 72 characters', () => {
+      const password = 'Aa1!'.repeat(18); // 72 chars
+
+      expect(password).toHaveLength(72);
+      expect(registerRecipientSchema.safeParse({ ...validRecipient, password }).success).toBe(true);
+    });
+
     // Email syntax rules, issue #47 Examples table.
     it.each([
       ['nameexample.com', 'Email must contain exactly one @ symbol.'],
@@ -52,6 +69,18 @@ describe('auth.schemas', () => {
       ['name(1)@example.com', 'Email must not contain spaces or the characters ( ) ; :'],
     ])('rejects the email %s', (email, message) => {
       expect(firstError(registerRecipientSchema, { ...validRecipient, email })).toBe(message);
+    });
+
+    // Writes rely on the model's `lowercase: true` setter, but reads (the duplicate-email
+    // pre-check, login-by-email) go through query filters that setter never touches — so the
+    // request path must normalise explicitly.
+    it('trims and lowercases the email', () => {
+      const parsed = registerRecipientSchema.parse({
+        ...validRecipient,
+        email: '  Alice@Example.COM  ',
+      });
+
+      expect(parsed.email).toBe('alice@example.com');
     });
 
     it('accepts an email of exactly 254 characters', () => {

@@ -55,4 +55,33 @@ describe('loadEnv', () => {
     expect(config.loginWindowSeconds).toBe(30);
     expect(config.lockoutMinutes).toBe(1);
   });
+
+  // Issue: a non-numeric value used to silently produce NaN, which made
+  // `failedLoginCount >= NaN` always false and disabled the lockout with no symptom.
+  describe('numberVar', () => {
+    it.each([
+      ['LOGIN_MAX_ATTEMPTS', 'five'],
+      ['LOCKOUT_MINUTES', 'NaN'],
+      ['LOGIN_WINDOW_SECONDS', 'sixty'],
+      ['BCRYPT_ROUNDS', 'twelve'],
+      ['PORT', 'eighty'],
+      ['EMAIL_PORT', 'five-eighty-seven'],
+    ])('throws naming the key when %s is not a number', (key, value) => {
+      expect(() => loadEnv({ ...validVars, [key]: value })).toThrow(
+        new RegExp(`${key} must be a number, got "${value}"`)
+      );
+    });
+
+    it('falls back to the default when the value is an empty string', () => {
+      const config = loadEnv({ ...validVars, LOGIN_MAX_ATTEMPTS: '' });
+
+      expect(config.loginMaxAttempts).toBe(5);
+    });
+
+    it('parses a valid numeric value', () => {
+      const config = loadEnv({ ...validVars, LOGIN_MAX_ATTEMPTS: '7' });
+
+      expect(config.loginMaxAttempts).toBe(7);
+    });
+  });
 });

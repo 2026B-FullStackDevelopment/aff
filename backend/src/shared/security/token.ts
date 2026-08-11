@@ -35,7 +35,7 @@ function signAccessToken(payload: AccessTokenPayload): SignedToken {
 
 function decodeAccessToken(token: string): DecodedToken {
   try {
-    const payload = jwt.verify(token, env.jwtSecret) as {
+    const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] }) as {
       userId: string;
       role: Role;
       jti: string;
