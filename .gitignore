@@ -35,3 +35,6 @@ Desktop.ini
 
 # Agent Plans
 docs/superpowers/*
+
+# Claude Code agent workspace (includes nested worktrees)
+.claude/
