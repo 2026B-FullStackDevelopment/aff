@@ -38,3 +38,6 @@ docs/superpowers/*
 
 # Claude Code agent workspace (includes nested worktrees)
 .claude/
+
+# Parallel development worktrees (created outside the repo; this is a safety net)
+.worktrees/
