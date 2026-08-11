@@ -52,8 +52,7 @@ const registerRecipientSchema = z.object({
 const registerDonorSchema = z.object({
   companyName: z
     .string({ message: 'Company name is required.' })
-    .min(1, { message: 'Company name is required.' })
-    .max(200, { message: 'Company name must be under 200 characters.' }),
+    .min(1, { message: 'Company name is required.' }),
   email: emailSchema,
   password: passwordSchema,
   taxCode: z

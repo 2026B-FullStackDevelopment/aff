@@ -54,9 +54,17 @@ describe('auth.schemas', () => {
       expect(firstError(registerRecipientSchema, { ...validRecipient, email })).toBe(message);
     });
 
-    it('rejects an email of 255 characters or more', () => {
-      const email = `${'a'.repeat(250)}@example.com`;
+    it('accepts an email of exactly 254 characters', () => {
+      const email = `${'a'.repeat(242)}@example.com`;
 
+      expect(email).toHaveLength(254);
+      expect(registerRecipientSchema.safeParse({ ...validRecipient, email }).success).toBe(true);
+    });
+
+    it('rejects an email of exactly 255 characters', () => {
+      const email = `${'a'.repeat(243)}@example.com`;
+
+      expect(email).toHaveLength(255);
       expect(firstError(registerRecipientSchema, { ...validRecipient, email })).toBe(
         'Email must be under 255 characters.'
       );
