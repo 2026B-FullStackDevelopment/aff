@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A rapid sequence of pushes to the same ref should not leave stale runs queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only reads code. It publishes nothing.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Single hoisted lockfile at the root serves both workspaces, and the
+      # workspace scripts resolve TypeScript via ../node_modules.
+      - name: Install dependencies
+        run: npm ci
+
+      # Two test files import the env config, which throws on a missing
+      # MONGO_URI. The placeholder values are sufficient; nothing connects.
+      - name: Provide test environment variables
+        run: cp backend/.env.example backend/.env
+
+      - name: Typecheck
+        run: npm --workspace backend run typecheck
+
+      - name: Test
+        run: npm --workspace backend run test
+
+      - name: Build
+        run: npm --workspace backend run build
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm --workspace frontend run typecheck
+
+      # No test step: the frontend has no tests. Adding an empty one would
+      # imply coverage that does not exist.
+      - name: Build
+        run: npm --workspace frontend run build
