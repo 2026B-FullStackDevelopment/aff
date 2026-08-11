@@ -46,3 +46,27 @@ The frontend is built with React and Vite. It separates logic into pages, compon
 - **Config:** Backend API paths are centralized in `apiRoutes.ts`.
 
 When building new features, respect the module boundaries in both the backend and frontend. Place new features in the module that owns the business idea.
+
+## Agent Skills
+
+Shared, tool-agnostic instruction sets live in `.agents/skills/`. They are checked into the
+repository so the whole team works from the same guidance rather than each person's local
+agent configuration.
+
+**Available skills:**
+
+- **`frontend-ui-engineering`** (`.agents/skills/frontend-ui-engineering/SKILL.md`) — how to
+  build production-quality UI: component architecture, choosing the right state mechanism,
+  design-system adherence, WCAG 2.1 AA accessibility, responsive breakpoints, and loading /
+  empty / error states. It also lists the "AI aesthetic" defaults to avoid. Use it when
+  creating or modifying anything under `frontend/src`.
+
+**How to use them:**
+
+These files are plain Markdown, so any agent tool can consume them — point your assistant at
+the relevant `SKILL.md` before starting UI work, or read it yourself.
+
+Note that Claude Code auto-discovers project skills from `.claude/skills/`, not
+`.agents/skills/`, and `.claude/` is gitignored in this repository. So these skills do **not**
+load automatically. To use one with Claude Code, either reference the file explicitly in your
+prompt, or copy it into your own `~/.claude/skills/` directory.
