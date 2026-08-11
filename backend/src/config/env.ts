@@ -16,6 +16,11 @@ function loadEnv(vars: NodeJS.ProcessEnv = process.env) {
     jwtSecret: requireVar(vars, 'JWT_SECRET'),
     jwtExpiresIn: vars.JWT_EXPIRES_IN || '1h',
 
+    bcryptRounds: Number(vars.BCRYPT_ROUNDS || 12),
+    loginMaxAttempts: Number(vars.LOGIN_MAX_ATTEMPTS || 5),
+    loginWindowSeconds: Number(vars.LOGIN_WINDOW_SECONDS || 60),
+    lockoutMinutes: Number(vars.LOCKOUT_MINUTES || 5),
+
     port: Number(vars.PORT || 5000),
     nodeEnv: vars.NODE_ENV || 'development',
 
