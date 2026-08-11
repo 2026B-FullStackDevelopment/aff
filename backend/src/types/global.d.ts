@@ -5,6 +5,8 @@ import type { Role } from '../modules/users/user.model.js';
 declare global {
   interface Error {
     statusCode?: number;
+    // Set on the 429 thrown by login so the error DTO can surface it (api_design.md §4).
+    lockedUntilSeconds?: number;
   }
 
   namespace Express {
@@ -12,6 +14,11 @@ declare global {
       user?: {
         id: string;
         role: Role;
+      };
+      // Set by requireAuth so logout can revoke the exact token that was presented.
+      auth?: {
+        jti: string;
+        expiresAt: Date;
       };
     }
   }
