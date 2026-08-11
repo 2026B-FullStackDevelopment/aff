@@ -14,12 +14,12 @@ so that **I can access my account, and be confident brute-force attempts against
 
 - [ ] **Scenario:** Successful login
   - **Given** I have a registered, active account
-  - **When** I submit my correct username-or-email and password
+  - **When** I submit my correct email and password
   - **Then** I am logged in, issued a session token identifying my user ID and role, and my `failedLoginCount` is reset to zero
 
 - [ ] **Scenario:** Invalid credentials show a generic error
   - **Given** I am on the login page
-  - **When** I submit a username/email and password combination that doesn't match an account, or doesn't match the password for an existing account
+  - **When** I submit a email and password combination that doesn't match an account, or doesn't match the password for an existing account
   - **Then** I see a single generic error message that does not reveal whether the email/username exists in the system
 
 - [ ] **Scenario:** Account locks out after repeated failures
