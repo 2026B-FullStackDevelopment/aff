@@ -153,59 +153,53 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: `POST /listings` validates unit/category enums and price rule (free or > 1000 VND).
 - Data: creates `LISTING` (status=ACTIVE, quantityRemaining=donationLimit).
 
-**C2. Active vs. Past Donations Dashboard** (`4.1.2`)
-> As a Donor, I want to see Active and Past donations with full stats, so I can track my impact.
-- UI: two visually separated sections, Active listed first.
-- API: `GET /listings/mine` returns both groups with computed stats (donated quantity, revenue).
-- Data: reads `LISTING` filtered by `donorId`; computes aggregates from associated `ORDER`s.
-
-**C3. Clone Listing** (`4.1.3`)
+**C2. Clone Listing** (`4.1.3`)
 > As a Donor, I want to create a new listing pre-filled from a previous one.
 - UI: "Duplicate" action on any past listing opens the creation form pre-populated.
 - API: `POST /listings/:id/clone` copies static fields, resets quantity/status/dates.
 - Data: new `LISTING` document; no reference back to the original.
 
-**C4. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
+**C3. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
 > As a Donor, I want to manually create a donation for a registered Recipient and quantity, so I can hand out food I've already committed outside the app.
 - UI: Donor searches by Recipient username (no free-text names); if priced, the Recipient is prompted (via notification) to choose Stripe or cash-on-delivery.
 - API: `POST /listings/:id/donations` creates an `ORDER` (intakePath=DONOR_INITIATED); if priced, `paymentStatus=PAYMENT_PENDING` until Stripe succeeds or cash is confirmed at delivery; if free, `paymentStatus=FREE` and it enters the Courier queue immediately.
 - Data: `ORDER` (recipientId, listingId, intakePath=DONOR_INITIATED, quantity, amount, paymentStatus).
 
-**C5. Search/Filter/Sort Own Listings** (`4.2.2`)
-> As a Donor, I want to search/filter/sort my listings by name, category, date range, and revenue.
-- UI: search bar + filter panel + sort toggle (asc/desc).
-- API: `GET /listings/mine?search=&category=&from=&to=&sort=`.
-- Data: query against `LISTING` indexed on `donorId`, `name`, `category`, `createdAt`.
+**C4. Search/Filter/Sort Own Listings, with Active/Past Grouping** (`4.1.2`, `4.2.2` — absorbs the standalone dashboard story, see §10)
+> As a Donor, I want to filter my listings into Active and Past, and search/filter/sort within them by name, category, date range, and revenue, so I can track my impact and manage my listings from one view.
+- UI: search bar + filter panel (including an Active/Past toggle) + sort toggle (asc/desc); each listing shows its donated quantity and revenue.
+- API: `GET /listings/mine?status=ACTIVE|PAST&search=&category=&from=&to=&sort=`. `status=ACTIVE` matches `LISTING.status` in `ACTIVE`/`PAUSED`; `status=PAST` matches `CANCELLED`/`SOLD_OUT`.
+- Data: query against `LISTING` indexed on `donorId`, `status`, `name`, `category`, `createdAt`; stats computed from associated `ORDER`s.
 
-**C6. Pause / Resume / Cancel Listing** (`4.2.3`)
+**C5. Pause / Resume / Cancel Listing** (`4.2.3`)
 > As a Donor, I want to pause, resume, or cancel an active listing.
 - UI: status controls on each listing; cancel shows a confirmation naming how many pending orders will be auto-cancelled.
 - API: `PATCH /listings/:id/status`; cancel cascades to auto-cancel all associated `ORDER`s still in `AWAITING_COURIER` (not ones already `ASSIGNED` or later).
 - Data: `LISTING.status`; cascaded `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<donor's userId>`.
 
-**C7. Ration Limit Per Person** (`4.2.4`)
+**C6. Ration Limit Per Person** (`4.2.4`)
 > As a Donor, I want to cap how much a single Recipient can reserve from a listing.
 - UI: optional "ration per person" field on listing creation.
 - API: reservation endpoint rejects quantities above `rationLimitPerPerson`.
 - Data: `LISTING.rationLimitPerPerson`.
 
-**C8. Per-Request Listing (Untracked, Self-Collection)** (`4.2.1`, unchanged SRS intent)
+**C7. Per-Request Listing (Untracked, Self-Collection)** (`4.2.1`, unchanged SRS intent)
 > As a Donor, I want to post a "Per Request" listing so Recipients can come collect food in person without me managing individual orders.
 - UI: listing displays the Donor's address prominently instead of a "Reserve" button; the SRS warning is shown on both the Donor's creation form and the Recipient-facing listing page.
 - API: no reservation endpoint accepts this listing's ID; no `ORDER` is ever created for it.
 - Data: `LISTING` with `unit=PER_REQUEST`; no `ORDER`, no `PAYMENT`, no `DELIVERY` ever reference it.
 
-**C9. View Orders Against a Listing** (`4.2.5`, status vocabulary aligned to schema)
+**C8. View Orders Against a Listing** (`4.2.5`, status vocabulary aligned to schema)
 > As a Donor, I want to see every tracked order against a listing — Recipient, quantity, delivery status, payment info, and feedback.
 - UI: table per listing, showing Recipient username, quantity, `orderStatus`, payment method + status, and any feedback.
 - API: `GET /listings/:id/orders` (Reservation + Donor-initiated only — Per-Request has nothing to show here).
 - Data: reads `ORDER` filtered by `listingId`, joined with `PAYMENT` and `feedback`.
 
-**C10. Sold-Out Alert & Visual Stats** (`4.3.1`, `4.3.2`)
-> As a Donor, I want a real-time alert when a listing sells out, and visual stats on my donations.
-- UI: in-app toast + audible alert on sell-out; charts (category/unit breakdown) on the dashboard.
+**C9. Sold-Out Alert** (`4.3.1`)
+> As a Donor, I want a real-time alert when a listing sells out, so I know without having to check manually.
+- UI: in-app toast + audible alert on sell-out.
 - API: Socket.IO event emitted from the Service layer when `quantityRemaining` hits zero.
-- Data: `LISTING.status=SOLD_OUT`; stats computed from `ORDER` aggregates.
+- Data: `LISTING.status=SOLD_OUT`.
 
 ---
 
@@ -386,8 +380,8 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **G3. Cancel Any Active Listing** (`7.2.2`)
 > As an Admin, I want to cancel any active listing, hiding it and blocking new orders.
-- UI: cancel action in the admin listings table, same cascade confirmation as C6.
-- API: `PATCH /admin/listings/:id/cancel` — same cascade rule as C6 (only `AWAITING_COURIER` orders auto-cancel).
+- UI: cancel action in the admin listings table, same cascade confirmation as C5.
+- API: `PATCH /admin/listings/:id/cancel` — same cascade rule as C5 (only `AWAITING_COURIER` orders auto-cancel).
 - Data: `LISTING.status=CANCELLED`; cascaded `ORDER.cancelledByUserId=<admin's userId>`.
 
 **G4. Searchable Listing Directory** (`7.3.1`, `7.3.2`)
@@ -441,7 +435,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - **Risk**: schema gap — `ORDER`/`PAYMENT` have no `paymentMethod` field to distinguish cash from Stripe. **Mitigation**: small additive schema change before Path 1/2 development starts; flag to the team now rather than discover it mid-sprint.
 - **Risk**: concurrent claim races double-assign a delivery. **Mitigation**: atomic conditional DB update, explicitly unit-tested — the same check also enforces the cancellation cutoff (D4/E3).
 - **Risk**: cash confirmed-but-not-actually-collected (Courier error or dishonesty) has no deeper audit trail than a boolean + timestamp. **Mitigation**: accepted as out of scope for a course project — log Courier ID + timestamp on the confirm action for basic traceability, nothing further.
-- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the one-off Checkout Session path first (D2/C4, highest-traffic), treat Subscriptions (F1) as a separable second increment.
+- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the one-off Checkout Session path first (D2/C3, highest-traffic), treat Subscriptions (F1) as a separable second increment.
 - **Risk**: weak/late GitHub usage costs graded points independent of code quality [`P1`, `P2`]. **Mitigation**: slice the epics above into small, frequently-committed issues.
 - **Risk**: adding cash-handling to the Courier role blurs the "one clean rail" simplicity the team previously relied on. **Mitigation**: keep the rule bright-line simple — exact cash only, no change, confirmed with a single tap — rather than modeling partial payments or disputes.
 - **Risk**: "Ultimo everywhere" is a large scope commitment. **Mitigation**: the Gold Data Set requirement (§6) forces early, incremental proof that each path — including both payment methods — works end-to-end before the demo.
@@ -460,6 +454,8 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 | `4.1.4` | Cash + change display at physical Donor-Recipient handoff; recipient by free-text name | Recipient must be a registered account; if priced, Recipient chooses Stripe or cash-on-delivery; the physical handoff moves from Donor to Courier |
 | `4.2.1` | Recipient may visit pickup location; quantity given in person; no online reservation | Implemented as originally specified — this is intentionally the one path that stays self-service and untracked |
 | Base pickup model (`5.1.2` / general marketplace assumption) | Recipient collects in person from Donor | Reservation + Donor-initiated orders are Courier-delivered; Per-Request remains self-collection |
+| `4.1.2` | Separate Active/Past donations dashboard (originally its own story) | Retired as a standalone story; folded into C4 as an `?status=ACTIVE\|PAST` filter on the same listings endpoint. `ACTIVE` = `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` = `CANCELLED`/`SOLD_OUT` |
+| `4.3.2` | Visual stats/charts on the Donor donation dashboard | Dropped from C9 — C9 is alert-only. C4 still surfaces per-listing `donatedQuantity`/`revenue` inline (carried over from the retired `4.1.2` dashboard), but no aggregate charts are built |
 
 ---
 
@@ -468,6 +464,5 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 - **Stripe refund on pre-claim cancellation**: if a Stripe-paid order is cancelled before a Courier claims it (D4), does the system trigger an automatic Stripe refund, or is that a manual Admin action? Not yet decided.
 - **Cash confirmation audit depth**: is a Courier-ID + timestamp log sufficient (current assumption), or does the team want anything more before Milestone 2?
 - **Schema change ownership**: who adds the `paymentMethod` field to `ORDER`/`PAYMENT`, and by when — needs to land before Path 1/2 implementation starts.
-- **Charting library** for Donor/Admin statistics (`4.3.2`) — e.g. Recharts vs. Chart.js; either satisfies the requirement.
 - **Transactional email provider** for `6.1.2`/payment-confirmation emails — e.g. Nodemailer + a free SMTP sandbox for development; finalize before the Gold Data Set is built.
 - **Stripe webhook handling** specifics (which events, retry/idempotency handling) — standard integration work, detailed in the implementation plan rather than here.

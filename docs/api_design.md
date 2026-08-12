@@ -290,8 +290,8 @@ Errors: `400` invalid unit/category enum or `price` fails the "free or > 1000 VN
 **Auth:** `DONOR`
 **Ownership:** implicit — always scoped to `req.user.id` as `donorId`
 
-Query params: `?status=ACTIVE|PAST` (server maps `PAST` to `CANCELLED`/`SOLD_OUT`/closed-`ACTIVE`-with-zero-remaining), `search=`, `category=`, `from=`, `to=`, `sort=createdAt|revenue&order=asc|desc`, plus pagination (§2.4).
-Response `200`: paginated `{ items: (ListingDTO & { donatedQuantity: number, revenue: number })[], page, limit, total }`, additionally including an `aggregate: { byCategory: {...}, byUnit: {...} }` block for the Donor's stats charts.
+Query params: `?status=ACTIVE|PAST` (`ACTIVE` matches `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` matches `CANCELLED`/`SOLD_OUT`), `search=`, `category=`, `from=`, `to=`, `sort=createdAt|revenue&order=asc|desc`, plus pagination (§2.4).
+Response `200`: paginated `{ items: (ListingDTO & { donatedQuantity: number, revenue: number })[], page, limit, total }`.
 
 ### `POST /listings/:id/clone` — *`4.1.3`*
 **Auth:** `DONOR`
