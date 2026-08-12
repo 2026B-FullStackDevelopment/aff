@@ -48,6 +48,10 @@ const locationSchema = z.object({
   longitude: z.number().min(-180).max(180),
 });
 
+/**
+ * Validates a recipient registration request: `{ username, email, password, city }`.
+ * Every failure message matches the acceptance criteria in issue #47 exactly.
+ */
 const registerRecipientSchema = z.object({
   username: usernameSchema,
   email: emailSchema,
@@ -55,6 +59,12 @@ const registerRecipientSchema = z.object({
   city: citySchema,
 });
 
+/**
+ * Validates a donor registration request: `{ companyName, email, password,
+ * taxCode, city, addressText, location }`. `location` is only range-checked
+ * here — the client is responsible for resolving it via an OSM Nominatim
+ * address search before submitting. Messages match issue #48.
+ */
 const registerDonorSchema = z.object({
   companyName: z
     .string({ message: 'Company name is required.' })
@@ -73,6 +83,10 @@ const registerDonorSchema = z.object({
 
 // Login checks presence only. Strength rules would lock out anyone whose
 // password predates them, and would leak which rules the account satisfies.
+/**
+ * Validates a login request: `{ email, password }`. Deliberately does not
+ * apply password strength rules — see the comment above.
+ */
 const loginSchema = z.object({
   email: emailSchema,
   password: z

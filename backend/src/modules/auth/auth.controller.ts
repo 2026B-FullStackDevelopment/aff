@@ -12,6 +12,10 @@ import {
 import { toAuthDto, toRecipientAuthDto, toDonorAuthDto } from './auth.dto.js';
 import { created, ok } from '../../shared/http/response.js';
 
+/**
+ * `POST /auth/register/recipient` — public. Validates the body, registers a
+ * new Recipient, and returns `201` with the new session.
+ */
 async function registerRecipient(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = parseBody(registerRecipientSchema, req.body);
@@ -23,6 +27,10 @@ async function registerRecipient(req: Request, res: Response, next: NextFunction
   }
 }
 
+/**
+ * `POST /auth/register/donor` — public. Validates the body, registers a new
+ * Donor, and returns `201` with the new session.
+ */
 async function registerDonor(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = parseBody(registerDonorSchema, req.body);
@@ -34,6 +42,10 @@ async function registerDonor(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+/**
+ * `POST /auth/login` — public. Validates the body and authenticates the
+ * user, returning `200` with a session on success.
+ */
 async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = parseBody(loginSchema, req.body);
@@ -45,6 +57,10 @@ async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+/**
+ * `POST /auth/logout` — requires a valid Bearer token (`requireAuth`).
+ * Revokes the presented token and returns `200` with `{ data: null }`.
+ */
 async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     // requireAuth guarantees req.user and req.auth are present.

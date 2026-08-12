@@ -2,6 +2,7 @@
 import RevokedToken, { type RevokeReason } from './revoked-token.model.js';
 import type { Types } from 'mongoose';
 
+/** Input for revoking one token. `reason` defaults to `'LOGOUT'` if omitted. */
 interface RevokeTokenInput {
   jti: string;
   userId: string | Types.ObjectId;
@@ -9,6 +10,16 @@ interface RevokeTokenInput {
   reason?: RevokeReason;
 }
 
+/**
+ * Revokes a token by inserting its `jti` into the denylist. Idempotent:
+ * calling this twice for the same `jti` (e.g. a double-submitted logout)
+ * succeeds silently the second time instead of throwing, because the
+ * caller's goal — "this token must not work anymore" — is already satisfied.
+ *
+ * @param data - The token to revoke, who it belonged to, and its own expiry
+ *   (copied onto the row so the TTL index can purge it later).
+ * @throws Any database error other than a duplicate-key conflict on `jti`.
+ */
 async function revokeToken(data: RevokeTokenInput): Promise<void> {
   try {
     await RevokedToken.create({
@@ -27,6 +38,12 @@ async function revokeToken(data: RevokeTokenInput): Promise<void> {
   }
 }
 
+/**
+ * Checks whether a token has been revoked.
+ *
+ * @param jti - The token's unique ID, from its decoded claims.
+ * @returns `true` if the token is on the denylist.
+ */
 async function isTokenRevoked(jti: string): Promise<boolean> {
   const found = await RevokedToken.exists({ jti });
 

@@ -4,6 +4,20 @@ import { authInterface } from '../modules/auth/auth.interface.js';
 
 const UNAUTHENTICATED = 'Authentication is required.';
 
+/**
+ * Express middleware that guards protected routes. Requires an
+ * `Authorization: Bearer <token>` header, then verifies the token's
+ * signature, expiry, and revocation status via `authInterface.verifyAccessToken`.
+ *
+ * On success, attaches `req.user = { id, role }` (read by controllers and by
+ * `requireRole`) and `req.auth = { jti, expiresAt }` (used by logout to
+ * revoke the exact token that was presented), then calls `next()`.
+ *
+ * On failure, responds `401` directly for anything carrying a `statusCode` —
+ * a genuine auth failure. Anything else, e.g. the database being unreachable
+ * during the revocation check, is passed to `next(error)` so it becomes a
+ * `500` instead of being reported to the client as a dead session.
+ */
 async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const parts = (authHeader || '').split(' ');
