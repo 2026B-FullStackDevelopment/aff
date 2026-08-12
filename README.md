@@ -1,15 +1,85 @@
-# Team Contribution Report
+# AFF — Affordable Food Federation
 
-## GitHub Repository Link
+## Overview
 
-https://github.com/2026B-FullStackDevelopment/Team1
+AFF is a web-based food redistribution platform that connects food-insecure **Recipients** with surplus-holding **Donors**, operated by an **Admin** and fulfilled by **Couriers**. Recipients can reserve listed food or receive a Donor-initiated donation, paying by Stripe or cash on delivery; a third, untracked "Per-Request" path lets a Recipient self-collect directly from a Donor's posted address. Every online order is fulfilled through a shared Courier delivery queue with live GPS tracking, and the platform supports a Premium Recipient subscription with location-aware, real-time listing alerts.
 
-## Contribution Table
+The project is a TypeScript full-stack monorepo: a React/Vite frontend, a Node.js/Express backend, and MongoDB for storage.
 
-| Member Name | Role | Assigned Tasks | Contribution Score |
-| --- | --- | --- | --- |
-| Pham Van Thanh Dat | Full Stack Engineer | - Authentication, Recipient Order Food and Food Listing Notifications sequence diagrams <br> - Refining and checking Listing, Order, Payment Entities <br> - Refining and checking Payment backend module and Stripe service <br> - Refining and checking UI/UX of Donor Registration and Responsive Designs | 05 |
-| Nguyen Ngoc Hiep  | Tech Lead | - System ERD <br> - Tech stack and external services decisions <br> - Refining and checking Users backend module and Supabase Storage service <br> - Refining and checking UI/UX of Recipient Food Reservation Management | 05 |
-| Luong Trien Vinh | Full Stack Engineer  | - All feature wireframes <br> - Refining and checking Subscription, Notifications, Payment Entities <br> - Refining and checking Subscription backend module with Nodemailer library <br> - Refining and checking sequence diagrams| 05 |
-| Luong Vu Gia Khang | Full Stack Engineer | - All feature wireframes  <br> - Refining and checking Courier, Delivery Entities <br> - Refining and checking container diagram <br> - Refining and checking Listing backend module with OpenStreetMap service | 05 |
-| Ngo Hoang Long | Project Manager | - Backend component diagram <br> - Container diagram <br> - Refining and checking ERD Donor, Recipient Entities <br> - Refining and checking "Recognition rather than recall" heuristics and Donor visual statistics report wireframe| 05 |
+## Features
+
+- **Authentication & Profiles** — Recipient and Donor registration, JWT login with brute-force lockout and server-side token revocation, profile editing with avatar upload.
+- **Donor Listing Management** — create, clone, pause/resume/cancel listings, per-person ration limits, search/filter/sort, sold-out alerts, and donation statistics.
+- **Recipient Ordering** — browse and search listings, reserve and pay by Stripe or cash on delivery, cancel before Courier claim, view order/delivery history, leave feedback.
+- **Per-Request Donations** — an untracked, self-collection donation path with no order record, payment, or Courier involved.
+- **Courier Delivery & Real-Time Tracking** — a shared, oldest-first, atomically-claimed delivery queue; one active delivery per Courier; live GPS tracking during transit; cash-on-delivery confirmation.
+- **Premium Subscription** — recurring billing via Stripe, configurable notification preferences, real-time match alerts, and location-aware listing ranking.
+- **Admin Oversight** — account activation/deactivation, listing moderation, searchable listing directory, and read-only delivery oversight.
+
+## Tech Stack
+
+**Frontend**
+- React 19 + Vite 7, React Router 7
+- TypeScript
+- Tailwind CSS v4 + shadcn/ui (Base UI primitives), lucide icons
+
+**Backend**
+- Node.js + Express 5, TypeScript
+- MongoDB + Mongoose 9
+- Zod (request validation), JWT (`jsonwebtoken`) + bcryptjs (auth)
+- Nodemailer (email), Supabase Storage (media/avatar uploads)
+- Vitest (testing)
+
+**Third-party services**
+- Stripe (checkout and recurring billing)
+- OpenStreetMap Nominatim (address search and geocoding)
+
+**Infrastructure**
+- npm workspaces monorepo (`backend`, `frontend`)
+- Deployed on Render, with MongoDB Atlas
+
+## Getting Started
+
+**Prerequisites:** Node.js `>=20.19.0`, npm, and a MongoDB connection string.
+
+1. Clone the repository and install dependencies from the root:
+
+   ```bash
+   npm install
+   ```
+
+2. Set up backend environment variables:
+
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+   Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings.
+
+3. Run the backend and frontend in separate terminals:
+
+   ```bash
+   npm run dev:backend
+   npm run dev:frontend
+   ```
+
+4. Verify your setup:
+
+   ```bash
+   npm run typecheck
+   npm --workspace backend run test
+   ```
+
+See [`AGENTS.md`](AGENTS.md) for the full architecture reference and the required development workflow.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branching strategy, commit conventions, and pull request process.
+
+| Member | Role |
+|---|---|
+| Ngo Hoang Long | Project Manager |
+| Nguyen Ngoc Hiep | Tech Lead |
+| Pham Van Thanh Dat | Full Stack Engineer |
+| Luong Trien Vinh | Full Stack Engineer |
+| Luong Vu Gia Khang | Full Stack Engineer |

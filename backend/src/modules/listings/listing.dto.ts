@@ -49,7 +49,6 @@ interface MyListingsResponseDto {
   page: number;
   limit: number;
   total: number;
-  aggregate: { byCategory: Record<string, number>; byUnit: Record<string, number> };
 }
 
 interface UpdateListingStatusRequestDto {
