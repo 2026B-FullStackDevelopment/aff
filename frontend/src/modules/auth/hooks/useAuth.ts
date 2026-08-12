@@ -1,21 +1,34 @@
-﻿// Holds reusable auth behavior so login/register pages do not own API details.
+// Holds reusable auth behavior so login/register pages do not own API details.
 import { authService } from '../services/auth.service';
+import { storeSession, clearSession } from '@/services/authStorage';
+import type { LoginPayload, RegisterRecipientPayload, RegisterDonorPayload } from '@/types/api';
 
 export function useAuth() {
-  async function login(credentials) {
+  async function login(credentials: LoginPayload) {
     const response = await authService.login(credentials);
 
-    if (response.ok && response.data?.user) {
-      localStorage.setItem('aff_user', JSON.stringify(response.data.user));
-      localStorage.setItem('aff_token', response.data.accessToken);
+    if (response.ok && response.data?.user && response.data?.token) {
+      storeSession(response.data.user, response.data.token);
     }
 
     return response;
   }
 
-  async function register(payload) {
-    return authService.register(payload);
+  async function registerRecipient(payload: RegisterRecipientPayload) {
+    return authService.registerRecipient(payload);
   }
 
-  return { login, register };
+  async function registerDonor(payload: RegisterDonorPayload) {
+    return authService.registerDonor(payload);
+  }
+
+  async function logout() {
+    try {
+      await authService.logout();
+    } finally {
+      clearSession();
+    }
+  }
+
+  return { login, registerRecipient, registerDonor, logout };
 }

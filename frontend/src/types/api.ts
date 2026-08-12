@@ -1,17 +1,218 @@
-export type UserRole = 'RECIPIENT' | 'DONOR' | 'ADMIN';
+export type UserRole = 'RECIPIENT' | 'DONOR' | 'ADMIN' | 'COURIER';
 
-export interface User {
+export interface GeoLocation {
+  latitude: number;
+  longitude: number;
+  updatedAt: string; // ISO 8601
+}
+
+export type FoodCategory =
+  | 'FRUIT'
+  | 'VEGETABLE'
+  | 'MEAT'
+  | 'COOKED_DISH'
+  | 'BAKED_GOODS'
+  | 'DRINK';
+
+export interface NotificationPreference {
   id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  isPremium?: boolean;
+  preferenceTitle: string;
+  categories: FoodCategory[];
+  vegetarian: boolean | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  city: string | null;
 }
 
-export interface AuthSession {
-  accessToken: string;
-  user: User;
+// --- Users ---
+
+export interface UserDTO {
+  id: string;
+  role: UserRole;
+  username: string;
+  email: string;
+  country: string;
+  city: string;
+  status: 'ACTIVE' | 'DEACTIVATED';
+  avatarUrl: string | null;
+  createdAt: string;
 }
+
+export interface RecipientDTO extends UserDTO {
+  role: 'RECIPIENT';
+  tier: 'STANDARD' | 'PREMIUM';
+  notificationPreferences: NotificationPreference[];
+  hasStripeCard: boolean;
+}
+
+export interface DonorDTO extends UserDTO {
+  role: 'DONOR';
+  companyName: string;
+  taxCode: string;
+  addressText: string;
+  location: GeoLocation;
+}
+
+export interface CourierDTO extends UserDTO {
+  role: 'COURIER';
+  fullName: string;
+}
+
+export interface AdminUserDTO extends UserDTO {
+  role: 'ADMIN';
+}
+
+export type AnyUserDTO = RecipientDTO | DonorDTO | CourierDTO | AdminUserDTO;
+
+// --- Auth request/response shapes ---
+
+export interface RegisterRecipientPayload {
+  username: string;
+  email: string;
+  password: string;
+  city: string;
+}
+
+export interface RegisterDonorPayload {
+  companyName: string;
+  email: string;
+  password: string;
+  taxCode: string;
+  city: string;
+  addressText: string;
+  location: { latitude: number; longitude: number };
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+// Response body for register/recipient, register/donor, and login is
+// `{ user, token }`
+export interface AuthSession {
+  user: AnyUserDTO;
+  token: string;
+}
+
+// --- Listings ---
+
+export type ListingUnit =
+  | 'KILOGRAM'
+  | 'GRAM'
+  | 'LITER'
+  | 'MILLILITER'
+  | 'UNIT'
+  | 'PER_REQUEST';
+
+export type ListingStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'SOLD_OUT';
+
+export interface ListingDTO {
+  id: string;
+  donor: {
+    id: string;
+    companyName: string;
+    city: string;
+    location: GeoLocation;
+  };
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  unit: ListingUnit;
+  category: FoodCategory;
+  isVegetarian: boolean;
+  price: number;
+  city: string;
+  status: ListingStatus;
+  donationLimit: number;
+  rationLimitPerPerson: number | null;
+  quantityRemaining: number;
+  createdAt: string;
+}
+
+// --- Orders ---
+
+export type OrderIntakePath = 'RESERVATION' | 'DONOR_INITIATED';
+export type PaymentMethod = 'STRIPE' | 'CASH';
+export type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID';
+export type OrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'PREPARING'
+  | 'PICKED_UP'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
+export interface OrderDTO {
+  id: string;
+  recipientId: string;
+  listing: { id: string; name: string; imageUrl: string | null; unit: ListingUnit };
+  intakePath: OrderIntakePath;
+  quantity: number;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  orderStatus: OrderStatus;
+  deliveryAddressText: string;
+  deliveryLocation: GeoLocation;
+  cancelledByUserId: string | null;
+  feedback: { comment: string; createdAt: string } | null;
+  createdAt: string;
+}
+
+// --- Delivery ---
+
+export type DeliveryStage =
+  | 'AWAITING_COURIER'
+  | 'ASSIGNED'
+  | 'PICKED_UP'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
+export interface DeliveryDTO {
+  id: string;
+  orderId: string;
+  courierId: string | null;
+  stage: DeliveryStage;
+  pickupAddressText: string;
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
+  courierLastLocation: GeoLocation | null;
+  createdAt: string;
+}
+
+// --- Subscriptions (api_design.md §3, §10) ---
+
+export interface SubscriptionDTO {
+  id: string;
+  status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+  currentPeriodEnd: string;
+  createdAt: string;
+}
+
+// --- Shared envelopes (api_design.md §2.2-2.4) ---
+
+export interface ApiErrorBody {
+  message: string;
+}
+
+export interface PaginatedData<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+// ---------------------------------------------------------------------
+// LEGACY TYPES — kept for backward compatibility only.
+// These predate api_design.md and do NOT match it (different status
+// enums, different field names, no `paymentMethod`, etc.). They're left
+// in place because FoodListingsPage, MyReservationsPage, SubscriptionPage,
+// and AdminDashboardPage were not available to check for consumers of
+// these exact shapes. Prefer ListingDTO / OrderDTO / SubscriptionDTO
+// above for any new or updated code, and migrate these pages off the
+// legacy types below when you touch them.
+// ---------------------------------------------------------------------
 
 export interface FoodListing {
   id: string;

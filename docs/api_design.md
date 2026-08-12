@@ -215,7 +215,7 @@ Errors: `400` invalid format; `409` email already registered
 ### `POST /auth/register/donor` — *`1B.1`, `1B.2`, `1B.3.1`*
 **Auth:** public
 
-Request body: `{ companyName, email, password, taxCode, city, addressText, location: { latitude, longitude } }` (`location` is resolved client-side via an OSM Nominatim address search-as-you-type list; the Donor selects one of the returned candidates — no pin-drop/map confirmation)
+Request body: `{ username, companyName, email, password, taxCode, city, addressText, location: { latitude, longitude } }` (`username` follows the same syntax rule as Recipient registration; `location` is resolved client-side via an OSM Nominatim address search-as-you-type list; the Donor selects one of the returned candidates — no pin-drop/map confirmation)
 Response `201`: `{ user: DonorDTO, token: string }`
 Errors: `400` invalid company/tax-code format; `409` email already registered
 
@@ -224,7 +224,9 @@ Errors: `400` invalid company/tax-code format; `409` email already registered
 
 Request body: `{ email, password }`
 Response `200`: `{ user: UserDTO, token: string }`
-Errors: `401` invalid credentials (generic message, no hint whether the account exists); `429` account locked — `5` failed attempts within a rolling 60s window sets `USER.lockedUntil`; response body includes `{ lockedUntilSeconds: number }`
+Errors: `401` invalid credentials (generic message, no hint whether the account exists); `429` account locked — `5` failed attempts within a 60s window sets `USER.lockedUntil`; response body includes `{ lockedUntilSeconds: number }`
+
+**Window semantics:** this is a fixed window anchored at the first failure of a burst, not a true rolling window. `USER.windowStartedAt` is set on the first failure and every subsequent failure counts toward the same window as long as it started less than 60s ago; once 60s have passed since that start with no qualifying failure, the next failure begins a brand-new window at count `1`. A failure can therefore fall just outside a 60s lookback from *itself* and still count, or vice versa — the boundary is relative to when the burst started, not to each individual attempt.
 
 ### `POST /auth/logout` — *`2.3.1`, `2.3.2`*
 **Auth:** any authenticated role

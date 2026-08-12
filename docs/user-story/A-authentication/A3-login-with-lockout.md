@@ -14,18 +14,20 @@ so that **I can access my account, and be confident brute-force attempts against
 
 - [ ] **Scenario:** Successful login
   - **Given** I have a registered, active account
-  - **When** I submit my correct username-or-email and password
+  - **When** I submit my correct email and password
   - **Then** I am logged in, issued a session token identifying my user ID and role, and my `failedLoginCount` is reset to zero
 
 - [ ] **Scenario:** Invalid credentials show a generic error
   - **Given** I am on the login page
-  - **When** I submit a username/email and password combination that doesn't match an account, or doesn't match the password for an existing account
+  - **When** I submit a email and password combination that doesn't match an account, or doesn't match the password for an existing account
   - **Then** I see a single generic error message that does not reveal whether the email/username exists in the system
 
 - [ ] **Scenario:** Account locks out after repeated failures
   - **Given** I have made 4 failed login attempts for my account within the last 60 seconds
-  - **When** I submit a 5th failed attempt within that same rolling 60-second window
+  - **When** I submit a 5th failed attempt before that 60-second window (measured from my first failed attempt) has elapsed
   - **Then** my account is locked for 5 minutes, further login attempts are rejected until the lockout expires, and I'm shown how long the lockout lasts
+
+  **Implementation note:** the window is fixed, anchored at the first failed attempt of a burst — not a sliding window recomputed from each new attempt. If no failure occurs for 60 seconds, the next failure starts a fresh window at count 1, even if an earlier failure would otherwise still be "within the last 60 seconds" of it.
 
 - [ ] **Scenario:** Locked account rejects even correct credentials
   - **Given** my account is currently locked out from repeated failed attempts

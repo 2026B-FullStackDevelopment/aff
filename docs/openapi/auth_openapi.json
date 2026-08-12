@@ -1,0 +1,392 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Auth API",
+    "version": "0.1.0",
+    "description": "Registration, login, and logout for the AFF platform. Design intent lives in docs/api_design.md §4; this document reflects the routes as implemented in backend/src/modules/auth."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Registration, login, logout" }
+  ],
+  "paths": {
+    "/auth/register/recipient": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a Recipient",
+        "description": "Creates a RECIPIENT account and returns an active session. No address is collected at this stage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRecipientRequest" },
+              "example": {
+                "username": "jane_doe",
+                "email": "jane@example.com",
+                "password": "Str0ng!Pass",
+                "city": "Hà Nội"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created and session issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RecipientAuthResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "409": { "$ref": "#/components/responses/DuplicateEmail" }
+        }
+      }
+    },
+    "/auth/register/donor": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a Donor",
+        "description": "Creates a DONOR account with a company profile and pickup location, and returns an active session. `location` comes from the client's own OSM Nominatim address search — the server only range-checks the coordinates it's given, it does not geocode.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterDonorRequest" },
+              "example": {
+                "username": "freshfoods_ltd",
+                "companyName": "Fresh Foods Ltd",
+                "email": "donor@example.com",
+                "password": "Str0ng!Pass",
+                "taxCode": "0123456789",
+                "city": "Hà Nội",
+                "addressText": "12 Trần Hưng Đạo, Hà Nội",
+                "location": { "latitude": 21.0278, "longitude": 105.8342 }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created and session issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DonorAuthResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "409": { "$ref": "#/components/responses/DuplicateEmail" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in",
+        "description": "Authenticates by email and password. After 5 failed attempts inside a 60-second window, the account locks for 5 minutes. The window is anchored at the first failed attempt of a burst — it resets to a fresh window once 60 seconds pass with no failure, rather than continuously sliding with each new attempt.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "example": { "email": "jane@example.com", "password": "Str0ng!Pass" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login succeeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": {
+            "description": "Invalid credentials. The exact same message is returned whether the email is unregistered or the password is wrong, so a caller can't tell which one it was.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Invalid email or password." }
+              }
+            }
+          },
+          "403": {
+            "description": "Credentials were correct but the account has been deactivated by an Admin",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "This account has been deactivated." }
+              }
+            }
+          },
+          "429": {
+            "description": "Account is locked out after too many failed attempts. Rejected even if this attempt's password is correct.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LockedOutError" },
+                "example": {
+                  "message": "Too many failed attempts. Try again in 5 minute(s).",
+                  "lockedUntilSeconds": 300
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log out",
+        "description": "Revokes the presented token on the server by recording its jti as revoked, so it is rejected by every protected route from this point on — not just deleted from the client.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NullDataResponse" },
+                "example": { "data": null }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, expired, or already-revoked token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "missingHeader": {
+                    "summary": "No Authorization header, or not in \"Bearer <token>\" form",
+                    "value": { "message": "Authentication is required." }
+                  },
+                  "expiredOrInvalid": {
+                    "summary": "Bad signature, malformed token, or expired",
+                    "value": { "message": "Your session is invalid or has expired." }
+                  },
+                  "revoked": {
+                    "summary": "Token was already logged out",
+                    "value": { "message": "Your session is no longer valid. Please log in again." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "LockedOutError": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Error" },
+          {
+            "type": "object",
+            "properties": {
+              "lockedUntilSeconds": {
+                "type": "integer",
+                "description": "Seconds remaining until the lockout clears"
+              }
+            }
+          }
+        ]
+      },
+      "GeoLocation": {
+        "type": "object",
+        "required": ["latitude", "longitude", "updatedAt"],
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RegisterRecipientRequest": {
+        "type": "object",
+        "required": ["username", "email", "password", "city"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "English letters, numbers, underscore, and hyphen only"
+          },
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "At least 8 characters, 1 number, 1 special character, and 1 uppercase letter"
+          },
+          "city": { "type": "string" }
+        }
+      },
+      "RegisterDonorRequest": {
+        "type": "object",
+        "required": ["username", "companyName", "email", "password", "taxCode", "city", "addressText", "location"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "English letters, numbers, underscore, and hyphen only"
+          },
+          "companyName": { "type": "string" },
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "At least 8 characters, 1 number, 1 special character, and 1 uppercase letter"
+          },
+          "taxCode": { "type": "string", "pattern": "^\\d{10,13}$", "description": "10 to 13 digits" },
+          "city": { "type": "string" },
+          "addressText": { "type": "string" },
+          "location": {
+            "type": "object",
+            "required": ["latitude", "longitude"],
+            "description": "Selected from an OSM Nominatim address candidate on the client; the server only range-checks it, it does not geocode",
+            "properties": {
+              "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+              "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": {
+            "type": "string",
+            "description": "Checked for presence only — strength rules apply at registration, not at login"
+          }
+        }
+      },
+      "UserDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["RECIPIENT", "DONOR", "ADMIN", "COURIER"] },
+          "country": { "type": "string" },
+          "city": { "type": "string" },
+          "status": { "type": "string", "enum": ["ACTIVE", "DEACTIVATED"] },
+          "avatarUrl": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecipientDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "properties": {
+              "tier": { "type": "string", "enum": ["STANDARD", "PREMIUM"], "description": "Always STANDARD at registration" },
+              "notificationPreferences": {
+                "type": "array",
+                "items": {},
+                "description": "Always empty at registration"
+              },
+              "hasStripeCard": {
+                "type": "boolean",
+                "description": "Derived from whether a Stripe customer is on file — the raw Stripe id is never returned"
+              }
+            }
+          }
+        ]
+      },
+      "DonorDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string" },
+              "taxCode": { "type": "string" },
+              "addressText": { "type": "string" },
+              "location": { "$ref": "#/components/schemas/GeoLocation" }
+            }
+          }
+        ]
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": { "$ref": "#/components/schemas/UserDTO" },
+              "token": { "type": "string", "description": "JWT access token" }
+            }
+          }
+        }
+      },
+      "RecipientAuthResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": { "$ref": "#/components/schemas/RecipientDTO" },
+              "token": { "type": "string", "description": "JWT access token" }
+            }
+          }
+        }
+      },
+      "DonorAuthResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": { "$ref": "#/components/schemas/DonorDTO" },
+              "token": { "type": "string", "description": "JWT access token" }
+            }
+          }
+        }
+      },
+      "NullDataResponse": {
+        "type": "object",
+        "properties": {
+          "data": { "nullable": true, "example": null }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "The request body failed validation. The message names the first rule that failed — for example, an example password missing a digit gives a different message than one that's too short.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Password must contain at least 1 number." }
+          }
+        }
+      },
+      "DuplicateEmail": {
+        "description": "An account already exists with this email",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "This email is already registered." }
+          }
+        }
+      }
+    }
+  }
+}
