@@ -9,6 +9,8 @@ Before making any changes or answering questions, always refer to the following 
 - **Project Specifications & Requirements:** `docs/PRD.md` for project specifications and requirements.
 - **Database Design:** `docs/database_design.md` for database design and schema structure.
 - **API Design:** `docs/api_design.md` for API design contracts and endpoint details.
+- **User Stories:** `docs/user-story/` for per-epic acceptance criteria behind each PRD story.
+- **OpenAPI Specs:** `docs/openapi/` for machine-readable, per-module request/response schemas.
 
 ## Overall Architecture
 
