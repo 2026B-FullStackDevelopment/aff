@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Building2, User, Mail, ArrowRight } from 'lucide-react';
-import { VIETNAM_PROVINCES } from '../../../shared/constants/locations';
-import { resolveProvince } from '../../../shared/utils/resolveProvince';
+import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
+import { resolveProvince } from '@/shared/utils/resolveProvince';
 import { PasswordStrength } from '../components/PasswordStrength';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
-import { AddressAutocomplete, LocationData } from '../../../shared/components/AddressAutocomplete/AddressAutocomplete';
+import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';
 import { IconField } from '@/shared/components/IconField/IconField';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
@@ -59,8 +59,8 @@ export function DonorRegisterPage() {
         : {},
   });
 
-  const handleAddressSelect = ({ addressText, latitude, longitude, rawAddress }: LocationData) => {
-    const detectedProvince = resolveProvince(rawAddress, latitude, longitude);
+  const handleAddressSelect = ({ addressText, latitude, longitude, municipality, rawAddress }: LocationData) => {
+    const detectedProvince = municipality || resolveProvince(rawAddress, latitude, longitude);
 
     setForm((current) => ({
       ...current,

@@ -3,6 +3,9 @@ import { MapPin } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { cn } from '@/shared/utils';
+import { useNominatimSearch } from '@/shared/hooks/useNominatimSearch';
+import { nominatimService, type NominatimPlace } from '@/shared/services/nominatim.service';
+import { resolveProvince } from '@/shared/utils/resolveProvince';
 
 export interface LocationData {
   addressText: string;
@@ -19,14 +22,6 @@ interface AddressAutocompleteProps {
   id?: string;
 }
 
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: Record<string, string>;
-}
-
 export function AddressAutocomplete({
   value,
   onSelect,
@@ -38,13 +33,25 @@ export function AddressAutocomplete({
   const listboxId = `address-listbox-${generatedId}`;
 
   const [input, setInput] = useState(value);
-  const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [isGpsLoading, setIsGpsLoading] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const skipNextSearchRef = useRef(true);
+
+  const {
+    setQuery,
+    results: suggestions,
+    isLoading: isSearchLoading,
+    clear,
+  } = useNominatimSearch({
+    countrycodes: 'vn',
+    debounceMs: 400,
+    minQueryLength: 3,
+  });
+
+  const isLoading = isSearchLoading || isGpsLoading;
 
   useEffect(() => {
     setInput(value);
@@ -69,78 +76,33 @@ export function AddressAutocomplete({
     }
 
     if (!input || input.trim().length < 3) {
-      setSuggestions([]);
+      clear();
       setShowDropdown(false);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            input
-          )}&addressdetails=1&limit=5&countrycodes=vn`,
-          {
-            headers: {
-              'User-Agent': 'AFF-App-Registration/1.0',
-            },
-          }
-        );
-        if (response.ok) {
-          const data: NominatimResult[] = await response.json();
-          setSuggestions(data);
-          setShowDropdown(true);
-          setFocusedIndex(-1);
-        }
-      } catch (err) {
-        console.error('Failed to fetch address suggestions:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 400);
+    setQuery(input);
+    setShowDropdown(true);
+    setFocusedIndex(-1);
+  }, [input, setQuery, clear]);
 
-    return () => clearTimeout(timer);
-  }, [input]);
-
-  const handleSelect = async (item: NominatimResult) => {
+  const handleSelect = (item: NominatimPlace) => {
     skipNextSearchRef.current = true;
     setInput(item.display_name);
-    setSuggestions([]);
+    clear();
     setShowDropdown(false);
     setFocusedIndex(-1);
 
     const latitude = parseFloat(item.lat);
     const longitude = parseFloat(item.lon);
-
-    let rawAddress = item.address;
-
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json` +
-          `&lat=${latitude}` +
-          `&lon=${longitude}` +
-          `&addressdetails=1` +
-          `&zoom=10`,
-        {
-          headers: {
-            'User-Agent': 'AFF-App-Registration/1.0',
-          },
-        }
-      );
-
-      if (response.ok) {
-        const reverseData = await response.json();
-        rawAddress = reverseData.address;
-      }
-    } catch (error) {
-      console.error('Failed to reverse geocode selected address:', error);
-    }
+    const rawAddress = item.address;
+    const municipality = resolveProvince(rawAddress, latitude, longitude);
 
     onSelect({
       addressText: item.display_name,
       latitude,
       longitude,
+      municipality,
       rawAddress,
     });
   };
@@ -169,46 +131,42 @@ export function AddressAutocomplete({
       return;
     }
 
-    setIsLoading(true);
+    setIsGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-            {
-              headers: {
-                'User-Agent': 'AFF-App-Registration/1.0',
-              },
-            }
-          );
-          if (response.ok) {
-            const data: NominatimResult = await response.json();
+          const data = await nominatimService.reverseGeocode(latitude, longitude);
+          if (data) {
             skipNextSearchRef.current = true;
             setInput(data.display_name);
-            setSuggestions([]);
+            clear();
             setShowDropdown(false);
+
+            const municipality = resolveProvince(data.address, latitude, longitude);
 
             onSelect({
               addressText: data.display_name,
               latitude,
               longitude,
+              municipality,
               rawAddress: data.address,
             });
           }
         } catch (err) {
           console.error('Reverse geocoding failed:', err);
         } finally {
-          setIsLoading(false);
+          setIsGpsLoading(false);
         }
       },
       (geoErr) => {
         console.error('GPS error:', geoErr);
-        setIsLoading(false);
+        setIsGpsLoading(false);
         alert('Unable to retrieve location. Please check browser permissions.');
       }
     );
   };
+
 
   return (
     <div className="relative flex flex-col gap-1.5 w-full" ref={containerRef}>
