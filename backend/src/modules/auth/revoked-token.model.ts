@@ -1,8 +1,15 @@
 // Defines the MongoDB shape for revoked JWTs (docs/database_design.md § REVOKED_TOKEN).
 import mongoose, { Schema } from 'mongoose';
 
+/** Why a token was revoked before its natural expiry. */
 type RevokeReason = 'LOGOUT' | 'ADMIN_DEACTIVATE' | 'PASSWORD_CHANGE';
 
+/**
+ * A single revoked JWT, keyed by its `jti`. `expiresAt` mirrors the token's
+ * own expiry and drives the collection's TTL index (`expires: 0` below) — Mongo
+ * deletes the row automatically once the token would have expired anyway, so
+ * this collection never needs manual cleanup.
+ */
 interface RevokedTokenAttrs {
   jti: string;
   userId: mongoose.Types.ObjectId;
