@@ -12,6 +12,7 @@ import { FoodListingCreationPage } from '../modules/donations/pages/FoodListingC
 import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage';
+import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 
 export function AppRouter() {
   return (
@@ -67,6 +68,14 @@ export function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/deliveries/queue"
+          element={
+            <ProtectedRoute allowedRoles={['COURIER']}>
+              <DeliveryQueuePage />
             </ProtectedRoute>
           }
         />

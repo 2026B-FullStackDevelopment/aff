@@ -1,16 +1,16 @@
-/* Defines global frontend styles shared by all AFF pages. */
-* {
-  box-sizing: border-box;
-}
+/* Global frontend styles for AFF monorepo. */
+@import "tailwindcss";
 
-body {
-  color: #1d2b24;
-  font-family: Arial, sans-serif;
-  margin: 0;
-}
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
 
-main {
-  margin: 0 auto;
-  max-width: 72rem;
-  padding: 2rem 1rem;
+  body {
+    font-family: var(--font-sans);
+    color: #1e293b;
+    background-color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
-import './AddressAutocomplete.css';
+import { MapPin } from 'lucide-react';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { cn } from '@/shared/utils';
 
 export interface LocationData {
   addressText: string;
@@ -41,9 +44,11 @@ export function AddressAutocomplete({
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const skipNextSearchRef = useRef(true);
 
   useEffect(() => {
     setInput(value);
+    skipNextSearchRef.current = true;
   }, [value]);
 
   useEffect(() => {
@@ -58,13 +63,14 @@ export function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
-    if (!input || input.trim().length < 3) {
-      setSuggestions([]);
-      setShowDropdown(false);
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
       return;
     }
 
-    if (input === value && suggestions.length === 0) {
+    if (!input || input.trim().length < 3) {
+      setSuggestions([]);
+      setShowDropdown(false);
       return;
     }
 
@@ -95,47 +101,49 @@ export function AddressAutocomplete({
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [input, value]);
+  }, [input]);
 
   const handleSelect = async (item: NominatimResult) => {
-  setInput(item.display_name);
-  setShowDropdown(false);
-  setFocusedIndex(-1);
+    skipNextSearchRef.current = true;
+    setInput(item.display_name);
+    setSuggestions([]);
+    setShowDropdown(false);
+    setFocusedIndex(-1);
 
-  const latitude = parseFloat(item.lat);
-  const longitude = parseFloat(item.lon);
+    const latitude = parseFloat(item.lat);
+    const longitude = parseFloat(item.lon);
 
-  let rawAddress = item.address;
+    let rawAddress = item.address;
 
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json` +
-        `&lat=${latitude}` +
-        `&lon=${longitude}` +
-        `&addressdetails=1` +
-        `&zoom=10`,
-      {
-        headers: {
-          'User-Agent': 'AFF-App-Registration/1.0',
-        },
-      }
-    );
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json` +
+          `&lat=${latitude}` +
+          `&lon=${longitude}` +
+          `&addressdetails=1` +
+          `&zoom=10`,
+        {
+          headers: {
+            'User-Agent': 'AFF-App-Registration/1.0',
+          },
+        }
+      );
 
-    if (response.ok) {
+      if (response.ok) {
         const reverseData = await response.json();
         rawAddress = reverseData.address;
-        }
+      }
     } catch (error) {
-        console.error('Failed to reverse geocode selected address:', error);
+      console.error('Failed to reverse geocode selected address:', error);
     }
 
     onSelect({
-        addressText: item.display_name,
-        latitude,
-        longitude,
-        rawAddress,
+      addressText: item.display_name,
+      latitude,
+      longitude,
+      rawAddress,
     });
-    };
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown || suggestions.length === 0) return;
@@ -176,7 +184,9 @@ export function AddressAutocomplete({
           );
           if (response.ok) {
             const data: NominatimResult = await response.json();
+            skipNextSearchRef.current = true;
             setInput(data.display_name);
+            setSuggestions([]);
             setShowDropdown(false);
 
             onSelect({
@@ -201,25 +211,24 @@ export function AddressAutocomplete({
   };
 
   return (
-    <div className="auth-field address-autocomplete" ref={containerRef}>
-      <label htmlFor={inputId} className="address-autocomplete-label">
-        Address <span className="required">*</span>
-      </label>
-      <div className="input-wrapper address-autocomplete-input-wrapper">
-        <svg
-          className="input-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <div className="relative flex flex-col gap-1.5 w-full" ref={containerRef}>
+      {/* Label */}
+      <Label
+        htmlFor={inputId}
+        className="text-[0.75rem] font-bold uppercase tracking-wider text-slate-700 select-none"
+      >
+        Address <span className="text-red-600">*</span>
+      </Label>
+
+      {/* Input row */}
+      <div className="relative flex items-center gap-2">
+        {/* Map-pin icon overlaid on the input */}
+        <MapPin
+          className="absolute left-3 h-4 w-4 text-gray-400 pointer-events-none"
           aria-hidden="true"
-        >
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-          <circle cx="12" cy="10" r="3" />
-        </svg>
-        <input
+        />
+
+        <Input
           id={inputId}
           type="text"
           role="combobox"
@@ -229,6 +238,7 @@ export function AddressAutocomplete({
           aria-activedescendant={
             focusedIndex >= 0 ? `${inputId}-option-${focusedIndex}` : undefined
           }
+          aria-invalid={Boolean(error)}
           value={input}
           onChange={(e) => {
             setInput(e.target.value);
@@ -236,34 +246,39 @@ export function AddressAutocomplete({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Start typing street address..."
+          className="flex-1 pl-9 pr-2 h-11 rounded-lg border-slate-200 bg-slate-50/50 text-slate-800 placeholder:text-gray-400 text-sm transition-all duration-200 focus-visible:bg-white focus-visible:border-amber-500 focus-visible:ring-4 focus-visible:ring-amber-500/15 focus-visible:ring-offset-0"
         />
+
+        {/* GPS button */}
         <button
           type="button"
-          className="address-autocomplete-gps-btn"
           onClick={handleUseCurrentLocation}
           aria-label="Use current location via GPS"
           title="Use current location via GPS"
+          className="flex items-center gap-1 shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors duration-150 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
         >
           <span aria-hidden="true">📍</span> GPS
         </button>
       </div>
 
+      {/* Loading status */}
       {isLoading && (
         <div
           role="status"
           aria-busy="true"
-          className="helper-text address-autocomplete-status"
+          className="text-xs text-slate-500 mt-0.5"
         >
-          Searching locations...
+          Searching locations…
         </div>
       )}
 
+      {/* Suggestions dropdown */}
       {showDropdown && !isLoading && (
         <ul
           id={listboxId}
           role="listbox"
           aria-label="Address suggestions"
-          className="address-autocomplete-dropdown"
+          className="absolute top-full left-0 right-0 z-50 mt-1 max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
         >
           {suggestions.length > 0 ? (
             suggestions.map((item, index) => (
@@ -272,23 +287,31 @@ export function AddressAutocomplete({
                 key={item.place_id}
                 role="option"
                 aria-selected={focusedIndex === index}
-                className={`address-autocomplete-item ${
-                  focusedIndex === index ? 'is-focused' : ''
-                }`}
+                className={cn(
+                  'cursor-pointer border-b border-slate-50 px-3 py-2.5 text-sm text-slate-700 leading-snug transition-colors duration-75 last:border-b-0',
+                  focusedIndex === index
+                    ? 'bg-slate-100 text-slate-900'
+                    : 'hover:bg-slate-50'
+                )}
                 onClick={() => handleSelect(item)}
               >
                 {item.display_name}
               </li>
             ))
           ) : (
-            <li className="address-autocomplete-empty" role="status">
+            <li className="px-3 py-2.5 text-sm text-slate-500 text-center" role="status">
               No matching addresses found.
             </li>
           )}
         </ul>
       )}
 
-      {error ? <small className="error-text">{error}</small> : null}
+      {/* Error message */}
+      {error && (
+        <p className="text-xs font-semibold text-red-600 animate-in fade-in-50 duration-200">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

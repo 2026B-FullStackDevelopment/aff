@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { Button } from '../../../shared/components/Button/Button';
-import { ROLE_HOME } from '../../../shared/constants/roleHome';
-import '../style/AuthPages.css';
+import { Button } from '@/shared/components/Button/Button';
+import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
+import { IconField } from '@/shared/components/IconField/IconField';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
+import { ROLE_HOME } from '@/shared/constants/roleHome';
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -37,72 +40,75 @@ export function LoginPage() {
   }
 
   return (
-    <main className="auth-shell auth-shell--split auth-login auth-shell--centered">
-      <div className="auth-page-header">
-        <h1 className="auth-login-title">AFF Portal</h1>
-        <div className="auth-login-subtitle">Securing the supply chain for a sustainable future.</div>
-        <p className="auth-login-tagline">Sign in to your Affordable Food Federation account to continue.</p>
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f0f4f8]">
+      <div className="text-center mb-6 max-w-md">
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#1e3a5f] mb-1">
+          AFF Portal
+        </h1>
+        <div className="text-base font-bold text-[#1e3a5f] mb-1">
+          Securing the supply chain for a sustainable future.
+        </div>
+        <p className="text-xs text-slate-500">
+          Sign in to your Affordable Food Federation account to continue.
+        </p>
       </div>
-      <section className="auth-panel auth-panel--form">
-        <form className="auth-form" onSubmit={handleSubmit} aria-busy={isSubmitting}>
-          <div className="auth-field">
-            <label htmlFor="email">EMAIL</label>
-            <div className="input-wrapper">
-              <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <input id="email" name="email" type="email" placeholder="name123@affordablefood.com" autoComplete="email" required />
-            </div>
-          </div>
 
-          <div className="auth-field">
-            <label htmlFor="password">PASSWORD</label>
-            <div className="input-wrapper auth-field__input">
-              <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="3"/>
-                <path d="M8 11.5A5 5 0 0 0 3 16.5V19h18v-2.5a5 5 0 0 0-5-5H8z"/>
-              </svg>
-              <input id="password" name="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" required />
-              <button
-                type="button"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                onClick={() => setShowPassword(v => !v)}
-              >
-                {showPassword ? (
-                  <svg className="auth-eye-icon" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                ) : (
-                  <svg className="auth-eye-icon" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
+      <section className="w-full max-w-[480px] bg-white rounded-2xl border border-[#dce3ec] p-6 sm:p-8 shadow-xl">
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit} aria-busy={isSubmitting}>
+          {/* Email field */}
+          <IconField
+            id="email"
+            name="email"
+            type="email"
+            label="EMAIL"
+            placeholder="name123@affordablefood.com"
+            autoComplete="email"
+            required
+            icon={User}
+            theme="admin"
+          />
 
-          {submitError ? (
-            <p className="auth-form-feedback auth-form-feedback--error" role="alert">
-              {submitError}
-            </p>
-          ) : null}
+          {/* Password field */}
+          <PasswordField
+            id="password"
+            name="password"
+            label="PASSWORD"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            theme="admin"
+          />
 
-          <div className="auth-actions">
-            <Button className="auth-submit" type="submit" disabled={isSubmitting}>
+          <FormErrorAlert message={submitError} />
+
+          <div className="mt-1">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-11 bg-[#5b7bc0] hover:bg-[#4a6ab0] active:scale-[0.98] text-white font-bold rounded-lg text-base transition-all duration-200 ease-out hover:shadow-md"
+            >
               {isSubmitting ? 'Signing in…' : 'Login →'}
             </Button>
           </div>
         </form>
 
-        <p className="auth-link auth-link--stacked">
-          Don't have an account? {' '}
-          <br />
-          Sign up {' '}
-          <Link to="/register/recipient" className="auth-link--recipient">as a Recipient</Link>
-          {' '} or {' '}
-          <Link to="/register/donor" className="auth-link--donor">as a Donor</Link>
-        </p>
+        <div className="mt-6 pt-4 border-t border-slate-100 text-center text-sm text-slate-600">
+          Don't have an account?
+          <div className="mt-1.5 flex justify-center items-center gap-2 text-sm">
+            <Link to="/register/recipient" className="font-bold text-slate-700 hover:text-slate-900 hover:underline transition-colors duration-150">
+              Sign up as Recipient
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link to="/register/donor" className="font-bold text-[#D97706] hover:text-[#B45309] hover:underline transition-colors duration-150">
+              Sign up as Donor
+            </Link>
+          </div>
+        </div>
       </section>
     </main>
   );
 }
+
+export default LoginPage;
