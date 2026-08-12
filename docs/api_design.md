@@ -215,7 +215,7 @@ Errors: `400` invalid format; `409` email already registered
 ### `POST /auth/register/donor` — *`1B.1`, `1B.2`, `1B.3.1`*
 **Auth:** public
 
-Request body: `{ companyName, email, password, taxCode, city, addressText, location: { latitude, longitude } }` (`location` is resolved client-side via an OSM Nominatim address search-as-you-type list; the Donor selects one of the returned candidates — no pin-drop/map confirmation)
+Request body: `{ username, companyName, email, password, taxCode, city, addressText, location: { latitude, longitude } }` (`username` follows the same syntax rule as Recipient registration; `location` is resolved client-side via an OSM Nominatim address search-as-you-type list; the Donor selects one of the returned candidates — no pin-drop/map confirmation)
 Response `201`: `{ user: DonorDTO, token: string }`
 Errors: `400` invalid company/tax-code format; `409` email already registered
 

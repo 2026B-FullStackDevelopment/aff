@@ -40,6 +40,7 @@ const recipientPayload = {
 };
 
 const donorPayload = {
+  username: 'freshfoods_ltd',
   companyName: 'Fresh Foods Ltd',
   email: 'donor@example.com',
   password: 'Str0ng!Pass',
@@ -130,11 +131,11 @@ describe('auth.register.service', () => {
       createUserMock.mockResolvedValue({ _id: 'u1', role: 'DONOR' });
     });
 
-    it('creates a DONOR user using the company name as the username', async () => {
+    it('creates a DONOR user from the payload', async () => {
       await registerDonor(donorPayload);
 
       expect(createUserMock).toHaveBeenCalledWith({
-        username: 'Fresh Foods Ltd',
+        username: 'freshfoods_ltd',
         email: 'donor@example.com',
         password: 'Str0ng!Pass',
         role: 'DONOR',

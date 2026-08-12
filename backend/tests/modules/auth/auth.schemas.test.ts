@@ -13,6 +13,7 @@ const validRecipient = {
 };
 
 const validDonor = {
+  username: 'freshfoods_ltd',
   companyName: 'Fresh Foods Ltd',
   email: 'donor@example.com',
   password: 'Str0ng!Pass',
@@ -146,6 +147,16 @@ describe('auth.schemas', () => {
         'Company name is required.'
       );
     });
+
+    // Username syntax rule, same as recipient registration (issue #47's table applies here too).
+    it.each([['john doe'], ['john.doe'], ['jöhn'], ['john@doe']])(
+      'rejects the username %s',
+      (username) => {
+        expect(firstError(registerDonorSchema, { ...validDonor, username })).toBe(
+          'Username may only contain English letters, numbers, underscores, and hyphens.'
+        );
+      }
+    );
 
     it('rejects an empty address', () => {
       expect(firstError(registerDonorSchema, { ...validDonor, addressText: '' })).toBe(

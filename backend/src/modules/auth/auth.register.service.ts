@@ -67,10 +67,8 @@ async function registerRecipient(
 }
 
 /**
- * Registers a new Donor: creates the `USER` row (using the company name as
- * the username, since `USER.username` is required but the donor form has no
- * separate username field), then the `DONOR` profile, then issues a session.
- * Story #48.
+ * Registers a new Donor: creates the `USER` row, then the `DONOR` profile,
+ * then issues a session. Story #48.
  *
  * @param payload - Validated registration fields, including the pickup
  *   coordinates the client resolved via OSM Nominatim.
@@ -78,8 +76,7 @@ async function registerRecipient(
  */
 async function registerDonor(payload: RegisterDonorRequestDto): Promise<DonorRegistration> {
   const user = await userInterface.createUser({
-    // USER.username is required; the donor form collects a company name instead.
-    username: payload.companyName,
+    username: payload.username,
     email: payload.email,
     password: payload.password,
     role: 'DONOR',

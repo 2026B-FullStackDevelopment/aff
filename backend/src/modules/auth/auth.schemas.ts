@@ -66,6 +66,7 @@ const registerRecipientSchema = z.object({
  * address search before submitting. Messages match issue #48.
  */
 const registerDonorSchema = z.object({
+  username: usernameSchema,
   companyName: z
     .string({ message: 'Company name is required.' })
     .min(1, { message: 'Company name is required.' }),

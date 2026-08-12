@@ -114,10 +114,10 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - Data: creates `USER` (role=RECIPIENT, status=ACTIVE) + `RECIPIENT` (tier=STANDARD, empty `notificationPreferences`).
 
 **A2. Donor Registration** (`1B.1`, `1B.2`, `1B.3.1`)
-> As a Donor, I want to register with company name, email, password, tax code, city, and pickup address, so Couriers and Recipients have accurate location data.
-- UI: same validation pattern as A1, plus an address field that queries OSM Nominatim for matching candidates as the Donor types; the Donor must select one of the returned options before submission completes (no pin-drop/map interaction).
-- API: `POST /auth/register/donor` validates company name/tax code format server-side alongside the shared email/password rules.
-- Data: creates `USER` (role=DONOR) + `DONOR` (companyName, taxCode, addressText, location).
+> As a Donor, I want to register with a username, company name, email, password, tax code, city, and pickup address, so Couriers and Recipients have accurate location data.
+- UI: same validation pattern as A1 (including the same username syntax rule), plus an address field that queries OSM Nominatim for matching candidates as the Donor types; the Donor must select one of the returned options before submission completes (no pin-drop/map interaction).
+- API: `POST /auth/register/donor` validates username/company name/tax code format server-side alongside the shared email/password rules.
+- Data: creates `USER` (role=DONOR, with the submitted `username`) + `DONOR` (companyName, taxCode, addressText, location).
 
 **A3. Login with Lockout** (`2.2.1`)
 > As any user, I want to log in with username/email + password, and be protected from brute-force attempts.
