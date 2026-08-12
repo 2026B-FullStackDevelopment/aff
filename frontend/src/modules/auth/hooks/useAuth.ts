@@ -1,9 +1,10 @@
 // Holds reusable auth behavior so login/register pages do not own API details.
 import { authService } from '../services/auth.service';
-import { storeSession, clearSession } from '../../../services/authStorage';
+import { storeSession, clearSession } from '@/services/authStorage';
+import type { LoginPayload, RegisterRecipientPayload, RegisterDonorPayload } from '@/types/api';
 
 export function useAuth() {
-  async function login(credentials: unknown) {
+  async function login(credentials: LoginPayload) {
     const response = await authService.login(credentials);
 
     if (response.ok && response.data?.user && response.data?.token) {
@@ -13,11 +14,11 @@ export function useAuth() {
     return response;
   }
 
-  async function registerRecipient(payload: unknown) {
+  async function registerRecipient(payload: RegisterRecipientPayload) {
     return authService.registerRecipient(payload);
   }
 
-  async function registerDonor(payload: unknown) {
+  async function registerDonor(payload: RegisterDonorPayload) {
     return authService.registerDonor(payload);
   }
 

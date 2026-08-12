@@ -26,14 +26,14 @@ export function ProfilePage() {
     <main>
       <h1>My Profile</h1>
       <dl>
-        <dt>Name</dt>
-        <dd>{profile.name}</dd>
+        <dt>Username</dt>
+        <dd>{profile.username}</dd>
         <dt>Email</dt>
         <dd>{profile.email}</dd>
         <dt>Role</dt>
         <dd>{profile.role}</dd>
         <dt>Premium status</dt>
-        <dd>{profile.isPremium ? 'Premium' : 'Standard'}</dd>
+        <dd>{profile.role === 'RECIPIENT' ? (profile.tier === 'PREMIUM' ? 'Premium' : 'Standard') : '—'}</dd>
       </dl>
     </main>
   );
