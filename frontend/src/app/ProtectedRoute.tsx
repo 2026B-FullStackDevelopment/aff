@@ -1,9 +1,9 @@
 // Protects frontend pages by checking whether the current user has an allowed role.
 import { Navigate } from 'react-router-dom';
+import { getStoredUser } from '../services/authStorage';
 
 export function ProtectedRoute({ allowedRoles, children }) {
-  const storedUser = localStorage.getItem('aff_user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  const user = getStoredUser();
 
   if (!user) {
     return <Navigate to="/login" replace />;

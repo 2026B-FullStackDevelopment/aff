@@ -1,4 +1,6 @@
 // Provides shared REST helpers so frontend services do not call fetch in every file.
+import { getStoredToken } from './authStorage';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 export interface ApiResponse<T = unknown> {
@@ -14,7 +16,7 @@ async function request<T = unknown>(path: string, options: RequestInit = {}): Pr
     headers.set('Content-Type', 'application/json');
   }
 
-  const accessToken = localStorage.getItem('aff_token');
+  const accessToken = getStoredToken();
   if (accessToken && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
