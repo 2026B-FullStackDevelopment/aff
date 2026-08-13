@@ -3,6 +3,7 @@ import * as orderService from './order.service.js';
 
 const orderInterface = {
   listOrdersForRecipient: orderService.listOrdersForRecipient,
+  verifyOrderOwnership: orderService.verifyOrderOwnership
 };
 
 export { orderInterface };
