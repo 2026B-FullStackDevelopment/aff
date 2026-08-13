@@ -14,4 +14,4 @@ async function verifyOrderOwnership(
   return Boolean(order);
 };
 
-export { listOrdersForRecipient };
+export { listOrdersForRecipient, verifyOrderOwnership };

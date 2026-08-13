@@ -31,7 +31,7 @@ function findOrderByIdAndRecipient(
   return Order.findOne({
     _id: orderId,
     recipientId
-  }).lean<OrderDocument[]>()
+  }).lean<OrderDocument>()
 }
 
 export { findOrdersByRecipient, findOrderByIdAndRecipient, createOrder };
