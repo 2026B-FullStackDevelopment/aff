@@ -1,0 +1,111 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Media API",
+    "version": "0.1.0",
+    "description": "Shared signed-upload-URL endpoint for avatar and listing-image uploads. Design intent lives in docs/api_design.md §5A; this document reflects the routes as implemented in backend/src/modules/media."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Media", "description": "Signed Supabase Storage upload URLs for avatars and listing images" }
+  ],
+  "paths": {
+    "/media/upload-url": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Request a signed upload URL",
+        "description": "Resolves `purpose` to a Supabase Storage bucket, path, and required role server-side, then returns a signed upload URL (60s expiry) plus the eventual public `mediaUrl`. The backend never receives the image bytes — the client PUTs them directly to `uploadUrl`, then persists `mediaUrl` itself via PATCH /users/me (avatarUrl) or POST /listings (imageUrl).",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadUrlRequest" },
+              "example": { "purpose": "AVATAR", "contentType": "image/png" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed upload URL issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadUrlResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorOnly" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "UploadUrlRequest": {
+        "type": "object",
+        "required": ["purpose", "contentType"],
+        "properties": {
+          "purpose": { "type": "string", "enum": ["AVATAR", "LISTING_IMAGE"] },
+          "contentType": { "type": "string", "enum": ["image/png", "image/jpeg", "image/webp"] }
+        }
+      },
+      "UploadUrlResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "uploadUrl": { "type": "string", "format": "uri" },
+              "path": { "type": "string" },
+              "token": { "type": "string" },
+              "mediaUrl": { "type": "string", "format": "uri" },
+              "expiresIn": { "type": "integer", "example": 60 }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "purpose is not AVATAR/LISTING_IMAGE, or contentType is not image/png, image/jpeg, or image/webp",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "message": "contentType must be one of image/png, image/jpeg, image/webp." }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "DonorOnly": {
+        "description": "purpose: LISTING_IMAGE requested by a non-Donor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "message": "Only Donors can upload listing images." }
+          }
+        }
+      }
+    }
+  }
+}
