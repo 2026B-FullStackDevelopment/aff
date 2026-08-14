@@ -11,6 +11,8 @@ const userInterface = {
   lockAccount: userService.lockAccount,
   createRecipientProfile: userService.createRecipientProfile,
   createDonorProfile: userService.createDonorProfile,
+  findRecipientByUserId: userService.findRecipientByUserId,
+  setRecipientStripeCustomerId: userService.setRecipientStripeCustomerId,
 };
 
 export { userInterface };
