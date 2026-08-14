@@ -93,6 +93,14 @@ async function createRecipientProfile(userId: string | Types.ObjectId) {
   return recipientRepository.createRecipient({ userId });
 }
 
+async function findRecipientByUserId(userId: string | Types.ObjectId) {
+  return recipientRepository.findRecipientByUserId(userId);
+}
+
+async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: string) {
+  return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
+}
+
 async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
@@ -107,5 +115,7 @@ export {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  findRecipientByUserId,
+  setRecipientStripeCustomerId,
 };
 export type { CreateDonorProfileInput };
