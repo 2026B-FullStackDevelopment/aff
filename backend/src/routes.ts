@@ -3,6 +3,7 @@
 import type { Express, Request, Response } from 'express';
 import authRoutes from './modules/auth/auth.routes.js';
 import userRoutes from './modules/users/user.routes.js';
+import mediaRoutes from './modules/media/media.routes.js';
 import listingRoutes from './modules/listings/listing.routes.js';
 import orderRoutes from './modules/orders/order.routes.js';
 import subscriptionRoutes, { recipientPreferencesRoutes } from './modules/subscriptions/subscription.routes.js';
@@ -17,6 +18,7 @@ function registerRoutes(app: Express) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
+  app.use('/api/media', mediaRoutes);
   app.use('/api/listings', listingRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/subscriptions', subscriptionRoutes);
