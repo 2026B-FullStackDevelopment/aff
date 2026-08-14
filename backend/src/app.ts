@@ -11,7 +11,7 @@ function createApp() {
 
   app.use(cors({ origin: env.clientUrl, credentials: true }));
   app.use(morgan('dev'));
-  app.use(express.json());
+  app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf; } }));
 
   registerRoutes(app);
 

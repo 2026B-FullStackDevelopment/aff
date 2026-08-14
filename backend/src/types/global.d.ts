@@ -20,6 +20,9 @@ declare global {
         jti: string;
         expiresAt: Date;
       };
+      // Captured by express.json()'s verify callback so the Stripe webhook can check its signature
+      // against the exact bytes Stripe signed (the parsed req.body is not sufficient).
+      rawBody?: Buffer;
     }
   }
 }

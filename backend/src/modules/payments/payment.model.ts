@@ -12,7 +12,7 @@ interface PaymentAttrs {
   currency: string;
   status: TransactionStatus;
   paidAt?: Date;
-  lastProcessedEventId: string;
+  lastProcessedEventId?: string;
   createdAt: Date;
 }
 
@@ -28,7 +28,7 @@ const paymentSchema = new Schema<PaymentDocument>(
     currency: { type: String, required: true },
     status: { type: String, enum: ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED'], default: 'PENDING' },
     paidAt: { type: Date },
-    lastProcessedEventId: { type: String, required: true },
+    lastProcessedEventId: { type: String },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
