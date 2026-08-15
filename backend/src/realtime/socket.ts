@@ -1,6 +1,12 @@
 import {Server} from 'socket.io';
 // Import only the Typescript type for Node.js's http server
 import type {Server as HttpServer} from 'node:http';
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData,
+} from './socket.types.js';
 // Import Auth module public interface. Socket.IO user verifyAccessToken()
 // checking whether token has expired or been revoked
 import {authInterface} from '../modules/auth/auth.interface.js';
@@ -8,17 +14,36 @@ import {authInterface} from '../modules/auth/auth.interface.js';
 import {orderInterface} from '../modules/orders/order.interface.js';
 import {env} from '../config/env.js'
 
+type RealtimeSocketServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+>;
+
 // Keep the Socket.IO server here so other functions can use it later.
 let activeSocketServer: Server | undefined;
 
-function initializeSocketServer (httpServer: HttpServer) {
+function initializeSocketServer (
+    httpServer: HttpServer
+): RealtimeSocketServer {
+    // Make initialization idempotent.
+    if (activeSocketServer) {
+    return activeSocketServer;
+    }
+
     // Create a Socket.IO server and attach it to the existing Node HTTP server
-    const io = new Server(httpServer, {
+    const io = new Server<
+        ClientToServerEvents,
+        ServerToClientEvents,
+        InterServerEvents,
+        SocketData
+    >(httpServer, {
         cors: {
             // Only allows the configured frontend url to connect
             origin: env.clientUrl,
             // Allow credentials related cross-origin request
-            credentials: true
+            credentials: true,
         },
     });
 
@@ -77,7 +102,7 @@ function initializeSocketServer (httpServer: HttpServer) {
 }
 
 // Get the active Socket.IO server so messages can be sent
-function getSocketServer(): Server {
+function getSocketServer(): RealtimeSocketServer {
     if (!activeSocketServer) {
         throw new Error('Socket.IO server has not been initialized.');
     }
