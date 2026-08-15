@@ -1,9 +1,16 @@
+// Import Vitest's utilities.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { findMock, createMock, leanMock } = vi.hoisted(() => {
+// Create mocks before vi.mock() is evaluated.
+// findMock represents Order.find().
+// findOneMock represents Order.findOne().
+// createMock represents Order.create().
+// leanMock represents the .lean() method returned
+const { findMock, findOneMock, createMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findMock: vi.fn(() => ({ lean: leanMock })),
+    findOneMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
     leanMock,
   };
@@ -12,20 +19,24 @@ const { findMock, createMock, leanMock } = vi.hoisted(() => {
 vi.mock('../../../src/modules/orders/order.model.js', () => ({
   default: {
     find: findMock,
+    findOne: findOneMock,
     create: createMock,
   },
 }));
 
-import { findOrdersByRecipient, createOrder } from '../../../src/modules/orders/order.repository.js';
+// Import the repository functions
+import { findOrdersByRecipient, findOrderByIdAndRecipient, createOrder } from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
   beforeEach(() => {
     findMock.mockClear();
+    findOneMock.mockClear();
     createMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue([{ _id: 'o1' }]);
   });
 
+  // Verify that recipient orders are queried using recipientId.
   it('findOrdersByRecipient queries by recipientId and returns lean documents', async () => {
     await findOrdersByRecipient('r1');
 
@@ -33,6 +44,21 @@ describe('order.repository', () => {
     expect(leanMock).toHaveBeenCalled();
   });
 
+  // Verify that ownership lookup includes both IDs in Order.findOne()
+  it('findOrderByIdAndRecipient queries by order ID and recipient ID', async () => {
+    const orderId = '507f1f77bcf86cd799439011';
+    const recipientId = '507f191e810c19729de860ea';
+
+    await findOrderByIdAndRecipient(orderId, recipientId);
+
+    expect(findOneMock).toHaveBeenCalledWith({
+      _id: orderId,
+      recipientId,
+    });
+    expect(leanMock).toHaveBeenCalled();
+  });
+
+  // Verify that createOrder passes the full order data to Order.create().
   it('createOrder calls Order.create with the given data', async () => {
     createMock.mockResolvedValue({ _id: 'o1' });
 
