@@ -337,15 +337,239 @@ describe('Socket.IO authentication', () => {
 
     // Ask to watch an order and wait until its room has been joined.
     async function joinOrder(
-    client: ClientSocket,
-    orderId: string
+        client: ClientSocket,
+        orderId: string
     ): Promise<void> {
-    client.emit('order:join', orderId);
+        client.emit('order:join', orderId);
 
-    await waitUntil(
-        () => serverSocket(client).rooms.has(`order:${orderId}`),
-        `Did not join order:${orderId}.`
-    );
+        await waitUntil(
+            () => serverSocket(client).rooms.has(`order:${orderId}`),
+            `Did not join order:${orderId}.`
+        );
     }
+
+    // Confirm that a logged-in user automatically enters their private room.
+    it('joins the personal room from the verified token', async () => {
+        // Connect using a test Recipient's token 
+        const client = await connectUser('valid-token', RECIPIENT_ID);
+
+        // Wait for private room to be ready.
+        await waitUntil(
+            () => serverSocket(client).rooms.has(`user:${RECIPIENT_ID}`),
+            'Did not join the personal room.'
+        );
+
+        // Confirm token checked and correct room
+        expect(verifyAccessTokenMock).toHaveBeenCalledWith('valid-token');
+        expect(serverSocket(client).rooms).toContain(`user:${RECIPIENT_ID}`);
+        expect(serverSocket(client).rooms).not.toContain(
+            `user:${OTHER_RECIPIENT_ID}`
+        );
+    });
+
+    // Confirm Recipient can watch their own order
+    it('allows a Recipient to join their own order room', async () => {
+        // Pretend that the ownership check succeeds.
+        verifyOrderOwnershipMock.mockResolvedValue(true);
+
+        const client = await connectUser('owner-token', RECIPIENT_ID);
+        await joinOrder(client, ORDER_ID);
+
+        // Confirm the order and authenticated user checked.
+        expect(verifyOrderOwnershipMock).toHaveBeenCalledWith(
+            ORDER_ID,
+            RECIPIENT_ID
+        );
+        expect(serverSocket(client).rooms).toContain(`order:${ORDER_ID}`);
+    });
+
+    // Try several orders the Recipient cannot watch
+    it.each([
+        ["another Recipient's order", OTHER_ORDER_ID],
+        ['a nonexistent order', NONEXISTENT_ORDER_ID],
+        ['an invalid order ID', 'invalid-id'],
+        ])('rejects %s', async (_description, orderId) => {
+        
+        // Set Recipient to not owning orders
+        verifyOrderOwnershipMock.mockResolvedValue(false);
+
+        const client = await connectUser('recipient-token', RECIPIENT_ID);
+
+        // Ask the server to join the unauthorized order room.
+        client.emit('order:join', orderId);
+
+        // Wait until the ownership check has happened.
+        await waitUntil(
+            () => verifyOrderOwnershipMock.mock.calls.length === 1,
+            'Ownership was not checked.'
+        );
+
+        // Confirm the correct details were checked and the room was not joined.
+        expect(verifyOrderOwnershipMock).toHaveBeenCalledWith(
+            orderId,
+            RECIPIENT_ID
+        );
+        expect(serverSocket(client).rooms).not.toContain(`order:${orderId}`);
+    });
+
+    // Confirm non-Recipient cannot join order rooms.
+    it.each<UserRole>(['DONOR', 'ADMIN', 'COURIER'])(
+        'rejects a %s order-room join',
+        async (role) => {
+            const client = await connectUser('role-token', RECIPIENT_ID, role);
+            const socket = serverSocket(client);
+
+            // Wait until the request reaches the server.
+            const requestReceived = new Promise<void>((resolve) => {
+            socket.once('order:join', () => resolve());
+            });
+
+            // Ask to join the room and wait for the server to receive the request.
+            client.emit('order:join', ORDER_ID);
+            await requestReceived;
+
+            // The role is rejected before an ownership lookup is needed.
+            expect(verifyOrderOwnershipMock).not.toHaveBeenCalled();
+            expect(socket.rooms).not.toContain(`order:${ORDER_ID}`);
+        }
+    );
+
+    // Confirm that a connection can stop watching an order.
+    it('leaves an order room', async () => {
+        // First allow Recipient join their order room.
+        verifyOrderOwnershipMock.mockResolvedValue(true);
+
+        const client = await connectUser('owner-token', RECIPIENT_ID);
+        await joinOrder(client, ORDER_ID);
+
+        // Ask the connection to leave the room.
+        client.emit('order:leave', ORDER_ID);
+
+        // Wait until the connection is no longer in the room.
+        await waitUntil(
+            () => !serverSocket(client).rooms.has(`order:${ORDER_ID}`),
+            `Did not leave order:${ORDER_ID}.`
+        );
+
+        expect(serverSocket(client).rooms).not.toContain(`order:${ORDER_ID}`);
+    });
+
+    // Confirm that a user event reaches only all connections of user.
+    it('emitToUser reaches only the target user connections', async () => {
+        // Prepare two connections for one user and one connection for another user.
+        mockTokens({
+            first: { userId: RECIPIENT_ID, role: 'RECIPIENT' },
+            second: { userId: RECIPIENT_ID, role: 'RECIPIENT' },
+            other: { userId: OTHER_RECIPIENT_ID, role: 'RECIPIENT' },
+        });
+
+        const first = makeClient('first');
+        const second = makeClient('second');
+        const other = makeClient('other');
+
+        // Connect all three pretend browsers.
+        await Promise.all([connect(first), connect(second), connect(other)]);
+
+        // Wait until their private rooms are ready.
+        await waitUntil(
+            () =>
+            serverSocket(first).rooms.has(`user:${RECIPIENT_ID}`) &&
+            serverSocket(second).rooms.has(`user:${RECIPIENT_ID}`) &&
+            serverSocket(other).rooms.has(`user:${OTHER_RECIPIENT_ID}`),
+            'Personal rooms were not ready.'
+        );
+
+        // Record which connections receive the test message.
+        const firstHandler = vi.fn();
+        const secondHandler = vi.fn();
+        const otherHandler = vi.fn();
+        const payload = { message: 'private' };
+
+        first.on('test:user', firstHandler);
+        second.on('test:user', secondHandler);
+        other.on('test:user', otherHandler);
+
+        // Send the message only to the selected user.
+        emitToUser(RECIPIENT_ID, 'test:user', payload);
+
+        // Wait until both connections belonging to that user receive it.
+        await waitUntil(
+            () =>
+            firstHandler.mock.calls.length === 1 &&
+            secondHandler.mock.calls.length === 1,
+            'Target user did not receive the event.'
+        );
+
+        // Allow time for an incorrectly broadcast event to appear.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // The other user must not receive the private message.
+        expect(firstHandler).toHaveBeenCalledWith(payload);
+        expect(secondHandler).toHaveBeenCalledWith(payload);
+        expect(otherHandler).not.toHaveBeenCalled();
+    });
+
+    // Confirm that an order event reaches only connections watching that order.
+    it('emitToOrder reaches only the target order room', async () => {
+        // Prepare one tracking connection, one non-tracking connection for the same user, and one connection watching a different order.
+        mockTokens({
+            tracking: { userId: RECIPIENT_ID, role: 'RECIPIENT' },
+            notTracking: { userId: RECIPIENT_ID, role: 'RECIPIENT' },
+            otherOrder: { userId: OTHER_RECIPIENT_ID, role: 'RECIPIENT' },
+        });
+
+        // Accept only the matching user and order combinations.
+        verifyOrderOwnershipMock.mockImplementation(
+            async (orderId: string, recipientId: string) =>
+            (orderId === ORDER_ID && recipientId === RECIPIENT_ID) ||
+            (orderId === OTHER_ORDER_ID &&
+                recipientId === OTHER_RECIPIENT_ID)
+        );
+
+        const tracking = makeClient('tracking');
+        const notTracking = makeClient('notTracking');
+        const otherOrder = makeClient('otherOrder');
+
+        // Connect all three pretend browsers.
+        await Promise.all([
+            connect(tracking),
+            connect(notTracking),
+            connect(otherOrder),
+        ]);
+
+        // Join the target order and a separate order room.
+        await Promise.all([
+            joinOrder(tracking, ORDER_ID),
+            joinOrder(otherOrder, OTHER_ORDER_ID),
+        ]);
+
+        // Record which connections receive the test order message.
+        const trackingHandler = vi.fn();
+        const notTrackingHandler = vi.fn();
+        const otherOrderHandler = vi.fn();
+        const payload = { orderId: ORDER_ID };
+
+        tracking.on('test:order', trackingHandler);
+        notTracking.on('test:order', notTrackingHandler);
+        otherOrder.on('test:order', otherOrderHandler);
+
+        // Send the message only to connections watching the target order.
+        emitToOrder(ORDER_ID, 'test:order', payload);
+
+        // Wait for the correct tracking connection to receive it.
+        await waitUntil(
+            () => trackingHandler.mock.calls.length === 1,
+            'Tracking connection did not receive the event.'
+        );
+
+        // Allow time for an incorrectly broadcast event to appear.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Neither the non-tracking connection nor the other order should receive it.
+        expect(trackingHandler).toHaveBeenCalledWith(payload);
+        expect(notTrackingHandler).not.toHaveBeenCalled();
+        expect(otherOrderHandler).not.toHaveBeenCalled();
+    });
+
 });
 
