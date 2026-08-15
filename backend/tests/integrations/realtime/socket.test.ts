@@ -51,6 +51,15 @@ vi.mock('../../../src/config/env.js', () => ({
   },
 }));
 
+// Ids for testing
+const RECIPIENT_ID = '507f191e810c19729de860ea';
+const OTHER_RECIPIENT_ID = '507f191e810c19729de860eb';
+const ORDER_ID = '507f191e810c19729de86001';
+const OTHER_ORDER_ID = '507f191e810c19729de86002';
+const NONEXISTENT_ORDER_ID = '507f191e810c19729de86003';
+
+type UserRole = 'RECIPIENT' | 'DONOR' | 'ADMIN' | 'COURIER';
+
 // Group all Socket.IO login tests together.
 describe('Socket.IO authentication', () => {
     // The temporary web server used by the tests.
@@ -112,32 +121,6 @@ describe('Socket.IO authentication', () => {
         }
     });
 
-
-    // Create a test client with or without a login token.
-    function makeClient(token?: string): ClientSocket {
-        const client = createSocketClient(serverUrl, {
-        // Do not connect until the test is ready.
-        autoConnect: false,
-
-        // Give each test client its own separate connection.
-        forceNew: true,
-
-        // Do not keep retrying if the connection fails.
-        reconnection: false,
-
-        // Connect directly using WebSocket.
-        transports: ['websocket'],
-
-        // Send the token if one was provided.
-        auth: token === undefined ? {} : { token },
-        });
-
-        // Save the client so it can be disconnected after the test.
-        clients.push(client);
-
-        return client;
-    }
-
     // Try to connect and wait for the connection to fail.
     function waitForConnectError(client: ClientSocket): Promise<Error> {
         return new Promise((resolve, reject) => {
@@ -150,31 +133,6 @@ describe('Socket.IO authentication', () => {
         client.once('connect_error', (error) => {
             clearTimeout(timeout);
             resolve(error);
-        });
-
-        // Begin connecting to the server.
-        client.connect();
-        });
-    }
-
-    // Try to connect and wait for the connection to succeed.
-    function waitForConnection(client: ClientSocket): Promise<void> {
-        return new Promise((resolve, reject) => {
-        // Fail the test if no answer is received within two seconds.
-        const timeout = setTimeout(() => {
-            reject(new Error('Timed out waiting for connection.'));
-        }, 2000);
-
-        // Finish successfully when the client connects.
-        client.once('connect', () => {
-            clearTimeout(timeout);
-            resolve();
-        });
-
-        // Fail if the server rejects the connection.
-        client.once('connect_error', (error) => {
-            clearTimeout(timeout);
-            reject(error);
         });
 
         // Begin connecting to the server.
@@ -263,7 +221,7 @@ describe('Socket.IO authentication', () => {
         const client = makeClient('valid-token');
 
         // Wait for the connection to succeed.
-        await waitForConnection(client);
+        await connect(client);
 
         // Confirm that the client is connected.
         expect(client.connected).toBe(true);
@@ -274,4 +232,120 @@ describe('Socket.IO authentication', () => {
         // Confirm that the successful connection section ran once.
         expect(connectionHandler).toHaveBeenCalledOnce();
     });
+
+    // Choose which pretend login tokens should be accepted.
+    function mockTokens(
+        users: Record<string, { userId: string; role: UserRole }>
+    ): void {
+        verifyAccessTokenMock.mockImplementation(async (token: string) => {
+            const user = users[token];
+
+            if (!user) {
+            throw new Error('Invalid access token.');
+            }
+
+            return {
+            ...user,
+            jti: `test-${token}`,
+            expiresAt: new Date(Date.now() + 60_000),
+            };
+        });
+    }
+
+    // Create a test client with or without a login token.
+    function makeClient(token?: string): ClientSocket {
+        const client = createSocketClient(serverUrl, {
+            autoConnect: false,
+            forceNew: true,
+            reconnection: false,
+            transports: ['websocket'],
+            auth: token ? { token } : {},
+        });
+
+        // Remember the connection so it can be closed after the test.
+        clients.push(client);
+        return client;
+    }
+
+    // Start a connection and wait until it succeeds or fails.
+    function connect(client: ClientSocket): Promise<void> {
+        return new Promise((resolve, reject) => {
+        // Stop waiting if the connection takes too long.
+        const timeout = setTimeout(
+            () => reject(new Error('Connection timed out.')),
+            2000
+        );
+
+        client.once('connect', () => {
+            clearTimeout(timeout);
+            resolve();
+        });
+
+        client.once('connect_error', (error) => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+
+        client.connect();
+        });
+    }
+
+    // Wait until an expected change happens.
+    async function waitUntil(
+    condition: () => boolean,
+    message: string
+    ): Promise<void> {
+    const deadline = Date.now() + 2000;
+
+    while (!condition()) {
+        if (Date.now() >= deadline) {
+        throw new Error(message);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    }
+
+    // Find the server's copy of a browser connection.
+    function serverSocket(client: ClientSocket) {
+    if (!client.id) {
+        throw new Error('Client is not connected.');
+    }
+
+    const socket = socketServer.sockets.sockets.get(client.id);
+
+    if (!socket) {
+        throw new Error('Server connection was not found.');
+    }
+
+    return socket;
+    }
+
+    // Prepare a pretend user and connect them to the server.
+    async function connectUser(
+    token: string,
+    userId: string,
+    role: UserRole = 'RECIPIENT'
+    ): Promise<ClientSocket> {
+    mockTokens({ [token]: { userId, role } });
+
+    const client = makeClient(token);
+    await connect(client);
+
+    return client;
+    }
+
+    // Ask to watch an order and wait until its room has been joined.
+    async function joinOrder(
+    client: ClientSocket,
+    orderId: string
+    ): Promise<void> {
+    client.emit('order:join', orderId);
+
+    await waitUntil(
+        () => serverSocket(client).rooms.has(`order:${orderId}`),
+        `Did not join order:${orderId}.`
+    );
+    }
 });
+
