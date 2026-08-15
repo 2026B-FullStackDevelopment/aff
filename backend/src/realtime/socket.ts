@@ -22,7 +22,17 @@ type RealtimeSocketServer = Server<
 >;
 
 // Keep the Socket.IO server here so other functions can use it later.
-let activeSocketServer: Server | undefined;
+let activeSocketServer: RealtimeSocketServer | undefined;
+
+/**
+ * Attaches Socket.IO to the HTTP server already used by Express.
+ *
+ * Connections must provide a valid access token. Authenticated connections
+ * automatically join their personal user room.
+ *
+ * @param httpServer - The HTTP server shared with Express.
+ * @returns The active Socket.IO server.
+ */
 
 function initializeSocketServer (
     httpServer: HttpServer
@@ -48,6 +58,13 @@ function initializeSocketServer (
     });
 
     activeSocketServer = io;
+
+    // Forget this server after it closes 
+    httpServer.once('close', () => {
+        if (activeSocketServer === io) {
+            activeSocketServer = undefined;
+        }
+    });
 
     io.use(async (socket, next) => {
         try {

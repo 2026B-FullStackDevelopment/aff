@@ -4,9 +4,7 @@ import {
   type Socket as ClientSocket,
 } from 'socket.io-client';
 import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -14,8 +12,11 @@ import {
   vi,
 } from 'vitest';
 
-// Import initializeSocketServer function to start server
-import { initializeSocketServer } from '../../../src/realtime/socket.js';
+import {
+  emitToOrder,
+  emitToUser,
+  initializeSocketServer,
+} from '../../../src/realtime/socket.js';
 
 // Create two fake functions for the tests
 const {
@@ -56,79 +57,61 @@ describe('Socket.IO authentication', () => {
     let httpServer: HttpServer;
     let socketServer: ReturnType<typeof initializeSocketServer>;
     let serverUrl: string;
-    // Records successful connections.
-    const connectionHandler = vi.fn((_socket: unknown) => {});
     // Keep track of every test client to disconnect later.
     let clients: ClientSocket[] = [];
+    // Records successful connections.
+    const connectionHandler = vi.fn((_socket: unknown) => {});
     
-    beforeAll(async () => {
-        // Create temporary web server.
+    // Run before every test.
+    beforeEach(async () => {
+        verifyAccessTokenMock.mockReset();
+        verifyOrderOwnershipMock.mockReset();
+
+        clients = [];
+        connectionHandler.mockClear();
+
+        // Every test receives its own temporary server.
         httpServer = createServer();
-
-        // Attach Socket.IO to the temporary web server.
         socketServer = initializeSocketServer(httpServer);
-
-        // Record whenever a client successfully connects.
         socketServer.on('connection', connectionHandler);
 
-        // Start the server on any available port.
         await new Promise<void>((resolve) => {
-            // Using 0 lets the computer choose a free port.
             httpServer.listen(0, '127.0.0.1', resolve);
         });
 
-        // Ask the server which address and port it is using.
         const address = httpServer.address();
 
-        // If the server address cannot be found, stop test
         if (!address || typeof address === 'string') {
             throw new Error('Could not determine the test server port.');
         }
 
-        // Build the complete address used by test clients.
         serverUrl = `http://127.0.0.1:${address.port}`;
     });
 
-    // Run before every test.
-    beforeEach(() => {
-        // Remove old answers and call records from the fake functions.
-        verifyAccessTokenMock.mockReset();
-        verifyOrderOwnershipMock.mockReset();
-
-        // Remove records of successful connections from the previous test.
-        connectionHandler.mockClear();
-    });
-
     // Run after every test.
-    afterEach(() => {
-        // Remove event listeners and disconnect every client created by the test.
+    afterEach(async () => {
+        // Disconnect every test client.
         for (const client of clients) {
             client.removeAllListeners();
             client.disconnect();
         }
 
-        // Empty the client list for the next test.
-        clients = [];
-    });
-
-    // After all tests finished, run
-    afterAll(async () => {
-        // Socket.IO shutdown.
+        // Close Socket.IO after every test.
         await new Promise<void>((resolve) => {
             socketServer.close(() => resolve());
         });
 
-        // Temporary web server shutdown
+        // Socket.IO normally closes this server, but check to be safe.
         if (httpServer.listening) {
-        await new Promise<void>((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
             httpServer.close((error) => {
-            // Report a problem if the server cannot be closed.
-            if (error) reject(error);
-            else resolve();
+                if (error) reject(error);
+                else resolve();
             });
-        });
+            });
         }
     });
+
 
     // Create a test client with or without a login token.
     function makeClient(token?: string): ClientSocket {
