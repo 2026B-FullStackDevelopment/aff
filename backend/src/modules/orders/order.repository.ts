@@ -23,4 +23,15 @@ function createOrder(data: CreateOrderInput) {
   return Order.create(data);
 }
 
-export { findOrdersByRecipient, createOrder };
+function findOrderByIdAndRecipient(
+  orderId: string | Types.ObjectId, 
+  recipientId: string | Types.ObjectId
+) 
+{
+  return Order.findOne({
+    _id: orderId,
+    recipientId
+  }).lean<OrderDocument>()
+}
+
+export { findOrdersByRecipient, findOrderByIdAndRecipient, createOrder };

@@ -1,18 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { findOrdersByRecipientMock } = vi.hoisted(() => ({
+const { findOrdersByRecipientMock, findOrderByIdAndRecipientMock, } = vi.hoisted(() => ({
   findOrdersByRecipientMock: vi.fn(),
+   findOrderByIdAndRecipientMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/orders/order.repository.js', () => ({
   findOrdersByRecipient: findOrdersByRecipientMock,
+  findOrderByIdAndRecipient: findOrderByIdAndRecipientMock,
 }));
 
-import { listOrdersForRecipient } from '../../../src/modules/orders/order.service.js';
+import { listOrdersForRecipient, verifyOrderOwnership } from '../../../src/modules/orders/order.service.js';
 
+// Group all tests related to order.service
 describe('order.service', () => {
+  
+  // beforeEach runs before every it() test
   beforeEach(() => {
     findOrdersByRecipientMock.mockClear();
+    findOrderByIdAndRecipientMock.mockClear();
   });
 
   describe('listOrdersForRecipient', () => {
@@ -25,4 +31,62 @@ describe('order.service', () => {
       expect(result).toEqual([{ _id: 'o1' }]);
     });
   });
+
+  // Test group for verifyOwnership function
+  describe('verifyOrderOwnership', () => {
+    // MongoDB objectIds for testings; owner, another user, order
+    const orderId = '507f1f77bcf86cd799439011';
+    const ownerId = '507f191e810c19729de860ea';
+    const differentRecipientId = '507f191e810c19729de860eb';
+
+    it('returns true when the recipient owns the order', async () => {
+      findOrderByIdAndRecipientMock.mockResolvedValue({
+        _id: orderId,
+        recipientId: ownerId,
+      });
+
+      const result = await verifyOrderOwnership(orderId, ownerId);
+
+      expect(result).toBe(true);
+      expect(findOrderByIdAndRecipientMock).toHaveBeenCalledWith(
+        orderId,
+        ownerId
+      );
+    });
+
+    it('returns false when the order belongs to another recipient', async () => {
+      findOrderByIdAndRecipientMock.mockResolvedValue(null);
+
+      const result = await verifyOrderOwnership(
+        orderId,
+        differentRecipientId
+      );
+
+      expect(result).toBe(false);
+      expect(findOrderByIdAndRecipientMock).toHaveBeenCalledWith(
+        orderId,
+        differentRecipientId
+      );
+    });
+
+    it('returns false when the order does not exist', async () => {
+      findOrderByIdAndRecipientMock.mockResolvedValue(null);
+
+      const result = await verifyOrderOwnership(orderId, ownerId);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false for an invalid order ID without calling the repository', async () => {
+      const result = await verifyOrderOwnership(
+        'invalid-order-id',
+        ownerId
+      );
+
+      expect(result).toBe(false);
+      expect(findOrderByIdAndRecipientMock).not.toHaveBeenCalled();
+    });
+  });
+
 });
+
