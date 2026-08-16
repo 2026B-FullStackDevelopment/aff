@@ -161,7 +161,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **C3. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
 > As a Donor, I want to manually create a donation for a registered Recipient and quantity, so I can hand out food I've already committed outside the app.
-- UI: Donor searches by Recipient username (no free-text names); if priced, the Recipient is prompted (via notification) to choose Stripe or cash-on-delivery.
+- UI: Donor searches by Recipient email (no free-text names — email, not username, since `username` is not guaranteed unique); if priced, the Recipient is prompted (via notification) to choose Stripe or cash-on-delivery.
 - API: `POST /listings/:id/donations` creates an `ORDER` (intakePath=DONOR_INITIATED); if priced, `paymentStatus=PAYMENT_PENDING` until Stripe succeeds or cash is confirmed at delivery; if free, `paymentStatus=FREE` and it enters the Courier queue immediately.
 - Data: `ORDER` (recipientId, listingId, intakePath=DONOR_INITIATED, quantity, amount, paymentStatus).
 

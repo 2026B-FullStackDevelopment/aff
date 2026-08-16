@@ -61,7 +61,7 @@ interface UpdateListingStatusResponseDto {
 }
 
 interface CreateDonorInitiatedDonationRequestDto {
-  recipientUsername: string;
+  recipientEmail: string;
   quantity: number;
   paymentMethod?: 'STRIPE' | 'CASH';
 }

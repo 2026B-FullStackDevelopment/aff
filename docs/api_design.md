@@ -321,10 +321,10 @@ Response `200`: paginated `OrderDTO[]` (each including `recipient: { id, usernam
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`
 
-Request body: `{ recipientUsername: string, quantity: number, paymentMethod?: 'STRIPE'|'CASH' }` (`paymentMethod` required only if the listing's `price > 0`; omitted/ignored for free listings)
-Behavior: looks up the Recipient by username (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING` and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE` and `DeliveryService.createForOrder` fires immediately.
+Request body: `{ recipientEmail: string, quantity: number, paymentMethod?: 'STRIPE'|'CASH' }` (`paymentMethod` required only if the listing's `price > 0`; omitted/ignored for free listings)
+Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used rather than username since `username` has no uniqueness constraint — see `docs/database_design.md`'s `USER` schema — while `email` does). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING` and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE` and `DeliveryService.createForOrder` fires immediately.
 Response `201`: `OrderDTO`
-Errors: `404` recipient username not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
+Errors: `404` recipient email not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
 
 ### `POST /listings/:id/reserve` — *`5.1.2`, `5.1.3`, `5.2.3` (revised per PRD §10)*
 **Auth:** `RECIPIENT`
