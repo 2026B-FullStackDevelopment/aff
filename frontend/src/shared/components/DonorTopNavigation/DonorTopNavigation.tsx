@@ -36,7 +36,7 @@ const DONOR_NAV_ITEMS: readonly PortalNavItem[] = [
 
 // information a parent page can passed into
 interface DonorTopNavigationProps {
-    avatarUrl?: string; // avatar url, ? = optional
+    avatarUrl?: string | null; // avatar url, ? = optional
     avatarAlt?: string; // optional description
     hasUnreadNotifications?: boolean;
     onNotificationsClick: () => void; // function called when notification button is selected
