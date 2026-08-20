@@ -10,7 +10,7 @@ This document defines the three role-based color themes used across the AFF port
 |---|---|---|---|
 | **Admin** | Blue / Navy | `#5b7bc0` | `/login` page |
 | **Recipient** | Green | `#3D6852` | `/register/recipient` page |
-| **Donor** | Amber / Gold | `#F59E0B` | `/register/donor` page |
+| **Donor** | Dark Brown / Gold | `#805300` | Approved AFF Figma donor wireframes |
 
 ---
 
@@ -98,46 +98,47 @@ recipient-footer-bg   → bg-[#f0f7f3]
 
 ---
 
-## Donor Theme (Amber / Gold)
+## Donor Theme (Dark Brown / Gold)
 
-Used by: Donor registration page, all donor-facing dashboard pages.
+Used by: Donor registration page and all donor-facing portal pages.
+
+The approved donor palette follows the AFF Figma wireframes. Dark brown
+`#805300` is the primary donor colour and must be used consistently for
+navigation, primary actions, active controls, and donor-specific focus states.
 
 ### Colors
 
 | Token | Hex | Usage |
 |---|---|---|
-| `donor-bg` | `linear-gradient(135deg, #FDF9F3 → #FFFDF8)` | Page background |
-| `donor-surface` | `#ffffff` | Cards, panels |
-| `donor-border` | `#f4efe8` | Panel borders |
-| `donor-title` | `#996515` | Page title |
-| `donor-text` | `#1E293B` | Subtitle, body text |
-| `donor-text-muted` | `#6B7280` | Helper text, progress label |
-| `donor-label` | `#6B7280` | Form field labels (uppercase) |
-| `donor-input-border` | `#E5E7EB` | Input / select default border |
-| `donor-input-focus` | `#996515` | Input focus border |
-| `donor-input-focus-ring` | `rgba(153, 101, 21, 0.15)` | Input focus box-shadow |
-| `donor-primary` | `#F59E0B` | Primary action button, progress bar fill |
-| `donor-primary-hover` | `#D97706` | Primary button hover |
-| `donor-primary-dark` | `#996515` | Section titles, active accents, progress % text |
-| `donor-footer-bg` | `#FDF9F3` | Footer / secondary surface |
-| `donor-link` | `#F59E0B` | Inline links |
-| `donor-link-hover` | `#B45309` | Inline link hover |
+| `donor-bg` | `#FBF9F8` | Donor page background |
+| `donor-surface` | `#FFFFFF` | Cards and panels |
+| `donor-border` | `#E4E2E1` | Card, divider and panel borders |
+| `donor-title` | `#1B1C1C` | Page and section titles |
+| `donor-text` | `#414844` | Body text |
+| `donor-text-muted` | `#6B7280` | Helper text |
+| `donor-label` | `#414844` | Form labels |
+| `donor-input-border` | `#C1C8C2` | Input and select borders |
+| `donor-primary` | `#805300` | Navigation and primary actions |
+| `donor-primary-hover` | `#694400` | Primary action hover state |
+| `donor-active-accent` | `#F3A000` | Active navigation underline and accents |
+| `donor-on-primary` | `#FFFFFF` | Text and icons on dark brown |
+| `donor-primary-container` | `#FFF6E3` | Subtle donor buttons and highlighted surfaces |
+| `donor-input-focus-ring` | `rgba(128, 83, 0, 0.15)` | Input focus ring |
 
-### Tailwind Equivalents (approximate)
+### Tailwind Equivalents
 
-```
-donor-bg              → bg-gradient-to-br from-[#FDF9F3] to-[#FFFDF8]
-donor-surface         → bg-white
-donor-border          → border-[#f4efe8]
-donor-title           → text-[#996515]
-donor-text            → text-slate-800
-donor-text-muted      → text-gray-500
-donor-primary         → bg-amber-400  text-white  (or bg-[#F59E0B])
-donor-primary-hover   → hover:bg-amber-500  (or hover:bg-[#D97706])
-donor-primary-dark    → text-[#996515]
-donor-input-border    → border-[#E5E7EB]
-focus                 → focus-visible:border-[#996515] focus-visible:ring-[rgba(153,101,21,0.15)]
-donor-footer-bg       → bg-[#FDF9F3]
+```text
+donor-bg                → bg-[#FBF9F8]
+donor-surface           → bg-white
+donor-border            → border-[#E4E2E1]
+donor-title             → text-[#1B1C1C]
+donor-text              → text-[#414844]
+donor-primary           → bg-[#805300] text-white
+donor-primary-hover     → hover:bg-[#694400]
+donor-active-accent     → border-[#F3A000]
+donor-primary-container → bg-[#FFF6E3]
+donor-input-border      → border-[#C1C8C2]
+focus ring              → focus-visible:ring-[#805300]/15
 ```
 
 ---
