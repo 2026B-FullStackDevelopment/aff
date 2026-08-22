@@ -45,8 +45,8 @@ const VARIANT_STYLES: Record<
   recipient: {
     header: 'border-[#e9f5ee] bg-[#e9f5ee]',
     brand: 'text-[#2E5A47]',
-    activeLink: 'border-b-2 border-[#2E5A47] text-[#2E5A47] rounded-none px-1 mx-2',
-    inactiveLink: 'text-[#3D6852] hover:text-[#2E5A47] rounded-none px-1 mx-2',
+    activeLink: 'bg-[#3D6852]/15 text-[#2E5A47]',
+    inactiveLink: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
     avatar: 'bg-white text-[#2E5A47]',
     iconButton: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
   },
