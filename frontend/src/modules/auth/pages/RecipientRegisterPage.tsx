@@ -57,18 +57,6 @@ export function RecipientRegisterPage() {
               Fields marked <span className="text-red-600 font-bold">*</span> are required.
             </p>
           </div>
-          <div className="w-full sm:w-auto text-right">
-            <div className="flex justify-between sm:justify-end gap-4 text-xs text-slate-500 mb-1.5">
-              <span>Progress</span>
-              <span className="font-bold text-[#3D6852] transition-all duration-300">{progressPercent}%</span>
-            </div>
-            <div className="w-full sm:w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#3D6852] transition-all duration-300 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
         </div>
 
         <form className="flex flex-col gap-6" onSubmit={handleSubmit} aria-busy={isSubmitting}>
@@ -121,10 +109,7 @@ export function RecipientRegisterPage() {
             </div>
           </div>
 
-          {/* Account Security */}
           <div>
-            <FormSectionHeader title="Account Security" theme="recipient" />
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <PasswordField
                 id="password"

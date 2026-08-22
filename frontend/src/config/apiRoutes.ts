@@ -9,6 +9,9 @@ export const API_ROUTES = {
   users: {
     me: '/users/me',
   },
+  media: {
+    uploadUrl: '/media/upload-url',
+  },
   food: {
     list: '/food',
     create: '/food',

@@ -64,6 +64,32 @@ export interface AdminUserDTO extends UserDTO {
 
 export type AnyUserDTO = RecipientDTO | DonorDTO | CourierDTO | AdminUserDTO;
 
+// --- Media upload (api_design.md §5A) ---
+
+export type UploadMediaPurpose = 'AVATAR' | 'LISTING_IMAGE';
+
+export interface UploadUrlResponseDto {
+  uploadUrl: string;
+  path: string;
+  token: string;
+  mediaUrl: string;
+  expiresIn: number;
+}
+
+// --- Profile update payload ---
+
+export interface UpdateProfilePayload {
+  username?: string;
+  city?: string;
+  country?: string;
+  avatarUrl?: string | null;
+  /** Donor only */
+  companyName?: string;
+  addressText?: string;
+  location?: { latitude: number; longitude: number };
+}
+
+
 // --- Auth request/response shapes ---
 
 export interface RegisterRecipientPayload {
