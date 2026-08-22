@@ -1,7 +1,15 @@
 // Contains listing business rules and calls the listing repository for database work.
 import * as listingRepository from './listing.repository.js';
 import { userInterface } from '../users/user.interface.js';
-import type { MeasurementUnit, FoodCategory } from './listing.model.js';
+import type {
+  MeasurementUnit,
+  FoodCategory,
+  ListingDocument,
+} from './listing.model.js';
+import type {
+  ListingDonorData,
+  ListingDtoSource,
+} from './listing.dto.js';
 
 interface CreateListingPayload {
   name: string;
@@ -15,14 +23,52 @@ interface CreateListingPayload {
   rationLimitPerPerson?: number;
 }
 
-async function listAvailableListings(filters: Record<string, unknown> = {}) {
-  return listingRepository.findAvailableListings(filters);
+async function getListingDonorData(
+  donorId: string,
+): Promise<ListingDonorData> {
+  const [user, donorProfile] = await Promise.all([
+    userInterface.getUserById(donorId),
+    userInterface.getDonorByUserId(donorId),
+  ]);
+
+  if (!user.city) {
+    const error: Error = new Error('Donor city is missing.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return {
+    id: String(user._id),
+    companyName: donorProfile.companyName,
+    city: user.city,
+    addressText: donorProfile.addressText,
+    location: donorProfile.location,
+  };
 }
 
-async function createListing(donorId: string, payload: CreateListingPayload) {
-  const donor = await userInterface.getUserById(donorId);
+async function enrichListing(
+  listing: ListingDocument,
+): Promise<ListingDtoSource> {
+  return {
+    listing,
+    donor: await getListingDonorData(String(listing.donorId)),
+  };
+}
 
-  return listingRepository.createListing({
+async function listAvailableListings(
+  filters: Record<string, unknown> = {},
+): Promise<ListingDtoSource[]> {
+  const listings = await listingRepository.findAvailableListings(filters);
+  return Promise.all(listings.map(enrichListing));
+}
+
+async function createListing(
+  donorId: string,
+  payload: CreateListingPayload,
+): Promise<ListingDtoSource> {
+  const donor = await getListingDonorData(donorId);
+
+  const listing = await listingRepository.createListing({
     donorId,
     name: payload.name,
     description: payload.description,
@@ -36,10 +82,20 @@ async function createListing(donorId: string, payload: CreateListingPayload) {
     rationLimitPerPerson: payload.rationLimitPerPerson,
     quantityRemaining: payload.donationLimit,
   });
+
+  return { listing, donor };
 }
 
-async function getListingById(id: string) {
-  return listingRepository.findListingById(id);
+async function getListingById(
+  id: string,
+): Promise<ListingDtoSource | null> {
+  const listing = await listingRepository.findListingById(id);
+
+  if (!listing) {
+    return null;
+  }
+
+  return enrichListing(listing);
 }
 
 export { listAvailableListings, createListing, getListingById };

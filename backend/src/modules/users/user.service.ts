@@ -105,6 +105,16 @@ async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
 
+async function getDonorByUserId(userId: string | Types.ObjectId) {
+  const donor = await donorRepository.findDonorByUserId(userId);
+  if (!donor) {
+    const error: Error = new Error('Donor profile not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return donor;
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -115,6 +125,7 @@ export {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  getDonorByUserId,
   findRecipientByUserId,
   setRecipientStripeCustomerId,
 };
