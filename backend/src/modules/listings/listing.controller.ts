@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from 'express';
 import * as listingService from './listing.service.js';
 import { toListingResponseDto } from './listing.dto.js';
 import { created, ok, notImplemented } from '../../shared/http/response.js';
+import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
+import { createListingSchema } from './listing.schemas.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -22,9 +24,13 @@ async function getListingById(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-async function createListing(req: Request, res: Response, next: NextFunction) {
+async function createListing(req: Request, res: Response, next: NextFunction ) {
   try {
-    const listing = await listingService.createListing(req.user!.id, req.body);
+    // validate and sanitize client request body
+    const payload = parseBody(createListingSchema, req.body);
+    const listing = await listingService.createListing(req.user!.id, payload);
+    // created() is a shared response helper for sending successful HTTP
+    // defined in backend/src/shared/http/response.ts
     return created(res, toListingResponseDto(listing));
   } catch (error) {
     return next(error);
