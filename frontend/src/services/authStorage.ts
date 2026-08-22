@@ -34,3 +34,13 @@ export function clearSession(): void {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
 }
+
+/**
+ * Overwrites only the stored user object (token is left unchanged).
+ * Call this after a successful PATCH /users/me so any component reading
+ * getStoredUser() (nav, guards) sees the new username/avatar immediately.
+ */
+export function updateStoredUser(user: AnyUserDTO): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+

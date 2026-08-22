@@ -11,7 +11,7 @@ interface FormSectionHeaderProps {
 const themeTitleStyles: Record<ThemeRole, string> = {
   admin: 'text-[#1e3a5f]',
   recipient: 'text-[#2E5A47]',
-  donor: 'text-[#996515]',
+  donor: 'text-[#805300]',
 };
 
 export function FormSectionHeader({ title, theme = 'admin', className }: FormSectionHeaderProps) {

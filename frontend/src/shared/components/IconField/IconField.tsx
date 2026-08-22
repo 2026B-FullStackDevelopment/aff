@@ -27,8 +27,8 @@ const themeFocusStyles: Record<ThemeRole, { input: string; icon: string }> = {
     icon: 'group-focus-within/field:text-[#3D6852]',
   },
   donor: {
-    input: 'focus-visible:border-[#996515] focus-visible:ring-[#996515]/15',
-    icon: 'group-focus-within/field:text-[#996515]',
+    input: 'focus-visible:border-[#805300] focus-visible:ring-[#805300]/15',
+    icon: 'group-focus-within/field:text-[#805300]',
   },
 };
 
