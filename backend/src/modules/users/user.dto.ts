@@ -1,5 +1,8 @@
 // Shapes user data before sending it to the frontend or another module.
 import type { UserDocument, Role, AccountStatus } from './user.model.js';
+import type { RecipientDocument } from './recipient.model.js';
+import type { DonorDocument } from './donor.model.js';
+import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface UserResponseDto {
   id: string;
@@ -11,6 +14,21 @@ interface UserResponseDto {
   status: AccountStatus;
   avatarUrl: string | null;
   createdAt: Date;
+}
+
+/** The shape returned for a Recipient — base fields plus tier, notification preferences, and Stripe card status. */
+interface RecipientResponseDto extends UserResponseDto {
+  tier: string;
+  notificationPreferences: unknown[];
+  hasStripeCard: boolean;
+}
+
+/** The shape returned for a Donor — base fields plus company profile and pickup location. */
+interface DonorResponseDto extends UserResponseDto {
+  companyName: string;
+  taxCode: string;
+  addressText: string;
+  location: GeoLocation;
 }
 
 interface CreateUserRequestDto {
@@ -38,5 +56,33 @@ function toUserResponseDto(user: UserDocument | null): UserResponseDto | null {
   };
 }
 
-export { toUserResponseDto };
-export type { UserResponseDto, CreateUserRequestDto };
+/**
+ * Maps a User plus their Recipient profile to the Recipient response shape.
+ * `hasStripeCard` is derived from `stripeCustomerId` — the raw Stripe ID is
+ * never sent to the client (`docs/api_design.md` §3).
+ */
+function toRecipientResponseDto(
+  user: UserDocument,
+  recipient: Partial<RecipientDocument>
+): RecipientResponseDto {
+  return {
+    ...toUserResponseDto(user),
+    tier: recipient.tier,
+    notificationPreferences: recipient.notificationPreferences || [],
+    hasStripeCard: Boolean(recipient.stripeCustomerId),
+  };
+}
+
+/** Maps a User plus their Donor profile to the Donor response shape. */
+function toDonorResponseDto(user: UserDocument, donor: Partial<DonorDocument>): DonorResponseDto {
+  return {
+    ...toUserResponseDto(user),
+    companyName: donor.companyName,
+    taxCode: donor.taxCode,
+    addressText: donor.addressText,
+    location: donor.location,
+  };
+}
+
+export { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto };
+export type { UserResponseDto, CreateUserRequestDto, RecipientResponseDto, DonorResponseDto };

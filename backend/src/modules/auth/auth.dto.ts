@@ -1,16 +1,15 @@
 // Shapes auth requests and responses; response shaping strips password hashes and internal user fields.
 import { z } from 'zod';
-import { toUserResponseDto } from '../users/user.dto.js';
+import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from '../users/user.dto.js';
 import {
   registerRecipientSchema,
   registerDonorSchema,
   loginSchema,
 } from './auth.schemas.js';
-import type { UserResponseDto } from '../users/user.dto.js';
+import type { UserResponseDto, RecipientResponseDto, DonorResponseDto } from '../users/user.dto.js';
 import type { AuthSession } from './auth.token.service.js';
 import type { RecipientDocument } from '../users/recipient.model.js';
 import type { DonorDocument } from '../users/donor.model.js';
-import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 // Derived from the schemas so the validated shape and the DTO can never drift.
 /** Request body for `POST /auth/register/recipient`. */
@@ -19,21 +18,6 @@ type RegisterRecipientRequestDto = z.infer<typeof registerRecipientSchema>;
 type RegisterDonorRequestDto = z.infer<typeof registerDonorSchema>;
 /** Request body for `POST /auth/login`. */
 type LoginRequestDto = z.infer<typeof loginSchema>;
-
-/** The `user` shape returned for a Recipient — base fields plus tier, notification preferences, and Stripe card status. */
-interface RecipientResponseDto extends UserResponseDto {
-  tier: string;
-  notificationPreferences: unknown[];
-  hasStripeCard: boolean;
-}
-
-/** The `user` shape returned for a Donor — base fields plus company profile and pickup location. */
-interface DonorResponseDto extends UserResponseDto {
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: GeoLocation;
-}
 
 /** Response body for `POST /auth/login`. */
 interface AuthResponseDto {
@@ -77,13 +61,9 @@ function toRecipientAuthDto(
   recipient: Partial<RecipientDocument>
 ): RecipientAuthResponseDto {
   return {
-    user: {
-      ...toUserResponseDto(session.user),
-      tier: recipient.tier,
-      notificationPreferences: recipient.notificationPreferences || [],
-      // docs/api_design.md §3: the raw Stripe customer id is never sent to a client.
-      hasStripeCard: Boolean(recipient.stripeCustomerId),
-    },
+    // hasStripeCard is derived from stripeCustomerId inside toRecipientResponseDto — the
+    // raw Stripe ID is never sent to the client (docs/api_design.md §3).
+    user: toRecipientResponseDto(session.user, recipient),
     token: session.accessToken,
   };
 }
@@ -96,13 +76,7 @@ function toRecipientAuthDto(
  */
 function toDonorAuthDto(session: AuthSession, donor: Partial<DonorDocument>): DonorAuthResponseDto {
   return {
-    user: {
-      ...toUserResponseDto(session.user),
-      companyName: donor.companyName,
-      taxCode: donor.taxCode,
-      addressText: donor.addressText,
-      location: donor.location,
-    },
+    user: toDonorResponseDto(session.user, donor),
     token: session.accessToken,
   };
 }
