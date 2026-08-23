@@ -9,7 +9,11 @@ import type {
 import type {
   ListingDonorData,
   ListingDtoSource,
+  ListingWithStatsDtoSource
 } from './listing.dto.js';
+import type {
+  MineListingsQuery,
+} from './listing.schemas.js';
 
 interface CreateListingPayload {
   name: string;
@@ -21,6 +25,14 @@ interface CreateListingPayload {
   price: number;
   donationLimit: number;
   rationLimitPerPerson?: number;
+}
+
+// Paginated result from Listing service
+interface MyListingsServiceResult {
+  items: ListingWithStatsDtoSource[];
+  page: number;
+  limit: number;
+  total: number;
 }
 
 async function getListingDonorData(
