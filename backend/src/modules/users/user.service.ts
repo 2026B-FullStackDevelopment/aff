@@ -3,8 +3,11 @@ import * as userRepository from './user.repository.js';
 import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import { hashPassword } from '../../shared/security/password.js';
+import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate } from './user.repository.js';
+import type { UpdateUserRequestDto } from './user.schemas.js';
+import type { Role } from './user.model.js';
 import type { Types } from 'mongoose';
 
 interface CreateDonorProfileInput {
@@ -105,6 +108,57 @@ async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
 
+function donorFieldsRejectedError(): Error {
+  const error: Error = new Error('Only Donors can edit company profile fields.');
+  error.statusCode = 400;
+  return error;
+}
+
+/**
+ * Fetches the authoritative, role-appropriate profile DTO for `userId` — used
+ * by both `getMyProfile` and `updateMyProfile` so they always return the same
+ * shape (`docs/api_design.md` §5).
+ */
+async function getMyProfileDto(userId: string) {
+  const user = await getUserById(userId);
+
+  if (user.role === 'DONOR') {
+    const donor = await donorRepository.findDonorByUserId(userId);
+    return toDonorResponseDto(user, donor || {});
+  }
+
+  if (user.role === 'RECIPIENT') {
+    const recipient = await recipientRepository.findRecipientByUserId(userId);
+    return toRecipientResponseDto(user, recipient || {});
+  }
+
+  return toUserResponseDto(user);
+}
+
+/**
+ * Applies a `PATCH /users/me` patch. Donor-only fields (`companyName`,
+ * `addressText`, `location`) are rejected with `400` for any other role —
+ * the field-level authorization the AC's validation scenario implies.
+ */
+async function updateUserProfile(userId: string, role: Role, patch: UpdateUserRequestDto) {
+  const { companyName, addressText, location, ...baseFields } = patch;
+  const hasDonorFields = companyName !== undefined || addressText !== undefined || location !== undefined;
+
+  if (hasDonorFields && role !== 'DONOR') {
+    throw donorFieldsRejectedError();
+  }
+
+  if (Object.keys(baseFields).length > 0) {
+    await userRepository.updateUser(userId, baseFields);
+  }
+
+  if (role === 'DONOR' && hasDonorFields) {
+    await donorRepository.updateDonor(userId, { companyName, addressText, location });
+  }
+
+  return getMyProfileDto(userId);
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -117,5 +171,7 @@ export {
   createDonorProfile,
   findRecipientByUserId,
   setRecipientStripeCustomerId,
+  getMyProfileDto,
+  updateUserProfile,
 };
 export type { CreateDonorProfileInput };
