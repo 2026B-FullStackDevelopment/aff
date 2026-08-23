@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Building2, User, Mail, ArrowRight } from 'lucide-react';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { resolveProvince } from '@/shared/utils/resolveProvince';
+import { validateTaxCode } from '@/shared/utils/validation';
 import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
 import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
@@ -53,10 +54,22 @@ export function DonorRegisterPage() {
       password: f.password,
     }),
     registerFn: registerDonor,
-    extraValidation: (f) =>
-      !f.location || !f.address
-        ? { address: 'Please search and select a valid address from the list.' }
-        : {},
+    extraValidation: (f) => {
+      const nextErrors: Partial<Record<keyof FormState, string>> = {};
+
+      if (!f.location || !f.address) {
+        nextErrors.address = 'Please search and select a valid address from the list.';
+      }
+
+      if (f.taxCode) {
+        const taxCodeResult = validateTaxCode(f.taxCode);
+        if (!taxCodeResult.isValid) {
+          nextErrors.taxCode = taxCodeResult.errors[0];
+        }
+      }
+
+      return nextErrors;
+    },
   });
 
   const handleAddressSelect = ({ addressText, latitude, longitude, municipality, rawAddress }: LocationData) => {

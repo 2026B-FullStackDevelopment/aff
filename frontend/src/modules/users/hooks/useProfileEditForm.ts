@@ -126,8 +126,8 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     // 2. Build payload with only what changed to minimize patch size
     const patch: UpdateProfilePayload = {};
     if (form.username !== profile.username) patch.username = form.username;
-    if (form.email.trim().toLowerCase() !== profile.email.toLowerCase()) patch.email = form.email.trim().toLowerCase();
-    if (form.password && form.password.trim().length > 0) patch.password = form.password;
+    // if (form.email.trim().toLowerCase() !== profile.email.toLowerCase()) patch.email = form.email.trim().toLowerCase();
+    // if (form.password && form.password.trim().length > 0) patch.password = form.password;
     if (form.city !== profile.city) patch.city = form.city;
     if (form.country !== profile.country) patch.country = form.country;
 
