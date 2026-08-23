@@ -1,5 +1,6 @@
 // Validates auth request bodies. Messages match the acceptance criteria in issues #47 and #48.
 import { z } from 'zod';
+import { usernameSchema, citySchema, locationSchema } from '../../shared/validation/common-fields.schemas.js';
 
 // Each rule is a separate check so every failure gets its own message.
 const passwordSchema = z
@@ -30,23 +31,6 @@ const emailSchema = z
     message: 'Email must not contain spaces or the characters ( ) ; :',
   })
   .transform((value) => value.toLowerCase());
-
-const usernameSchema = z
-  .string({ message: 'Username is required.' })
-  .min(1, { message: 'Username is required.' })
-  .regex(/^[A-Za-z0-9_-]+$/, {
-    message: 'Username may only contain English letters, numbers, underscores, and hyphens.',
-  });
-
-const citySchema = z
-  .string({ message: 'City is required.' })
-  .min(1, { message: 'City is required.' });
-
-// Coordinates come from the client's OSM Nominatim selection; only the range is checked here.
-const locationSchema = z.object({
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-});
 
 /**
  * Validates a recipient registration request: `{ username, email, password, city }`.

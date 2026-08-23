@@ -80,6 +80,8 @@ export interface UploadUrlResponseDto {
 
 export interface UpdateProfilePayload {
   username?: string;
+  // email?: string;
+  // password?: string;
   city?: string;
   country?: string;
   avatarUrl?: string | null;
@@ -88,7 +90,6 @@ export interface UpdateProfilePayload {
   addressText?: string;
   location?: { latitude: number; longitude: number };
 }
-
 
 // --- Auth request/response shapes ---
 

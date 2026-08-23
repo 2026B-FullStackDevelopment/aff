@@ -1,8 +1,14 @@
 // Contains frontend user API calls without deciding how future profile updates will be submitted.
 import { API_ROUTES } from '@/config/apiRoutes';
 import { httpClient } from '@/services/httpClient';
-import type { AnyUserDTO } from '@/types/api';
+import type { AnyUserDTO, UpdateProfilePayload } from '@/types/api';
 
 export const userService = {
+  /** GET /users/me — retrieves the authenticated caller's profile. */
   getMyProfile: () => httpClient.get<AnyUserDTO>(API_ROUTES.users.me),
+  /** PATCH /users/me — persists editable profile fields. */
+  updateProfile: (patch: UpdateProfilePayload) =>
+    httpClient.patch<AnyUserDTO>(API_ROUTES.users.me, patch),
 };
+
+
