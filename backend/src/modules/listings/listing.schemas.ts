@@ -171,6 +171,8 @@ const mineListingsQuerySchema = paginationQuerySchema
     }
   });
 
+type MineListingsQuery = z.infer<typeof mineListingsQuerySchema>;
+
 /**
  * Validates `:id` for Listing routes such as:
  *
@@ -240,3 +242,5 @@ export {
   donorInitiatedDonationSchema,
   listingOrdersQuerySchema,
 };
+
+export type { MineListingsQuery };
