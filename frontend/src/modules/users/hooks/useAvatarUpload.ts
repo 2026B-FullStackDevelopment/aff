@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { mediaService, uploadFileToSignedUrl } from '@/shared/services/media.service';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -6,11 +6,13 @@ const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 export function useAvatarUpload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [isRemoved, setIsRemoved] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | undefined>();
 
   async function selectFile(file: File) {
     setUploadError(undefined);
+    setIsRemoved(false);
 
     // 1. Client-side validation
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -49,21 +51,26 @@ export function useAvatarUpload() {
     }
   }
 
-  function reset() {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
+  function clear(removed: boolean) {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setMediaUrl(null);
+    setIsRemoved(removed);
     setUploadError(undefined);
   }
+
+  const removeAvatar = () => clear(true);
+  const reset = () => clear(false);
 
   return {
     previewUrl,
     mediaUrl,
+    isRemoved,
     isUploading,
     uploadError,
     selectFile,
+    removeAvatar,
     reset,
   };
 }
+

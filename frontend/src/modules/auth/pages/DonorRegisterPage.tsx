@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Building2, User, Mail, ArrowRight } from 'lucide-react';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { resolveProvince } from '@/shared/utils/resolveProvince';
-import { PasswordStrength } from '../components/PasswordStrength';
+import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
 import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';

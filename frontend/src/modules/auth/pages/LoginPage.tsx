@@ -45,7 +45,7 @@ export function LoginPage() {
         <h1 className="text-3xl font-extrabold tracking-tight text-[#1e3a5f] mb-1">
           AFF Portal
         </h1>
-        <div className="text-base font-bold text-[#1e3a5f] mb-1">
+        <div className="text-lg font-bold text-slate-800">
           Securing the supply chain for a sustainable future.
         </div>
         <p className="text-xs text-slate-500">

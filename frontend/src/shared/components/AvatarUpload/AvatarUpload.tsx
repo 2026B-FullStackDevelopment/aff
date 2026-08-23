@@ -10,6 +10,8 @@ interface AvatarUploadProps {
   currentAvatarUrl: string | null;
   /** Blob URL produced by useAvatarUpload for live preview */
   previewUrl: string | null;
+  /** True if the user clicked remove avatar */
+  isRemoved?: boolean;
   /** Display name shown next to the avatar */
   username: string;
   /** Badge element (e.g. "PREMIUM RECIPIENT" pill) rendered beside the username */
@@ -45,6 +47,7 @@ const themeUploadStyles: Record<ThemeRole, string> = {
 export function AvatarUpload({
   currentAvatarUrl,
   previewUrl,
+  isRemoved = false,
   username,
   tierBadge,
   onFileSelected,
@@ -55,7 +58,8 @@ export function AvatarUpload({
 }: AvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const displaySrc = previewUrl ?? getAvatarDisplayUrl(currentAvatarUrl);
+  const displaySrc = isRemoved ? null : (previewUrl ?? getAvatarDisplayUrl(currentAvatarUrl));
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -107,9 +111,9 @@ export function AvatarUpload({
       </div>
 
       {/* Name + controls */}
-      <div className="flex flex-col gap-2 min-w-0">
+      <div className="flex flex-col gap-2 min-w-0 items-center sm:items-start">
         {/* Username + optional tier badge */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
           <span className="text-xl font-bold text-[#1B1C1C] truncate">{username}</span>
           {tierBadge}
         </div>
@@ -126,7 +130,7 @@ export function AvatarUpload({
         />
 
         {/* Visible upload trigger + remove row */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

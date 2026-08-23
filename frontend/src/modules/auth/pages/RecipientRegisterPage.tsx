@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { User, Mail, ArrowRight } from 'lucide-react';
-import { VIETNAM_PROVINCES } from '../../../shared/constants/locations';
-import { PasswordStrength } from '../components/PasswordStrength';
+import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
+import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
 import { Button } from '@/shared/components/Button/Button';
 import { IconField } from '@/shared/components/IconField/IconField';
