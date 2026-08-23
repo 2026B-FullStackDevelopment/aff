@@ -1,6 +1,15 @@
 // Contains listing database queries so services do not call Mongoose directly.
-import Listing, { type ListingDocument, type MeasurementUnit, type FoodCategory } from './listing.model.js';
-import { Types, type PipelineStage } from 'mongoose';
+import Listing, {
+  type ListingDocument,
+  type MeasurementUnit,
+  type FoodCategory,
+  type ListingStatus,
+} from './listing.model.js';
+import mongoose, {
+  Types,
+  type ClientSession,
+  type PipelineStage,
+} from 'mongoose';
 import type { MineListingsQuery } from './listing.schemas.js';
 
 interface CreateListingInput {
@@ -13,6 +22,7 @@ interface CreateListingInput {
   isVegetarian: boolean;
   price: number;
   city?: string;
+  status?: ListingStatus;
   donationLimit: number;
   rationLimitPerPerson?: number;
   quantityRemaining: number;
@@ -242,12 +252,61 @@ function createListing(data: CreateListingInput) {
   return Listing.create(data);
 }
 
-function findListingById(id: string | Types.ObjectId) {
-  return Listing.findById(id).lean<ListingDocument>();
+function findListingById(
+  id: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  const query = Listing.findById(id);
+  return (session ? query.session(session) : query).lean<ListingDocument>();
 }
 
 function updateListing(id: string | Types.ObjectId, data: Partial<CreateListingInput>) {
   return Listing.findByIdAndUpdate(id, data, { new: true }).lean<ListingDocument>();
 }
 
-export { findAvailableListings, findMyListingsWithStats, createListing, findListingById, updateListing };
+interface UpdateListingStatusOptions {
+  session?: ClientSession;
+  closedAt?: Date;
+}
+
+function updateListingStatusIfCurrent(
+  id: string | Types.ObjectId,
+  donorId: string | Types.ObjectId,
+  currentStatus: ListingStatus,
+  nextStatus: ListingStatus,
+  { session, closedAt }: UpdateListingStatusOptions = {},
+) {
+  return Listing.findOneAndUpdate(
+    { _id: id, donorId, status: currentStatus },
+    { $set: { status: nextStatus, ...(closedAt && { closedAt }) } },
+    { new: true, runValidators: true, session },
+  ).lean<ListingDocument>();
+}
+
+async function withTransaction<T>(
+  operation: (session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const session = await mongoose.startSession();
+
+  try {
+    let result!: T;
+
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
+export {
+  findAvailableListings,
+  findMyListingsWithStats,
+  createListing,
+  findListingById,
+  updateListing,
+  updateListingStatusIfCurrent,
+  withTransaction,
+};

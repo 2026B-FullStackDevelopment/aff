@@ -227,6 +227,8 @@ const donorInitiatedDonationSchema = z
  */
 const listingOrdersQuerySchema = paginationQuerySchema.strict();
 
+type ListingOrdersQuery = z.infer<typeof listingOrdersQuerySchema>;
+
 export {
   measurementUnitSchema,
   foodCategorySchema,
@@ -243,4 +245,4 @@ export {
   listingOrdersQuerySchema,
 };
 
-export type { MineListingsQuery };
+export type { MineListingsQuery, ListingOrdersQuery };

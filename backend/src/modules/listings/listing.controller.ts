@@ -1,10 +1,21 @@
 // Handles listing HTTP requests and returns listing DTOs.
 import type { Request, Response, NextFunction } from 'express';
 import * as listingService from './listing.service.js';
-import { toListingResponseDto, toListingDetailResponseDto } from './listing.dto.js';
-import { created, ok, notImplemented } from '../../shared/http/response.js';
+import {
+  toListingResponseDto,
+  toListingDetailResponseDto,
+  toListingWithStatsResponseDto,
+  toListingOrderResponseDto,
+} from './listing.dto.js';
+import { created, ok, paginated, notImplemented } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
-import { createListingSchema } from './listing.schemas.js';
+import {
+  createListingSchema,
+  mineListingsQuerySchema,
+  listingIdParamsSchema,
+  updateListingStatusSchema,
+  listingOrdersQuerySchema,
+} from './listing.schemas.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -37,22 +48,72 @@ async function createListing(req: Request, res: Response, next: NextFunction ) {
   }
 }
 
-// The following need the Delivery module and Stripe integration before they can be implemented
-// — see docs/api_design.md §6 and docs/blockers.md.
-async function listMyListings(_req: Request, res: Response) {
-  return notImplemented(res);
+async function listMyListings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = parseBody(mineListingsQuerySchema, req.query);
+    const result = await listingService.listMyListings(req.user!.id, query);
+
+    return paginated(
+      res,
+      result.items.map(toListingWithStatsResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function cloneListing(_req: Request, res: Response) {
-  return notImplemented(res);
+async function cloneListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const listing = await listingService.cloneListing(id, req.user!.id);
+    return created(res, toListingResponseDto(listing));
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function updateListingStatus(_req: Request, res: Response) {
-  return notImplemented(res);
+async function updateListingStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const { status } = parseBody(updateListingStatusSchema, req.body);
+    const result = await listingService.updateListingStatus(
+      id,
+      req.user!.id,
+      status,
+    );
+
+    return ok(res, {
+      listing: toListingResponseDto(result.listing),
+      cancelledOrderCount: result.cancelledOrderCount,
+    });
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function listListingOrders(_req: Request, res: Response) {
-  return notImplemented(res);
+async function listListingOrders(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const query = parseBody(listingOrdersQuerySchema, req.query);
+    const result = await listingService.listListingOrders(
+      id,
+      req.user!.id,
+      query,
+    );
+
+    return paginated(
+      res,
+      result.items.map(toListingOrderResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
 async function createDonorInitiatedDonation(_req: Request, res: Response) {

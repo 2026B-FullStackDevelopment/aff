@@ -7,7 +7,11 @@ import type {
   ListingStatus,
 } from './listing.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { OrderResponseDto } from '../orders/order.dto.js';
+import {
+  toOrderResponseDto,
+  type OrderResponseDto,
+} from '../orders/order.dto.js';
+import type { OrderDocument } from '../orders/order.model.js';
 
 /**
  * Donor data required when constructing Listing response DTOs.
@@ -139,6 +143,23 @@ interface ReserveListingRequestDto {
 }
 
 /**
+ * Data needed to build an order row for a Donor's Listing.
+ */
+interface ListingOrderDtoSource {
+  order: OrderDocument;
+  recipient: {
+    id: string;
+    username: string;
+  };
+  listing: {
+    id: string;
+    name: string;
+    imageUrl: string | undefined;
+    unit: MeasurementUnit;
+  };
+}
+
+/**
  * GET /listings/:id/orders returns OrderDTO with an additional
  * Recipient summary.
  */
@@ -244,10 +265,31 @@ function toListingWithStatsResponseDto(
   };
 }
 
+/**
+ * Maps an Order and its Recipient into the row returned by
+ * GET /listings/:id/orders.
+ */
+function toListingOrderResponseDto(
+  source: ListingOrderDtoSource,
+): ListingOrderResponseDto {
+  const order = toOrderResponseDto(source.order);
+
+  if (!order) {
+    throw new Error('Cannot map a missing Order.');
+  }
+
+  return {
+    ...order,
+    listing: source.listing,
+    recipient: source.recipient,
+  };
+}
+
 export {
   toListingResponseDto,
   toListingDetailResponseDto,
   toListingWithStatsResponseDto,
+  toListingOrderResponseDto,
 };
 
 export type {
@@ -266,6 +308,7 @@ export type {
   UpdateListingStatusResponseDto,
   CreateDonorInitiatedDonationRequestDto,
   ReserveListingRequestDto,
+  ListingOrderDtoSource,
   ListingOrderResponseDto,
   ListingOrdersResponseDto,
 };
