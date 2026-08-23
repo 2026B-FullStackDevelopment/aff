@@ -130,6 +130,23 @@ async function createSubscriptionCheckoutSession({
 }
 
 /**
+ * Fully refunds a previously captured payment. The returned status reflects Stripe's synchronous
+ * response only — for most card refunds this is `succeeded` immediately, but it is not guaranteed
+ * final; the caller should treat this as provisional and rely on the `charge.refunded` webhook
+ * (docs/api_design.md §8) for confirmation, not this return value alone.
+ * @param paymentIntentId - the Stripe PaymentIntent id backing the original checkout session
+ */
+async function createRefund({ paymentIntentId }: { paymentIntentId: string }) {
+  const refund = await getClient().refunds.create({ payment_intent: paymentIntentId });
+
+  return {
+    provider: 'stripe',
+    refundId: refund.id,
+    status: refund.status,
+  };
+}
+
+/**
  * Verifies and parses an incoming Stripe webhook event.
  * @param rawBody - the exact, unparsed request bytes Stripe signed (see req.rawBody in app.ts)
  * @param signatureHeader - the value of the `Stripe-Signature` request header
@@ -151,5 +168,5 @@ function verifyWebhookSignature(rawBody: Buffer, signatureHeader: string) {
 }
 
 export { createStripeCustomer, createCheckoutSession, createSubscriptionCheckoutSession,
-  verifyWebhookSignature,
+  createRefund, verifyWebhookSignature,
 };

@@ -13,6 +13,12 @@ function recipientNotFoundError(): Error {
   return error;
 }
 
+function paymentNotFoundError(): Error {
+  const error: Error = new Error('Payment record not found for this order.');
+  error.statusCode = 404;
+  return error;
+}
+
 function stripeApiError(message: string): Error {
   const error: Error = new Error(message);
   error.statusCode = 502;
@@ -170,15 +176,97 @@ async function handlePaymentCheckoutCompleted(session: Stripe.Checkout.Session, 
     return;
   }
 
+  // session.payment_intent is a bare id string here since we never request expansion at
+  // checkout-session creation time — captured now so a later refund (see refundOrderPayment)
+  // doesn't need an extra Stripe round-trip just to find the PaymentIntent.
+  const paymentIntentId =
+    typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
+
   await paymentRepository.updatePaymentEvent(payment._id, {
     lastProcessedEventId: eventId,
     status: 'PAID',
     paidAt: new Date(),
+    ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
   });
 
   // TODO(D2 - Reserve & Pay / C3 - Donor-Initiated Donation): flip ORDER.paymentStatus=PAID and
   // orderStatus=PREPARING, call DeliveryService.createForOrder, and emit payment:success
-  // (docs/api_design.md 8/9/12). 
+  // (docs/api_design.md 8/9/12).
+}
+
+/**
+ * Synchronously refunds a Stripe-paid order's payment as part of cancellation (D4). Only touches
+ * the PAYMENT row — sets REFUND_PENDING, not REFUNDED; final confirmation is the caller's job to
+ * surface once the charge.refunded webhook (see handleChargeRefunded below) settles it. Marking
+ * ORDER.paymentStatus is the caller's responsibility, same division as handlePaymentCheckoutCompleted.
+ * Idempotent: a payment already REFUND_PENDING or REFUNDED is not refunded again.
+ * @param orderId - the cancelled ORDER._id. The caller is expected to have already confirmed the
+ *   order is paymentMethod=STRIPE and paymentStatus=PAID before calling this.
+ * @throws {Error} with statusCode = 404 if no Payment row exists for this order
+ * @throws {Error} with statusCode = 502 if the payment has no stripePaymentIntentId to refund
+ *   against, or Stripe's refund API call fails
+ */
+async function refundOrderPayment(orderId: string | Types.ObjectId) {
+  const payment = await paymentRepository.findPaymentByPayable('ORDER', orderId);
+
+  if (!payment) {
+    throw paymentNotFoundError();
+  }
+
+  if (payment.status === 'REFUND_PENDING' || payment.status === 'REFUNDED') {
+    return { status: payment.status, refundId: payment.stripeRefundId };
+  }
+
+  if (!payment.stripePaymentIntentId) {
+    throw stripeApiError('Payment is missing a Stripe payment intent id; cannot refund.');
+  }
+
+  let refund;
+  try {
+    refund = await paymentProvider.createRefund({ paymentIntentId: payment.stripePaymentIntentId });
+  } catch (error) {
+    throw stripeApiError(error instanceof Error ? error.message : 'Failed to refund Stripe payment.');
+  }
+
+  await paymentRepository.markPaymentRefundPending(payment._id, refund.refundId);
+
+  return { status: 'REFUND_PENDING' as const, refundId: refund.refundId };
+}
+
+/**
+ * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
+ * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
+ * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and emitting
+ * payment:refunded (docs/api_design.md §8/§12) is D4's job, mirroring handlePaymentCheckoutCompleted.
+ */
+async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
+  const refundId = charge.refunds?.data[0]?.id;
+
+  // No refund on this charge (shouldn't happen for this event type) — nothing to reconcile.
+  if (!refundId) {
+    return;
+  }
+
+  const payment = await paymentRepository.findPaymentByRefundId(refundId);
+
+  // No matching Payment row (e.g. stripeRefundId not yet persisted, or an unrelated charge) —
+  // nothing to reconcile.
+  if (!payment) {
+    return;
+  }
+
+  if (payment.lastProcessedEventId === eventId) {
+    return;
+  }
+
+  await paymentRepository.updatePaymentEvent(payment._id, {
+    lastProcessedEventId: eventId,
+    status: 'REFUNDED',
+    refundedAt: new Date(),
+  });
+
+  // TODO(D4 - Cancel Order Before Courier Claim): flip ORDER.paymentStatus=REFUNDED and emit
+  // payment:refunded (docs/api_design.md §8/§12).
 }
 
 /**
@@ -213,6 +301,11 @@ async function processWebhookEvent(event: Stripe.Event) {
       // TODO(F1): set the latest SUBSCRIPTION.status=CANCELLED for this Recipient.
       break;
     }
+    case 'charge.refunded': {
+      const charge = event.data.object as Stripe.Charge;
+      await handleChargeRefunded(charge, event.id);
+      break;
+    }
     default:
       // Any other event type Stripe sends us is not part of the documented flow (docs/api_design.md
       // §8) — safe to ignore. The controller still responds 200 so Stripe doesn't retry it.
@@ -220,5 +313,6 @@ async function processWebhookEvent(event: Stripe.Event) {
   }
 }
 
-export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout, processWebhookEvent,
+export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout,
+  refundOrderPayment, processWebhookEvent,
 };

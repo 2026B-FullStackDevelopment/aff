@@ -15,6 +15,8 @@ interface UpdatePaymentEventInput {
   lastProcessedEventId: string;
   status?: TransactionStatus;
   paidAt?: Date;
+  refundedAt?: Date;
+  stripePaymentIntentId?: string;
 }
 
 function createPayment(data: CreatePaymentInput) {
@@ -33,5 +35,27 @@ function updatePaymentEvent(paymentId: string | Types.ObjectId, data: UpdatePaym
   return Payment.findByIdAndUpdate(paymentId, data, { new: true }).lean<PaymentDocument>();
 }
 
-export { createPayment, findPaymentBySessionId, findPaymentByPayable, updatePaymentEvent };
+// Sets REFUND_PENDING synchronously, right after the Stripe refund API call returns — separate
+// from updatePaymentEvent since this isn't a webhook event being reconciled, so there's no
+// lastProcessedEventId to require here.
+function markPaymentRefundPending(paymentId: string | Types.ObjectId, stripeRefundId: string) {
+  return Payment.findByIdAndUpdate(
+    paymentId,
+    { status: 'REFUND_PENDING', stripeRefundId },
+    { new: true }
+  ).lean<PaymentDocument>();
+}
+
+function findPaymentByRefundId(stripeRefundId: string) {
+  return Payment.findOne({ stripeRefundId }).lean<PaymentDocument>();
+}
+
+export {
+  createPayment,
+  findPaymentBySessionId,
+  findPaymentByPayable,
+  findPaymentByRefundId,
+  updatePaymentEvent,
+  markPaymentRefundPending,
+};
 export type { CreatePaymentInput, UpdatePaymentEventInput };

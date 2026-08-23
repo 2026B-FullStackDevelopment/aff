@@ -8,13 +8,9 @@ import { requireRole } from '../../middleware/role.middleware.js';
 const router = express.Router();
 
 router.get('/queue', requireAuth, requireRole('COURIER'), deliveryController.listQueue);
+router.get('/active', requireAuth, requireRole('COURIER'), deliveryController.getActiveDelivery);
 router.patch('/:id/claim', requireAuth, requireRole('COURIER'), deliveryController.claimDelivery);
-router.get(
-  '/:id',
-  requireAuth,
-  requireRole('COURIER', 'RECIPIENT', 'ADMIN'),
-  deliveryController.getDeliveryById
-);
+router.get('/:id', requireAuth, requireRole('RECIPIENT', 'ADMIN'), deliveryController.getDeliveryById);
 router.patch('/:id/pickup', requireAuth, requireRole('COURIER'), deliveryController.markPickedUp);
 router.patch('/:id/deliver', requireAuth, requireRole('COURIER'), deliveryController.markDelivered);
 

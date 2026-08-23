@@ -22,7 +22,9 @@ import {
   createPayment,
   findPaymentBySessionId,
   findPaymentByPayable,
+  findPaymentByRefundId,
   updatePaymentEvent,
+  markPaymentRefundPending,
 } from '../../../src/modules/payments/payment.repository.js';
 
 describe('payment.repository', () => {
@@ -90,5 +92,43 @@ describe('payment.repository', () => {
       { new: true },
     );
     expect(result).toEqual({ _id: 'p1', status: 'PAID' });
+  });
+
+  it('updatePaymentEvent can also set REFUNDED + refundedAt (charge.refunded reconciliation)', async () => {
+    leanMock.mockResolvedValue({ _id: 'p1', status: 'REFUNDED' });
+
+    await updatePaymentEvent('p1', {
+      lastProcessedEventId: 'evt_2',
+      status: 'REFUNDED',
+      refundedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'p1',
+      { lastProcessedEventId: 'evt_2', status: 'REFUNDED', refundedAt: new Date('2026-01-02T00:00:00.000Z') },
+      { new: true },
+    );
+  });
+
+  it('findPaymentByRefundId queries by stripeRefundId and returns a lean document', async () => {
+    leanMock.mockResolvedValue({ _id: 'p1', stripeRefundId: 're_123' });
+
+    const result = await findPaymentByRefundId('re_123');
+
+    expect(findOneMock).toHaveBeenCalledWith({ stripeRefundId: 're_123' });
+    expect(result).toEqual({ _id: 'p1', stripeRefundId: 're_123' });
+  });
+
+  it('markPaymentRefundPending sets status=REFUND_PENDING and stores the stripeRefundId', async () => {
+    leanMock.mockResolvedValue({ _id: 'p1', status: 'REFUND_PENDING', stripeRefundId: 're_123' });
+
+    const result = await markPaymentRefundPending('p1', 're_123');
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'p1',
+      { status: 'REFUND_PENDING', stripeRefundId: 're_123' },
+      { new: true },
+    );
+    expect(result).toEqual({ _id: 'p1', status: 'REFUND_PENDING', stripeRefundId: 're_123' });
   });
 });

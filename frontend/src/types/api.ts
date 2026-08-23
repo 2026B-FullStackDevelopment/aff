@@ -161,13 +161,7 @@ export interface ListingDTO {
 export type OrderIntakePath = 'RESERVATION' | 'DONOR_INITIATED';
 export type PaymentMethod = 'STRIPE' | 'CASH';
 export type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID';
-export type OrderStatus =
-  | 'PENDING_PAYMENT'
-  | 'PREPARING'
-  | 'PICKED_UP'
-  | 'OUT_FOR_DELIVERY'
-  | 'DELIVERED'
-  | 'CANCELLED';
+export type OrderStatus = 'PENDING_PAYMENT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED';
 
 export interface OrderDTO {
   id: string;
@@ -201,6 +195,7 @@ export interface DeliveryDTO {
   courierId: string | null;
   stage: DeliveryStage;
   pickupAddressText: string;
+  pickupAddressLocation: GeoLocation;
   pickedUpAt: string | null;
   deliveredAt: string | null;
   courierLastLocation: GeoLocation | null;

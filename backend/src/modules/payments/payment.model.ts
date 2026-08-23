@@ -1,17 +1,20 @@
 import mongoose, { Schema } from 'mongoose';
 
 type PayableType = 'ORDER' | 'SUBSCRIPTIONS';
-type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED' | 'REFUND_PENDING' | 'REFUNDED';
 
 interface PaymentAttrs {
   payableType: PayableType;
   payableId: mongoose.Types.ObjectId;
   stripeSessionId: string;
   stripeInvoiceId?: string;
+  stripePaymentIntentId?: string;
+  stripeRefundId?: string;
   amount: number;
   currency: string;
   status: TransactionStatus;
   paidAt?: Date;
+  refundedAt?: Date;
   lastProcessedEventId?: string;
   createdAt: Date;
 }
@@ -24,10 +27,17 @@ const paymentSchema = new Schema<PaymentDocument>(
     payableId: { type: Schema.Types.ObjectId, required: true },
     stripeSessionId: { type: String, required: true },
     stripeInvoiceId: { type: String },
+    stripePaymentIntentId: { type: String },
+    stripeRefundId: { type: String },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
-    status: { type: String, enum: ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED'], default: 'PENDING' },
+    status: {
+      type: String,
+      enum: ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED', 'REFUND_PENDING', 'REFUNDED'],
+      default: 'PENDING',
+    },
     paidAt: { type: Date },
+    refundedAt: { type: Date },
     lastProcessedEventId: { type: String },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
