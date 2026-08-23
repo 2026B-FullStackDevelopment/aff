@@ -1,7 +1,7 @@
 // Handles listing HTTP requests and returns listing DTOs.
 import type { Request, Response, NextFunction } from 'express';
 import * as listingService from './listing.service.js';
-import { toListingResponseDto } from './listing.dto.js';
+import { toListingResponseDto, toListingDetailResponseDto } from './listing.dto.js';
 import { created, ok, notImplemented } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
 import { createListingSchema } from './listing.schemas.js';
