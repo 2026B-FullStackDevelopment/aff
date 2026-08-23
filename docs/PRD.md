@@ -142,6 +142,12 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: `PATCH /users/me` for text fields; `POST /users/me/avatar` uploads to Supabase Storage and auto-resizes to a defined standard size.
 - Data: updates `USER.avatarUrl` and relevant contact fields.
 
+**B2. Change Password & Email** *(new — not specified anywhere in the SRS/original PRD; see `docs/epic/B-profile-management.md`)*
+> As a registered user, I want to change my password or email address from my account settings, without needing anyone else's help.
+- UI: account-security section on the profile page, separate from the B1 contact-info form — password change takes only a new password (no current-password confirmation; the active session is treated as the trust boundary, matching every other authenticated write in this API); email change takes only the new email.
+- API: `PATCH /users/me/password` (revokes the caller's own session token with `reason=PASSWORD_CHANGE`, forcing re-login with the new password); `PATCH /users/me/email` (`409` if the email is already registered to another account; the caller's own session stays active since a JWT's claims never carry email).
+- Data: updates `USER.passwordHash` or `USER.email`; password change also inserts a `REVOKED_TOKEN` row.
+
 ---
 
 ### Epic C — Donor Food Donation Management

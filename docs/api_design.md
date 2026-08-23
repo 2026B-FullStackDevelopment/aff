@@ -249,9 +249,25 @@ Response `200`: role-appropriate DTO (`RecipientDTO` \| `DonorDTO` \| `CourierDT
 ### `PATCH /users/me` — *`3.1.1`*
 **Auth:** any authenticated role
 
-Request body: subset of editable contact fields (`username`, `city`, `country`, `avatarUrl`, plus role-specific: Donor `companyName`/`addressText`/`location`, Recipient — none beyond base fields). `avatarUrl` is normally set to the `mediaUrl` returned by `POST /media/upload-url` (§5A), not typed in directly.
+Request body: subset of editable contact fields (`username`, `city`, `country`, `avatarUrl`, plus role-specific: Donor `companyName`/`addressText`/`location`, Recipient — none beyond base fields). `avatarUrl` is normally set to the `mediaUrl` returned by `POST /media/upload-url` (§5A), not typed in directly. Rejects `email`/`password` (and any other unknown key) with `400` — those go through the two dedicated endpoints below instead.
 Response `200`: updated DTO
 Errors: `400` invalid field values
+
+### `PATCH /users/me/password` — *(new — not tied to a PRD story; see `docs/epic/B-profile-management.md`)*
+**Auth:** any authenticated role
+
+Request body: `{ newPassword }` — validated against the same strength rules used at registration (`passwordSchema` in `auth.schemas.ts`: 8–72 chars, at least 1 digit, 1 special character, 1 uppercase letter). No `currentPassword` field — the active session token is treated as sufficient proof of identity, consistent with every other authenticated write in this API.
+Behavior: hashes and stores the new `USER.passwordHash`, then revokes the request's own token exactly as `POST /auth/logout` does, but with `reason=PASSWORD_CHANGE` instead of `LOGOUT` (§4) — so the token used to make this call cannot be reused afterward, and the client must call `POST /auth/login` again with the new password. No new token is issued in the response.
+Response `200`: `{ data: null }`
+Errors: `400` invalid password format
+
+### `PATCH /users/me/email` — *(new — not tied to a PRD story; see `docs/epic/B-profile-management.md`)*
+**Auth:** any authenticated role
+
+Request body: `{ newEmail }` — validated with the same `emailSchema` used at registration.
+Behavior: checked for uniqueness the same way registration is (`409` if another account already holds it; re-submitting the requester's own current email is not a conflict — the check excludes the requester's own user id), then updates `USER.email` directly. No `currentPassword` confirmation. The session token is left valid — its claims carry only `userId`/`role`, never `email`, so nothing about the existing token goes stale.
+Response `200`: updated role DTO (`RecipientDTO` \| `DonorDTO` \| `CourierDTO` \| `UserDTO`)
+Errors: `400` invalid format; `409` email already registered to another account
 
 ---
 
