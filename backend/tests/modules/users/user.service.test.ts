@@ -4,25 +4,33 @@ const {
   createUserMock,
   findUserByEmailMock,
   findUserByIdMock,
+  updateUserMock,
   updateLoginStateMock,
   incrementFailedLoginInWindowMock,
   startFailedLoginWindowMock,
   lockAccountMock,
   deleteUserMock,
   createRecipientMock,
+  findRecipientByUserIdMock,
   createDonorMock,
+  findDonorByUserIdMock,
+  updateDonorMock,
   hashPasswordMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
   findUserByIdMock: vi.fn(),
+  updateUserMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
   incrementFailedLoginInWindowMock: vi.fn(),
   startFailedLoginWindowMock: vi.fn(),
   lockAccountMock: vi.fn(),
   deleteUserMock: vi.fn(),
   createRecipientMock: vi.fn(),
+  findRecipientByUserIdMock: vi.fn(),
   createDonorMock: vi.fn(),
+  findDonorByUserIdMock: vi.fn(),
+  updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
 }));
 
@@ -30,6 +38,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   createUser: createUserMock,
   findUserByEmail: findUserByEmailMock,
   findUserById: findUserByIdMock,
+  updateUser: updateUserMock,
   updateLoginState: updateLoginStateMock,
   incrementFailedLoginInWindow: incrementFailedLoginInWindowMock,
   startFailedLoginWindow: startFailedLoginWindowMock,
@@ -39,10 +48,13 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
 
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
   createRecipient: createRecipientMock,
+  findRecipientByUserId: findRecipientByUserIdMock,
 }));
 
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   createDonor: createDonorMock,
+  findDonorByUserId: findDonorByUserIdMock,
+  updateDonor: updateDonorMock,
 }));
 
 vi.mock('../../../src/shared/security/password.js', () => ({
@@ -58,6 +70,8 @@ import {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  getMyProfileDto,
+  updateUserProfile,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -212,5 +226,110 @@ describe('user.service', () => {
     await createDonorProfile(input);
 
     expect(createDonorMock).toHaveBeenCalledWith(input);
+  });
+
+  describe('getMyProfileDto', () => {
+    it('returns the Donor DTO for a DONOR', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'DONOR', username: 'freshfoods' });
+      findDonorByUserIdMock.mockResolvedValue({
+        companyName: 'Fresh Foods Ltd',
+        taxCode: '0123456789',
+        addressText: '12 Trần Hưng Đạo',
+        location: { latitude: 21, longitude: 105 },
+      });
+
+      const dto = await getMyProfileDto('u1');
+
+      expect(findDonorByUserIdMock).toHaveBeenCalledWith('u1');
+      expect(dto).toMatchObject({ companyName: 'Fresh Foods Ltd', taxCode: '0123456789' });
+    });
+
+    it('returns the Recipient DTO for a RECIPIENT', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'PREMIUM', notificationPreferences: [] });
+
+      const dto = await getMyProfileDto('u1');
+
+      expect(findRecipientByUserIdMock).toHaveBeenCalledWith('u1');
+      expect(dto).toMatchObject({ tier: 'PREMIUM' });
+    });
+
+    it('returns the base DTO for an ADMIN', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'ADMIN', username: 'admin' });
+
+      const dto = await getMyProfileDto('u1');
+
+      expect(findDonorByUserIdMock).not.toHaveBeenCalled();
+      expect(findRecipientByUserIdMock).not.toHaveBeenCalled();
+      expect(dto).not.toHaveProperty('tier');
+      expect(dto).not.toHaveProperty('companyName');
+    });
+  });
+
+  describe('updateUserProfile', () => {
+    beforeEach(() => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD', notificationPreferences: [] });
+      findDonorByUserIdMock.mockResolvedValue({ companyName: 'Fresh Foods Ltd' });
+    });
+
+    it('applies base field changes via the user repository', async () => {
+      await updateUserProfile('u1', 'RECIPIENT', { city: 'Da Nang' });
+
+      expect(updateUserMock).toHaveBeenCalledWith('u1', { city: 'Da Nang' });
+      expect(updateDonorMock).not.toHaveBeenCalled();
+    });
+
+    it('skips the user repository call when the patch has no base fields', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'DONOR', username: 'freshfoods' });
+
+      await updateUserProfile('u1', 'DONOR', { companyName: 'New Name Ltd' });
+
+      expect(updateUserMock).not.toHaveBeenCalled();
+      expect(updateDonorMock).toHaveBeenCalledWith('u1', {
+        companyName: 'New Name Ltd',
+        addressText: undefined,
+        location: undefined,
+      });
+    });
+
+    it('applies Donor field changes via the donor repository when the caller is a DONOR', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'DONOR', username: 'freshfoods' });
+
+      await updateUserProfile('u1', 'DONOR', {
+        username: 'freshfoods_v2',
+        companyName: 'New Name Ltd',
+        addressText: '99 Lê Lợi',
+        location: { latitude: 21, longitude: 105 },
+      });
+
+      expect(updateUserMock).toHaveBeenCalledWith('u1', { username: 'freshfoods_v2' });
+      expect(updateDonorMock).toHaveBeenCalledWith('u1', {
+        companyName: 'New Name Ltd',
+        addressText: '99 Lê Lợi',
+        location: { latitude: 21, longitude: 105 },
+      });
+    });
+
+    it('rejects Donor-only fields with a 400 when the caller is not a DONOR', async () => {
+      let caught;
+
+      try {
+        await updateUserProfile('u1', 'RECIPIENT', { companyName: 'Sneaky Ltd' });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught.statusCode).toBe(400);
+      expect(caught.message).toBe('Only Donors can edit company profile fields.');
+      expect(updateUserMock).not.toHaveBeenCalled();
+      expect(updateDonorMock).not.toHaveBeenCalled();
+    });
+
+    it('returns the fresh authoritative profile DTO after applying the patch', async () => {
+      const dto = await updateUserProfile('u1', 'RECIPIENT', { city: 'Da Nang' });
+
+      expect(dto).toMatchObject({ tier: 'STANDARD' });
+    });
   });
 });

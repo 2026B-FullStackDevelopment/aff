@@ -100,6 +100,16 @@ describe('user.repository', () => {
     expect(leanMock).toHaveBeenCalled();
   });
 
+  it('updateUser accepts avatarUrl even though it is not part of CreateUserInput', async () => {
+    await updateUser('u1', { avatarUrl: 'https://cdn.example.com/avatars/u1.png' });
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'u1',
+      { avatarUrl: 'https://cdn.example.com/avatars/u1.png' },
+      { new: true }
+    );
+  });
+
   it('updateLoginState writes the three lockout columns', async () => {
     const windowStartedAt = new Date('2026-08-11T10:00:00.000Z');
     const lockedUntil = new Date('2026-08-11T10:05:00.000Z');
