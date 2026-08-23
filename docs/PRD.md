@@ -224,11 +224,11 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: creates a Stripe Customer + attaches the payment method on first use; reused on subsequent card checkouts, including Premium subscription checkout (F1).
 - Data: sets `RECIPIENT.stripeCustomerId` on first successful card registration.
 
-**D4. Cancel Order Before Courier Claim** (new, replaces v1's "no cancellation" exclusion)
-> As a Recipient, I want to cancel my order before a Courier claims it, so I'm not locked into a mistaken purchase.
-- UI: "Cancel Order" button visible only while the order's delivery is still `AWAITING_COURIER`.
-- API: `DELETE /orders/:id` atomically checks the Delivery record's stage; rejects with a conflict error if already `ASSIGNED` or later.
-- Data: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<recipient's own userId>`, `cancelledAt`; restores `LISTING.quantityRemaining`. *(Stripe refund handling on cancellation is an open question — see §11.)*
+**D4. Cancel Order Before Courier Claim** (revised — Stripe refund on cancellation is now automatic, resolving the earlier open question)
+> As a Recipient, I want to cancel my order before a Courier claims it, so I'm not locked into a mistaken purchase — and get my money back automatically if I paid by card.
+- UI: "Cancel Order" button visible only while the order's delivery is still `AWAITING_COURIER`, set from the page's own data load (no live update needed for this part). If the cancelled order was Stripe-paid, the response shows a refund-pending state; a live update (`payment:refunded`) flips it to refunded once Stripe confirms.
+- API: `DELETE /orders/:id` atomically checks the Delivery record's stage; rejects with a conflict error if already `ASSIGNED` or later. For a Stripe-paid order, also triggers a synchronous Stripe refund call.
+- Data: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<recipient's own userId>`, `cancelledAt`; restores `LISTING.quantityRemaining`. For Stripe-paid orders: `ORDER.paymentStatus`/`PAYMENT.status=REFUND_PENDING` immediately, `PAYMENT.stripeRefundId` stored; both flip to `REFUNDED` (`PAYMENT.refundedAt` set) once the `charge.refunded` webhook confirms. Cancellation itself is never blocked on Stripe's reachability — a failed refund attempt doesn't prevent the order from being cancelled.
 
 **D5. Order/Delivery History** (`5.1.4`, relabeled)
 > As a Recipient, I want to view my past orders and their delivery status.
@@ -282,11 +282,11 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: claim endpoint rejects if the Courier already has a `DELIVERY` in `ASSIGNED` or `PICKED_UP`.
 - Data: query on `DELIVERY.courierId` + `stage`.
 
-**E5. Pickup Address as Text** (new)
-> As a Courier, I want the Donor's pickup address as text after claiming.
-- UI: address text shown on the claimed-order screen, no map needed for this leg.
-- API: `GET /deliveries/:id` includes `DONOR.addressText`.
-- Data: reads `DONOR.addressText`.
+**E5. Pickup Location** (revised — was text-only; now includes a map)
+> As a Courier, I want the Donor's pickup address and a map after claiming, so I can actually navigate there.
+- UI: address text plus a static map marker (reusing D8's Leaflet marker pattern) shown on the claimed-order screen, centered on the Donor's pinned location. Not live tracking — the Donor doesn't move, unlike the Courier during `PICKED_UP` (E6/E9).
+- API: `GET /deliveries/active` and the `claim`/`pickup`/`deliver` responses include `DONOR.addressText` and `DONOR.location` as `pickupAddressText`/`pickupAddressLocation`.
+- Data: reads `DONOR.addressText`, `DONOR.location`.
 
 **E6. Start Live Tracking** (new)
 > As a Courier, I want to tap "Picked Up" to start live GPS broadcasting.
@@ -330,7 +330,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: internal service interface, not exposed to the frontend.
 - Data: creates `DELIVERY` (stage=AWAITING_COURIER) referencing `orderId`.
 
-*Explicit scope boundaries: no delivery-failure/redo path, no Donor-pickup-leg mapping, no Courier self-registration, no post-claim cancellation, no Admin manual dispatch. Couriers now do handle cash (see §0) — this replaces the prior "no cash handling" boundary.*
+*Explicit scope boundaries: no delivery-failure/redo path, no Courier self-registration, no post-claim cancellation, no Admin manual dispatch. Couriers now do handle cash (see §0) — this replaces the prior "no cash handling" boundary. Donor pickup-leg mapping is now in scope (E5, revised) — this replaces the prior "no Donor-pickup-leg mapping" boundary; it's still a static marker, not live tracking, since the Donor doesn't move.*
 
 ---
 
@@ -408,7 +408,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - **Per-Request order tracking** — no `ORDER`, `PAYMENT`, or `DELIVERY` record is ever created for Per-Request listings; it's a static location display, not a digital transaction.
 - **Cancellation after Courier claim** — once `ASSIGNED` or later, an order cannot be cancelled by anyone.
 - **Delivery-failure/redo flow** — every claimed delivery is expected to complete.
-- **Donor pickup-leg mapping/tracking** — text-only for the Courier.
+- **Live tracking on the pickup leg** — E5 now shows a static map marker on the Donor's location (revised from text-only), but it's not live-updating; the Donor doesn't move, so there's nothing to track. Live GPS tracking (E6/E9) is still delivery-leg only, once `PICKED_UP`.
 - **Courier self-registration** — Admin-created only.
 - **Admin manual delivery assignment** — claim-based queue only.
 - **A second Additional Feature** — Courier Delivery is the sole one.
@@ -461,7 +461,6 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 
 ## 11. Open Questions (implementation-level — nothing here blocks starting work)
 
-- **Stripe refund on pre-claim cancellation**: if a Stripe-paid order is cancelled before a Courier claims it (D4), does the system trigger an automatic Stripe refund, or is that a manual Admin action? Not yet decided.
 - **Cash confirmation audit depth**: is a Courier-ID + timestamp log sufficient (current assumption), or does the team want anything more before Milestone 2?
 - **Schema change ownership**: who adds the `paymentMethod` field to `ORDER`/`PAYMENT`, and by when — needs to land before Path 1/2 implementation starts.
 - **Transactional email provider** for `6.1.2`/payment-confirmation emails — e.g. Nodemailer + a free SMTP sandbox for development; finalize before the Gold Data Set is built.

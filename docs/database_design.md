@@ -123,8 +123,8 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | quantity | number | | |
 | amount | number | | |
 | paymentMethod | PaymentMethod (enum) | | STRIPE, CASH; absent/null when `amount` is 0 (free order) |
-| paymentStatus | PaymentStatus (enum) | | FREE, PAYMENT_PENDING, PAID |
-| orderStatus | OrderStatus (enum) | | PENDING_PAYMENT, PREPARING, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED |
+| paymentStatus | PaymentStatus (enum) | | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED. `REFUND_PENDING` is set synchronously when a Stripe-paid order is cancelled before Courier claim (D4); `REFUNDED` only after the `charge.refunded` webhook confirms it (`docs/api_design.md` §8) |
+| orderStatus | OrderStatus (enum) | | PENDING_PAYMENT, PREPARING, DELIVERED, CANCELLED. Coarse/payment-oriented only — granular delivery progress (claimed, picked up) lives on `DELIVERY.stage`, not here; see `docs/api_design.md` §9 |
 | deliveryAddressText | string | | |
 | deliveryLocation | GeoLocation | | Embedded value object |
 | cancelledByUserId | ObjectId | FK → USER._id | Nullable; captures who cancelled (incl. admin) |
@@ -167,10 +167,13 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | payableId | ObjectId | Polymorphic FK → ORDER._id or SUBSCRIPTION._id | Resolved using payableType |
 | stripeSessionId | string | | |
 | stripeInvoiceId | string | | Conditional on Stripe webhook flow |
+| stripePaymentIntentId | string | | Captured from the `checkout.session.completed` webhook payload; what a later refund is issued against (Stripe refunds a PaymentIntent, not a Checkout Session) |
+| stripeRefundId | string | | Captured from the synchronous `stripe.refunds.create()` response at cancellation time; what the `charge.refunded` webhook is matched against to confirm the refund |
 | amount | number | | |
 | currency | string | | |
-| status | TransactionStatus (enum) | | PENDING, PAID, FAILED, EXPIRED, CANCELLED |
+| status | TransactionStatus (enum) | | PENDING, PAID, FAILED, EXPIRED, CANCELLED, REFUND_PENDING, REFUNDED |
 | paidAt | datetime | | |
+| refundedAt | datetime | | Set when the `charge.refunded` webhook confirms the refund, mirroring `paidAt` |
 | lastProcessedEventId | string | | Guards against duplicate Stripe webhook delivery |
 | createdAt | datetime | | |
 
@@ -232,8 +235,8 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | NotificationType | SOLD_OUT, PREMIUM_MATCH, ADMIN_CANCEL, PAYMENT_SUCCESS, PAYMENT_REQUESTED, DELIVERY_STATUS |
 | IntakePath | RESERVATION, DONOR_INITIATED |
 | PaymentMethod | STRIPE, CASH |
-| PaymentStatus | FREE, PAYMENT_PENDING, PAID |
-| OrderStatus | PENDING_PAYMENT, PREPARING, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED |
+| PaymentStatus | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED |
+| OrderStatus | PENDING_PAYMENT, PREPARING, DELIVERED, CANCELLED |
 | DeliveryStage | AWAITING_COURIER, ASSIGNED, PICKED_UP, DELIVERED, CANCELLED |
 | PayableType | ORDER, SUBSCRIPTIONS |
-| TransactionStatus | PENDING, PAID, FAILED, EXPIRED, CANCELLED |
+| TransactionStatus | PENDING, PAID, FAILED, EXPIRED, CANCELLED, REFUND_PENDING, REFUNDED |
