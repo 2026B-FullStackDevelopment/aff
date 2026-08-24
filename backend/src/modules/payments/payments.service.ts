@@ -3,6 +3,9 @@
 import * as paymentProvider from '../../integrations/payment/payment.provider.js';
 import * as paymentRepository from './payment.repository.js';
 import { userInterface } from '../users/user.interface.js';
+import { orderInterface } from '../orders/order.interface.js';
+import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { emitToUser } from '../../realtime/socket.js';
 import type { PayableType } from './payment.model.js';
 import type { Types } from 'mongoose';
 import type Stripe from 'stripe';
@@ -159,18 +162,36 @@ async function startSubscriptionCheckout({
   return { checkoutUrl: session.checkoutUrl };
 }
 
-/**
- * Reconciles a verified "checkout.session.completed" (payment mode) event against its Payment row:
- * skips if already processed (Stripe redelivers events at-least-once), otherwise marks it PAID.
- * Only touches the PAYMENT row itself — marking the ORDER paid and starting delivery is D2's job.
- */
-async function handlePaymentCheckoutCompleted(session: Stripe.Checkout.Session, eventId: string) {
-  const payment = await paymentRepository.findPaymentBySessionId(session.id);
+// handles Stripe message - an order payment succeeded
+// payment, order > PAID, creates Delivery, prevent multiple payment processing
+// Stripe.Checkout.Session contains: session.id, session.mode, session.customer, etc.
+// eventId of the Stripe webhook event
+async function handlePaymentCheckoutCompleted(stripeSession: Stripe.Checkout.Session, eventId: string) {
+  
+  const result = await paymentRepository.withTransaction(
+    async(databaseSession) => {
+        const payment = await paymentRepository.findPaymentBySessionId(stripeSession.id, databaseSession,);
+        
+        // if cannot find payment, payment not belongs to order, payment is paid
+        if (!payment || payment.payableType !== 'ORDER' || payment.status === 'PAID') {
+          return null;
+        }
 
-  // No matching Payment row (e.g. a session created outside this flow) — nothing to reconcile.
-  if (!payment) {
-    return;
-  }
+        // update payment to Paid
+        const paidPayment = await paymentRepository.markPaymentPaidIfPending(stripeSession.id, eventId, new Date(), databaseSession);
+
+        // if update not successful
+        if (!paidPayment) {
+          return null;
+        }
+
+        const order = await orderInterface.markOrderPaid(String(paidPayment.payableId), databaseSession);
+    }
+  )
+  
+
+
+
 
   if (payment.lastProcessedEventId === eventId) {
     return;

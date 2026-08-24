@@ -23,8 +23,10 @@ function createPayment(data: CreatePaymentInput) {
   return Payment.create(data);
 }
 
-function findPaymentBySessionId(stripeSessionId: string) {
-  return Payment.findOne({ stripeSessionId }).lean<PaymentDocument>();
+function findPaymentBySessionId(stripeSessionId: string, session?: ClientSession,) {
+  const query = Payment.findOne({ stripeSessionId });
+  return (session ? query.session(session) : query)
+    .lean<PaymentDocument>();
 }
 
 function findPaymentByPayable(payableType: PayableType, payableId: string | Types.ObjectId) {
