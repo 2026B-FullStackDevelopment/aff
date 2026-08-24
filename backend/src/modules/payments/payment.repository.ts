@@ -23,8 +23,10 @@ function createPayment(data: CreatePaymentInput) {
   return Payment.create(data);
 }
 
-function findPaymentBySessionId(stripeSessionId: string) {
-  return Payment.findOne({ stripeSessionId }).lean<PaymentDocument>();
+function findPaymentBySessionId(stripeSessionId: string, session?: ClientSession,) {
+  const query = Payment.findOne({ stripeSessionId });
+  return (session ? query.session(session) : query)
+    .lean<PaymentDocument>();
 }
 
 function findPaymentByPayable(payableType: PayableType, payableId: string | Types.ObjectId) {
@@ -50,27 +52,31 @@ function findPaymentByRefundId(stripeRefundId: string) {
   return Payment.findOne({ stripeRefundId }).lean<PaymentDocument>();
 }
 
+/**
+ * Claims a pending Checkout Payment exactly once and stores the Stripe ids
+ * needed for webhook deduplication and any later refund.
+ */
 function markPaymentPaidIfPending(
   stripeSessionId: string,
   eventId: string,
   paidAt: Date,
   session?: ClientSession,
+  stripePaymentIntentId?: string,
 ) {
   return Payment.findOneAndUpdate(
     {
-      stripeSessionId, // find using stripeSessionId
+      stripeSessionId,
       status: 'PENDING',
-    }, 
+    },
     {
       $set: {
-      status: 'PAID',
-      paidAt,
-      lastProcessEventId: eventId,
+        status: 'PAID',
+        paidAt,
+        lastProcessedEventId: eventId,
+        ...(stripePaymentIntentId && { stripePaymentIntentId }),
       },
     },
-    // Optional findOneAndUpdate object
-    // new: true tells Mongoose to return the Payment after it's updated, then service can use it to confirmt payment succeeded
-    { new: true, session, }, 
+    { new: true, session },
   ).lean<PaymentDocument>();
 }
 
@@ -87,8 +93,8 @@ async function withTransaction<T>(
   const session = await mongoose.startSession();
   try {
     let result!: T;
-    await session.withTransaction(async() => {
-      result = await operation(session)
+    await session.withTransaction(async () => {
+      result = await operation(session);
     });
     return result;
   } finally {

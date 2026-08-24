@@ -11,10 +11,15 @@ const {
   findPaymentByPayableMock,
   findPaymentByRefundIdMock,
   updatePaymentEventMock,
+  markPaymentPaidIfPendingMock,
   markPaymentRefundPendingMock,
+  withTransactionMock,
   findRecipientByUserIdMock,
   getUserByIdMock,
   setRecipientStripeCustomerIdMock,
+  markOrderPaidMock,
+  createForOrderMock,
+  emitToUserMock,
 } = vi.hoisted(() => ({
   createStripeCustomerMock: vi.fn(),
   createCheckoutSessionMock: vi.fn(),
@@ -25,10 +30,15 @@ const {
   findPaymentByPayableMock: vi.fn(),
   findPaymentByRefundIdMock: vi.fn(),
   updatePaymentEventMock: vi.fn(),
+  markPaymentPaidIfPendingMock: vi.fn(),
   markPaymentRefundPendingMock: vi.fn(),
+  withTransactionMock: vi.fn(),
   findRecipientByUserIdMock: vi.fn(),
   getUserByIdMock: vi.fn(),
   setRecipientStripeCustomerIdMock: vi.fn(),
+  markOrderPaidMock: vi.fn(),
+  createForOrderMock: vi.fn(),
+  emitToUserMock: vi.fn(),
 }));
 
 vi.mock('../../../src/integrations/payment/payment.provider.js', () => ({
@@ -44,7 +54,9 @@ vi.mock('../../../src/modules/payments/payment.repository.js', () => ({
   findPaymentByPayable: findPaymentByPayableMock,
   findPaymentByRefundId: findPaymentByRefundIdMock,
   updatePaymentEvent: updatePaymentEventMock,
+  markPaymentPaidIfPending: markPaymentPaidIfPendingMock,
   markPaymentRefundPending: markPaymentRefundPendingMock,
+  withTransaction: withTransactionMock,
 }));
 
 vi.mock('../../../src/modules/users/user.interface.js', () => ({
@@ -53,6 +65,22 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
     getUserById: getUserByIdMock,
     setRecipientStripeCustomerId: setRecipientStripeCustomerIdMock,
   },
+}));
+
+vi.mock('../../../src/modules/orders/order.interface.js', () => ({
+  orderInterface: {
+    markOrderPaid: markOrderPaidMock,
+  },
+}));
+
+vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
+  deliveryInterface: {
+    createForOrder: createForOrderMock,
+  },
+}));
+
+vi.mock('../../../src/realtime/socket.js', () => ({
+  emitToUser: emitToUserMock,
 }));
 
 import {
@@ -86,6 +114,8 @@ function chargeRefundedEvent(overrides: Partial<Stripe.Charge> = {}, eventId = '
 }
 
 describe('payments.service', () => {
+  const databaseSession = { id: 'database-session' };
+
   beforeEach(() => {
     createStripeCustomerMock.mockReset();
     createCheckoutSessionMock.mockReset();
@@ -96,10 +126,19 @@ describe('payments.service', () => {
     findPaymentByPayableMock.mockReset();
     findPaymentByRefundIdMock.mockReset();
     updatePaymentEventMock.mockReset();
+    markPaymentPaidIfPendingMock.mockReset();
     markPaymentRefundPendingMock.mockReset();
+    withTransactionMock.mockReset();
     findRecipientByUserIdMock.mockReset();
     getUserByIdMock.mockReset();
     setRecipientStripeCustomerIdMock.mockReset();
+    markOrderPaidMock.mockReset();
+    createForOrderMock.mockReset();
+    emitToUserMock.mockReset();
+
+    withTransactionMock.mockImplementation(
+      async (operation) => operation(databaseSession),
+    );
   });
 
   describe('getOrCreateStripeCustomer', () => {
@@ -288,52 +327,106 @@ describe('payments.service', () => {
   });
 
   describe('processWebhookEvent', () => {
-    it('marks the matching Payment PAID on a fresh payment-mode checkout.session.completed event', async () => {
-      findPaymentBySessionIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: undefined });
+    function prepareSuccessfulOrderPayment() {
+      findPaymentBySessionIdMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'ORDER',
+        payableId: 'o1',
+        status: 'PENDING',
+      });
+      markPaymentPaidIfPendingMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'ORDER',
+        payableId: 'o1',
+        status: 'PAID',
+      });
+      markOrderPaidMock.mockResolvedValue({
+        _id: 'o1',
+        recipientId: 'r1',
+        paymentStatus: 'PAID',
+        orderStatus: 'PREPARING',
+      });
+      createForOrderMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+      });
+    }
+
+    it('atomically completes the Payment and Order, creates a Delivery, and emits success', async () => {
+      prepareSuccessfulOrderPayment();
 
       await processWebhookEvent(checkoutSessionCompletedEvent());
 
-      expect(findPaymentBySessionIdMock).toHaveBeenCalledWith('cs_123');
-      expect(updatePaymentEventMock).toHaveBeenCalledWith('p1', {
-        lastProcessedEventId: 'evt_1',
-        status: 'PAID',
-        paidAt: expect.any(Date),
-      });
+      expect(findPaymentBySessionIdMock).toHaveBeenCalledWith(
+        'cs_123',
+        databaseSession,
+      );
+      expect(markPaymentPaidIfPendingMock).toHaveBeenCalledWith(
+        'cs_123',
+        'evt_1',
+        expect.any(Date),
+        databaseSession,
+        undefined,
+      );
+      expect(markOrderPaidMock).toHaveBeenCalledWith(
+        'o1',
+        databaseSession,
+      );
+      expect(createForOrderMock).toHaveBeenCalledWith(
+        'o1',
+        databaseSession,
+      );
+      expect(emitToUserMock).toHaveBeenCalledTimes(1);
+      expect(emitToUserMock).toHaveBeenCalledWith(
+        'r1',
+        'payment:success',
+        { orderId: 'o1' },
+      );
     });
 
     it('captures stripePaymentIntentId from the session when present', async () => {
-      findPaymentBySessionIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: undefined });
+      prepareSuccessfulOrderPayment();
 
       await processWebhookEvent(checkoutSessionCompletedEvent({ payment_intent: 'pi_123' } as never));
 
-      expect(updatePaymentEventMock).toHaveBeenCalledWith('p1', {
-        lastProcessedEventId: 'evt_1',
-        status: 'PAID',
-        paidAt: expect.any(Date),
-        stripePaymentIntentId: 'pi_123',
-      });
+      expect(markPaymentPaidIfPendingMock).toHaveBeenCalledWith(
+        'cs_123',
+        'evt_1',
+        expect.any(Date),
+        databaseSession,
+        'pi_123',
+      );
     });
 
-    it('skips already-processed events (idempotency)', async () => {
-      findPaymentBySessionIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: 'evt_1' });
+    it('skips an already-paid Payment without duplicating Delivery or event work', async () => {
+      findPaymentBySessionIdMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'ORDER',
+        payableId: 'o1',
+        status: 'PAID',
+      });
 
       await processWebhookEvent(checkoutSessionCompletedEvent());
 
-      expect(updatePaymentEventMock).not.toHaveBeenCalled();
+      expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
+      expect(markOrderPaidMock).not.toHaveBeenCalled();
+      expect(createForOrderMock).not.toHaveBeenCalled();
+      expect(emitToUserMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the session', async () => {
       findPaymentBySessionIdMock.mockResolvedValue(null);
 
       await expect(processWebhookEvent(checkoutSessionCompletedEvent())).resolves.toBeUndefined();
-      expect(updatePaymentEventMock).not.toHaveBeenCalled();
+      expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
+      expect(emitToUserMock).not.toHaveBeenCalled();
     });
 
     it('no-ops on a subscription-mode checkout.session.completed event (F1 stub)', async () => {
       await processWebhookEvent(checkoutSessionCompletedEvent({ mode: 'subscription' }));
 
       expect(findPaymentBySessionIdMock).not.toHaveBeenCalled();
-      expect(updatePaymentEventMock).not.toHaveBeenCalled();
+      expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
     });
 
     it.each(['invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'])(

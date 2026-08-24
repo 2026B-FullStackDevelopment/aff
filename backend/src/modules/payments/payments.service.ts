@@ -3,6 +3,9 @@
 import * as paymentProvider from '../../integrations/payment/payment.provider.js';
 import * as paymentRepository from './payment.repository.js';
 import { userInterface } from '../users/user.interface.js';
+import { orderInterface } from '../orders/order.interface.js';
+import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { emitToUser } from '../../realtime/socket.js';
 import type { PayableType } from './payment.model.js';
 import type { Types } from 'mongoose';
 import type Stripe from 'stripe';
@@ -160,38 +163,76 @@ async function startSubscriptionCheckout({
 }
 
 /**
- * Reconciles a verified "checkout.session.completed" (payment mode) event against its Payment row:
- * skips if already processed (Stripe redelivers events at-least-once), otherwise marks it PAID.
- * Only touches the PAYMENT row itself — marking the ORDER paid and starting delivery is D2's job.
+ * Completes an Order payment after Stripe verifies checkout success.
+ * All database changes commit together; the Recipient event is emitted only
+ * after the transaction succeeds.
  */
-async function handlePaymentCheckoutCompleted(session: Stripe.Checkout.Session, eventId: string) {
-  const payment = await paymentRepository.findPaymentBySessionId(session.id);
+async function handlePaymentCheckoutCompleted(
+  stripeSession: Stripe.Checkout.Session,
+  eventId: string,
+) {
+  const stripePaymentIntentId =
+    typeof stripeSession.payment_intent === 'string'
+      ? stripeSession.payment_intent
+      : stripeSession.payment_intent?.id;
 
-  // No matching Payment row (e.g. a session created outside this flow) — nothing to reconcile.
-  if (!payment) {
-    return;
+  const result = await paymentRepository.withTransaction(
+    async (databaseSession) => {
+      const payment = await paymentRepository.findPaymentBySessionId(
+        stripeSession.id,
+        databaseSession,
+      );
+
+      if (
+        !payment ||
+        payment.payableType !== 'ORDER' ||
+        payment.status !== 'PENDING'
+      ) {
+        return null;
+      }
+
+      const paidPayment =
+        await paymentRepository.markPaymentPaidIfPending(
+          stripeSession.id,
+          eventId,
+          new Date(),
+          databaseSession,
+          stripePaymentIntentId,
+        );
+
+      // Another webhook request may have processed this Payment first.
+      if (!paidPayment) {
+        return null;
+      }
+
+      const order = await orderInterface.markOrderPaid(
+        String(paidPayment.payableId),
+        databaseSession,
+      );
+
+      if (!order) {
+        throw new Error(
+          'The Order linked to this Payment could not be updated.',
+        );
+      }
+
+      await deliveryInterface.createForOrder(
+        String(order._id),
+        databaseSession,
+      );
+
+      return {
+        orderId: String(order._id),
+        recipientId: String(order.recipientId),
+      };
+    },
+  );
+
+  if (result) {
+    emitToUser(result.recipientId, 'payment:success', {
+      orderId: result.orderId,
+    });
   }
-
-  if (payment.lastProcessedEventId === eventId) {
-    return;
-  }
-
-  // session.payment_intent is a bare id string here since we never request expansion at
-  // checkout-session creation time — captured now so a later refund (see refundOrderPayment)
-  // doesn't need an extra Stripe round-trip just to find the PaymentIntent.
-  const paymentIntentId =
-    typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
-
-  await paymentRepository.updatePaymentEvent(payment._id, {
-    lastProcessedEventId: eventId,
-    status: 'PAID',
-    paidAt: new Date(),
-    ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
-  });
-
-  // TODO(D2 - Reserve & Pay / C3 - Donor-Initiated Donation): flip ORDER.paymentStatus=PAID and
-  // orderStatus=PREPARING, call DeliveryService.createForOrder, and emit payment:success
-  // (docs/api_design.md 8/9/12).
 }
 
 /**

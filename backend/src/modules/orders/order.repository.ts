@@ -51,6 +51,14 @@ function findOrdersByRecipient(recipientId: string | Types.ObjectId) {
   return Order.find({ recipientId }).lean<OrderDocument[]>();
 }
 
+function findOrderById(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  const query = Order.findById(orderId);
+  return (session ? query.session(session) : query).lean<OrderDocument>();
+}
+
 // MongoDB database session, session? means not mandatory
 // const session = await mongoose.startSession();
 // to gather multiple database operations
@@ -75,6 +83,51 @@ function markOrderPaid(orderId: string | Types.ObjectId, session?: ClientSession
       $set: {
         paymentStatus: 'PAID',
         orderStatus: 'PREPARING',
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
+/**
+ * Completes a payable-ready Order. For cash, the same update records payment
+ * receipt and its Courier audit fields.
+ */
+function markOrderDelivered(
+  orderId: string | Types.ObjectId,
+  courierId: string | Types.ObjectId,
+  deliveredAt: Date,
+  isCashPayment: boolean,
+  session?: ClientSession,
+) {
+  const paymentFilter = isCashPayment
+    ? {
+        paymentMethod: 'CASH' as const,
+        paymentStatus: 'PAYMENT_PENDING' as const,
+      }
+    : {
+        paymentMethod: { $ne: 'CASH' as const },
+        paymentStatus: { $in: ['FREE', 'PAID'] as const },
+      };
+
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      orderStatus: 'PREPARING',
+      ...paymentFilter,
+    },
+    {
+      $set: {
+        orderStatus: 'DELIVERED',
+        ...(isCashPayment && {
+          paymentStatus: 'PAID',
+          cashConfirmedByCourierId: courierId,
+          cashConfirmedAt: deliveredAt,
+        }),
       },
     },
     {
@@ -221,9 +274,11 @@ async function findOrdersForListing(
 
 export {
   findOrdersByRecipient,
+  findOrderById,
   findOrderByIdAndRecipient,
   createOrder,
   markOrderPaid,
+  markOrderDelivered,
   setPaymentMethodIfUnset,
   findNonCancelledOrderIdsByListing,
   cancelOrdersByIds,

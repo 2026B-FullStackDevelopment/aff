@@ -109,10 +109,14 @@ async function findRecipientByUserId(userId: string | Types.ObjectId) {
 
 async function searchRecipientsByEmail(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  // check email length at least 3 char
-  if (normalizedEmail.length < 3) {return []}
+
+  // Avoid exposing a broad Recipient directory from a very short query.
+  if (normalizedEmail.length < 3) {
+    return [];
+  }
+
   return userRepository.searchActiveRecipientsByEmail(normalizedEmail, 10);
-};
+}
 
 async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: string) {
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);

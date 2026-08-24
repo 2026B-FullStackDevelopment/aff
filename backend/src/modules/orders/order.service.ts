@@ -19,6 +19,13 @@ async function listOrdersForRecipient(recipientId: string) {
   return orderRepository.findOrdersByRecipient(recipientId);
 }
 
+async function findOrderById(
+  orderId: string,
+  session?: ClientSession,
+) {
+  return orderRepository.findOrderById(orderId, session);
+}
+
 // Check whether the order belongs to the recipient
 async function verifyOrderOwnership(
   orderId: string,
@@ -50,6 +57,22 @@ async function markOrderPaid(
   session?: ClientSession,
 ) {
   return orderRepository.markOrderPaid(orderId, session);
+}
+
+async function markOrderDelivered(
+  orderId: string,
+  courierId: string,
+  deliveredAt: Date,
+  isCashPayment: boolean,
+  session?: ClientSession,
+) {
+  return orderRepository.markOrderDelivered(
+    orderId,
+    courierId,
+    deliveredAt,
+    isCashPayment,
+    session,
+  );
 }
 
 /**
@@ -177,10 +200,12 @@ async function listOrdersForListing(
 
 export {
   listOrdersForRecipient,
+  findOrderById,
   verifyOrderOwnership,
   findNonCancelledOrderIdsByListing,
   createOrder,
   markOrderPaid,
+  markOrderDelivered,
   choosePaymentMethod,
   createCheckoutSession,
   cancelOrdersByIds,
