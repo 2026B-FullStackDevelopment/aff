@@ -8,5 +8,7 @@ const router = express.Router();
 
 router.get('/me', requireAuth, userController.getMyProfile);
 router.patch('/me', requireAuth, userController.updateMyProfile);
+router.patch('/me/password', requireAuth, userController.changePassword);
+router.patch('/me/email', requireAuth, userController.changeEmail);
 
 export default router;

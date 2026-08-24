@@ -1,5 +1,6 @@
 // Exposes safe auth functions for other modules without importing auth services directly.
 import * as authTokenService from './auth.token.service.js';
+import * as authLogoutService from './auth.logout.service.js';
 
 /**
  * The auth module's public surface for other modules. Per the project's
@@ -8,6 +9,7 @@ import * as authTokenService from './auth.token.service.js';
  */
 const authInterface = {
   verifyAccessToken: authTokenService.verifyAccessToken,
+  revokeTokenForPasswordChange: authLogoutService.revokeForPasswordChange,
 };
 
 export { authInterface };

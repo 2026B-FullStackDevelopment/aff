@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import type { AnyUserDTO, UpdateProfilePayload } from '@/types/api';
 import { validateUsername, validatePassword } from '@/shared/utils/validation';
 import { userService } from '../services/user.service';
-import { updateStoredUser } from '@/services/authStorage';
+import { clearSession, updateStoredUser } from '@/services/authStorage';
 import { useAvatarUpload } from './useAvatarUpload';
 
-// We map our form fields matching the UpdateProfilePayload
 export interface ProfileFormData {
   username: string;
   email: string;
@@ -34,7 +33,6 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Avatar upload sub-state
   const avatarUpload = useAvatarUpload();
 
   function buildFormFromProfile(profile: AnyUserDTO): ProfileFormData {
@@ -53,13 +51,11 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     };
   }
 
-  // Seed form on profile load
   useEffect(() => {
     if (profile) {
       setForm(buildFormFromProfile(profile));
-      avatarUpload.reset(); // clear any stale blob URL if profile re-fetches
+      avatarUpload.reset();
     }
-    // We intentionally don't put avatarUpload in the dependency array to avoid loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
@@ -72,10 +68,6 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     setSubmitSuccess(false);
   }
 
-  /**
-   * Helper called when AddressAutocomplete returns a new address selection
-   * with coordinates and optional resolved municipality/city.
-   */
   function handleAddressSelect(data: { addressText: string; latitude: number; longitude: number; municipality?: string }) {
     setForm((prev) => ({
       ...prev,
@@ -93,8 +85,11 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
 
     // 1. Client-side validation
     const nextErrors: typeof errors = {};
+
     const usernameResult = validateUsername(form.username);
-    if (!usernameResult.isValid) nextErrors.username = usernameResult.errors[0];
+    if (!usernameResult.isValid) {
+      nextErrors.username = usernameResult.errors[0];
+    }
 
     const emailTrimmed = form.email.trim();
     if (!emailTrimmed) {
@@ -110,12 +105,21 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
       }
     }
 
-    if (!form.city.trim()) nextErrors.city = 'City is required';
-    if (!form.country.trim()) nextErrors.country = 'Country is required';
+    if (!form.city.trim()) {
+      nextErrors.city = 'City is required';
+    }
+
+    if (!form.country.trim()) {
+      nextErrors.country = 'Country is required';
+    }
 
     if (profile.role === 'DONOR') {
-      if (!form.companyName.trim()) nextErrors.companyName = 'Company Name is required';
-      if (!form.addressText.trim()) nextErrors.addressText = 'Address is required';
+      if (!form.companyName.trim()) {
+        nextErrors.companyName = 'Company Name is required';
+      }
+      if (!form.addressText.trim()) {
+        nextErrors.addressText = 'Address is required';
+      }
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -123,17 +127,30 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
       return;
     }
 
-    // 2. Build payload with only what changed to minimize patch size
+    // 2. Build payload for normal profile fields
     const patch: UpdateProfilePayload = {};
-    if (form.username !== profile.username) patch.username = form.username;
-    // if (form.email.trim().toLowerCase() !== profile.email.toLowerCase()) patch.email = form.email.trim().toLowerCase();
-    // if (form.password && form.password.trim().length > 0) patch.password = form.password;
-    if (form.city !== profile.city) patch.city = form.city;
-    if (form.country !== profile.country) patch.country = form.country;
+
+    if (form.username !== profile.username) {
+      patch.username = form.username;
+    }
+
+    if (form.city !== profile.city) {
+      patch.city = form.city;
+    }
+
+    if (form.country !== profile.country) {
+      patch.country = form.country;
+    }
 
     if (profile.role === 'DONOR') {
-      if (form.companyName !== profile.companyName) patch.companyName = form.companyName;
-      if (form.addressText !== profile.addressText) patch.addressText = form.addressText;
+      if (form.companyName !== profile.companyName) {
+        patch.companyName = form.companyName;
+      }
+
+      if (form.addressText !== profile.addressText) {
+        patch.addressText = form.addressText;
+      }
+
       if (
         form.location &&
         (!profile.location ||
@@ -153,9 +170,19 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
       patch.avatarUrl = avatarUpload.mediaUrl;
     }
 
+    // 3. Detect email/password changes separately
+    const emailChanged =
+      emailTrimmed.toLowerCase() !== profile.email.trim().toLowerCase();
 
-    if (Object.keys(patch).length === 0) {
-      // Nothing changed. Treat as success.
+    const passwordChanged =
+      !!form.password && form.password.trim().length > 0;
+
+    // 4. If nothing changed
+    if (
+      Object.keys(patch).length === 0 &&
+      !emailChanged &&
+      !passwordChanged
+    ) {
       onSuccess?.();
       return;
     }
@@ -165,19 +192,71 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     setSubmitSuccess(false);
 
     try {
-      const response = await userService.updateProfile(patch);
-      if (response.ok && response.data) {
-        // Success: update local cache and call success handler
-        updateStoredUser(response.data);
-        setSubmitSuccess(true);
-        // Clear password field after successful save
-        setForm((prev) => ({ ...prev, password: '' }));
-        onSuccess?.();
-      } else {
-        setSubmitError((response.data as any)?.message || 'Failed to update profile. Please try again.');
+      // 5. Update normal profile fields
+      if (Object.keys(patch).length > 0) {
+        const response = await userService.updateProfile(patch);
+
+        if (!response.ok) {
+          setSubmitError(
+            (response.data as any)?.message ||
+              'Failed to update profile. Please try again.'
+          );
+          return;
+        }
+
+        if (response.data) {
+          updateStoredUser(response.data);
+        }
       }
+
+      // 6. Update email separately (FIXED: passing { newEmail })
+      if (emailChanged) {
+        const response = await userService.updateEmail({ newEmail: emailTrimmed });
+
+        if (!response.ok) {
+          setSubmitError(
+            (response.data as any)?.message ||
+              'Failed to update email. Please try again.'
+          );
+          return;
+        }
+
+        if (response.data) {
+          updateStoredUser(response.data);
+        }
+      }
+
+      // 7. Update password LAST
+      if (passwordChanged) {
+        const response = await userService.updatePassword({
+          newPassword: form.password!.trim(),
+        });
+
+        if (!response.ok) {
+          setSubmitError(
+            (response.data as any)?.message ||
+              'Failed to update password. Please try again.'
+          );
+          return;
+        }
+
+        // Password changed successfully: clear stale session & redirect to login
+        clearSession();
+        window.location.href = '/login';
+        return;
+      }
+
+      setSubmitSuccess(true);
+      setForm((prev) => ({
+        ...prev,
+        password: '',
+      }));
+
+      onSuccess?.();
     } catch (err) {
-      setSubmitError('An unexpected error occurred. Please check your connection and try again.');
+      setSubmitError(
+        'An unexpected error occurred. Please check your connection and try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -206,6 +285,3 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     avatarUpload,
   };
 }
-
-
-
