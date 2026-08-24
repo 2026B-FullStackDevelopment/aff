@@ -14,7 +14,9 @@ import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPa
 import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
+import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
 import { FoodListingCreationPage } from '../modules/donations/pages/FoodListingCreationPage';
+import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPage';
 import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
@@ -115,12 +117,34 @@ export function AppRouter() {
         />
 
         <Route
+          path="/donor/manual-donation"
+          element={
+            <ProtectedRoute
+              allowedRoles={['DONOR']}
+            >
+              <ManualDonationPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/donor/donations"
           element={
             <ProtectedRoute
               allowedRoles={['DONOR']}
             >
               <DonorDonationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donor/reservations"
+          element={
+            <ProtectedRoute
+              allowedRoles={['DONOR']}
+            >
+              <DonorReservationsPage />
             </ProtectedRoute>
           }
         />

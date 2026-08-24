@@ -5,6 +5,7 @@ import type {
   ListingStatus,
   ListingUnit,
   OrderDTO,
+  PaymentMethod,
 } from '@/types/api';
 
 // Request body accepted by POST /listings.
@@ -19,6 +20,14 @@ export interface CreateListingPayload {
   price: number;
   donationLimit: number;
   rationLimitPerPerson?: number;
+}
+
+// Request body accepted by POST /listings/:id/donations.
+// Payment method is omitted for free listings.
+export interface DonorInitiatedDonationPayload {
+  recipientEmail: string;
+  quantity: number;
+  paymentMethod?: PaymentMethod;
 }
 
 export type ListingGroup = 'ACTIVE' | 'PAST';

@@ -2,10 +2,12 @@ import { API_ROUTES } from '@/config/apiRoutes';
 import { httpClient } from '@/services/httpClient';
 import type {
   ListingDTO,
+  OrderDTO,
   PaginatedData,
 } from '@/types/api';
 import type {
   CreateListingPayload,
+  DonorInitiatedDonationPayload,
   ListingOrderDTO,
   ManagedListingDTO,
   MyListingsQuery,
@@ -101,6 +103,16 @@ export const listingService = {
     httpClient.post<ListingDTO>(
       API_ROUTES.listings.clone(listingId),
       undefined,
+    ),
+
+  // Creates a Donor-initiated order for a registered Recipient.
+  createDonorInitiatedDonation: (
+    listingId: string,
+    payload: DonorInitiatedDonationPayload,
+  ) =>
+    httpClient.post<OrderDTO>(
+      API_ROUTES.listings.donations(listingId),
+      payload,
     ),
 
   // Applies a Donor-controlled listing status transition.
