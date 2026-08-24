@@ -21,6 +21,7 @@ import { MyReservationsPage } from '../modules/reservations/pages/MyReservations
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
 import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts/DonorSoldOutAlerts';
+import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
 
 export function AppRouter() {
   return (
@@ -147,6 +148,17 @@ export function AppRouter() {
               allowedRoles={['DONOR']}
             >
               <DonorReservationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donor/analytics"
+          element={
+            <ProtectedRoute
+              allowedRoles={['DONOR']}
+            >
+              <DonorAnalyticsPage />
             </ProtectedRoute>
           }
         />

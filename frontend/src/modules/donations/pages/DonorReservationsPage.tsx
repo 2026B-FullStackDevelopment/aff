@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { ArrowLeft, ClipboardList } from 'lucide-react';
+import { ListFilter } from 'lucide-react';
 import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
 import { Button } from '@/shared/components/Button/Button';
 import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
@@ -14,13 +13,19 @@ import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallou
 import { getStoredUser } from '@/services/authStorage';
 import { ListingOrderSummary } from '../components/ListingOrderSummary/ListingOrderSummary';
 import { ListingOrdersTable } from '../components/ListingOrdersTable/ListingOrdersTable';
+import { ReservationListingPicker } from '../components/ReservationListingPicker/ReservationListingPicker';
+import { useDonorListings } from '../hooks/useDonorListings';
 import { useListingOrders } from '../hooks/useListingOrders';
+import type { ManagedListingDTO } from '../types';
 
-// Renders C8 orders for the listing selected from Donation Management.
+// Renders C8 listing selection and tracked Donor orders.
 export function DonorReservationsPage() {
   const navigate = useNavigate();
-  const [searchParameters] =
-    useSearchParams();
+
+  const [
+    searchParameters,
+    setSearchParameters,
+  ] = useSearchParams();
 
   const storedUser = getStoredUser();
 
@@ -35,18 +40,34 @@ export function DonorReservationsPage() {
       ?.trim() || null;
 
   const {
+    listings,
+    searchInput,
+    group,
+    page: listingPage,
+    limit: listingPageSize,
+    total: listingTotal,
+    isLoading: areListingsLoading,
+    error: listingsError,
+    dateError,
+    setSearchInput,
+    setGroup,
+    setPage: setListingPage,
+    refetch: retryListings,
+  } = useDonorListings();
+
+  const {
     listing,
     orders,
-    page,
-    pageSize,
-    total,
-    isLoading,
-    error,
+    page: orderPage,
+    pageSize: orderPageSize,
+    total: orderTotal,
+    isLoading: areOrdersLoading,
+    error: ordersError,
     isEndpointUnavailable,
     isForbidden,
     isPerRequest,
-    setPage,
-    retry,
+    setPage: setOrderPage,
+    retry: retryOrders,
   } = useListingOrders(listingId);
 
   useEffect(() => {
@@ -63,9 +84,38 @@ export function DonorReservationsPage() {
     navigate,
   ]);
 
+  function selectListing(
+    selectedListing: ManagedListingDTO,
+  ) {
+    setSearchParameters((current) => {
+      const next =
+        new URLSearchParams(current);
+
+      next.set(
+        'listingId',
+        selectedListing.id,
+      );
+
+      return next;
+    });
+  }
+
+  function clearListingSelection() {
+    setSearchParameters((current) => {
+      const next =
+        new URLSearchParams(current);
+
+      next.delete('listingId');
+
+      return next;
+    });
+  }
+
   const pageDescription = listing
     ? `Selected listing: ${listing.name} · Food Listing ID ${listing.id}`
-    : 'Review tracked orders against one of your food listings.';
+    : listingId
+      ? 'Loading the selected food listing...'
+      : 'Choose one of your listings and review its tracked Recipient orders.';
 
   return (
     <div className="min-h-screen bg-[#FBF9F8]">
@@ -85,92 +135,124 @@ export function DonorReservationsPage() {
           title="Donations and Reservations"
           description={pageDescription}
           actions={
-            listing?.status === 'SOLD_OUT' ? (
-              <WarningCallout
-                title="Fully donated / Sold out"
-                className="w-full max-w-sm sm:min-w-80"
-              >
-                <p>
-                  {listing.name} is fully
-                  donated.
-                </p>
-              </WarningCallout>
+            listingId ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={
+                    clearListingSelection
+                  }
+                  className="h-10 border-[#C1C8C2] bg-white px-4 font-bold text-[#805300] transition-all duration-200 ease-out hover:border-[#805300] hover:bg-[#FFF6E3] hover:shadow-md active:scale-[0.98]"
+                >
+                  <ListFilter
+                    className="size-4"
+                    aria-hidden="true"
+                  />
+                  Change listing
+                </Button>
+
+                {listing?.status === 'SOLD_OUT' && (
+                  <WarningCallout
+                    title="Fully donated / Sold out"
+                    className="w-full max-w-sm sm:min-w-80"
+                  >
+                    <p>
+                      {listing.name} is fully
+                      donated.
+                    </p>
+                  </WarningCallout>
+                )}
+              </>
             ) : undefined
           }
         />
 
-        <section
-          className="mt-6"
-          aria-label="Listing reservations"
-        >
-          {!listingId && (
-            <EmptyState
-              title="Select a food listing"
-              description="Open Donation Management and choose View Reservations on one of your listings."
-              icon={ClipboardList}
-              action={
-                <Button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      '/donor/donations',
-                    )
-                  }
-                  className="h-10 bg-[#805300] px-4 font-bold text-white transition-all duration-200 ease-out hover:bg-[#694400] hover:shadow-md active:scale-[0.98]"
-                >
-                  <ArrowLeft
-                    className="size-4"
-                    aria-hidden="true"
-                  />
-                  Donation Management
-                </Button>
+        {!listingId && (
+          <section
+            className="mt-6"
+            aria-label="Choose a listing"
+          >
+            <ReservationListingPicker
+              listings={listings}
+              selectedListingId={null}
+              search={searchInput}
+              group={group}
+              page={listingPage}
+              pageSize={listingPageSize}
+              total={listingTotal}
+              isLoading={
+                areListingsLoading
               }
+              error={
+                dateError ?? listingsError
+              }
+              onSearchChange={
+                setSearchInput
+              }
+              onGroupChange={setGroup}
+              onPageChange={
+                setListingPage
+              }
+              onSelect={selectListing}
+              onRetry={retryListings}
             />
-          )}
+          </section>
+        )}
 
-          {listingId
-            && isLoading
-            && !listing && (
-              <LoadingSkeleton count={2} />
+        {listingId && (
+          <section
+            className="mt-6"
+            aria-label="Listing orders"
+          >
+            {areOrdersLoading
+              && !listing && (
+                <LoadingSkeleton count={2} />
+              )}
+
+            {!areOrdersLoading
+              && !listing
+              && !isForbidden
+              && ordersError && (
+                <ErrorState
+                  title="Unable to load listing"
+                  message={ordersError}
+                  retryLabel="Try Again"
+                  onRetry={retryOrders}
+                />
+              )}
+
+            {listing && !isForbidden && (
+              <>
+                <ListingOrderSummary
+                  listing={listing}
+                />
+
+                <ListingOrdersTable
+                  orders={orders}
+                  unit={listing.unit}
+                  page={orderPage}
+                  pageSize={orderPageSize}
+                  total={orderTotal}
+                  isLoading={
+                    areOrdersLoading
+                  }
+                  error={ordersError}
+                  isEndpointUnavailable={
+                    isEndpointUnavailable
+                  }
+                  isPerRequest={
+                    isPerRequest
+                  }
+                  onPageChange={
+                    setOrderPage
+                  }
+                  onRetry={retryOrders}
+                />
+              </>
             )}
-
-          {listingId
-            && !isLoading
-            && !listing
-            && !isForbidden
-            && error && (
-              <ErrorState
-                title="Unable to load listing"
-                message={error}
-                retryLabel="Try Again"
-                onRetry={retry}
-              />
-            )}
-
-          {listing && !isForbidden && (
-            <>
-              <ListingOrderSummary
-                listing={listing}
-              />
-
-              <ListingOrdersTable
-                orders={orders}
-                unit={listing.unit}
-                page={page}
-                pageSize={pageSize}
-                total={total}
-                isLoading={isLoading}
-                error={error}
-                isEndpointUnavailable={
-                  isEndpointUnavailable
-                }
-                isPerRequest={isPerRequest}
-                onPageChange={setPage}
-                onRetry={retry}
-              />
-            </>
-          )}
-        </section>
+          </section>
+        )}
       </main>
     </div>
   );

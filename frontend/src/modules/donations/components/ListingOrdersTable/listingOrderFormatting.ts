@@ -20,6 +20,14 @@ export interface DeliveryStatusDisplay {
   label: string;
 }
 
+export function formatOrderIntakePath(
+  order: OrderDTO,
+): string {
+  return order.intakePath === 'RESERVATION'
+    ? 'Reservation'
+    : 'Donor initiated';
+}
+
 export function formatOrderDate(
   value: string,
 ): string {

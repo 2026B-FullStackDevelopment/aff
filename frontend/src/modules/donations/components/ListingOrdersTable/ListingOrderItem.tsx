@@ -4,6 +4,7 @@ import type { ListingOrderDTO } from '../../types';
 import {
   formatOrderAmount,
   formatOrderDate,
+  formatOrderIntakePath,
   formatOrderQuantity,
   formatPaymentMethod,
   getDeliveryStatusDisplay,
@@ -55,6 +56,21 @@ function DeliveryStatus({
   );
 }
 
+function OrderTypeBadge({
+  order,
+}: Pick<ListingOrderItemProps, 'order'>) {
+  return (
+    <StatusBadge
+      status={
+        order.intakePath === 'RESERVATION'
+          ? 'reserved'
+          : 'default'
+      }
+      label={formatOrderIntakePath(order)}
+    />
+  );
+}
+
 // Renders one C8 order as a desktop table row.
 export function ListingOrderDesktopRow({
   order,
@@ -64,6 +80,10 @@ export function ListingOrderDesktopRow({
     <tr className="border-t border-[#E4E2E1] align-top transition-colors duration-200 hover:bg-[#FFFDF8]">
       <td className="px-5 py-5 font-semibold text-[#1B1C1C]">
         {order.recipient.username}
+      </td>
+
+      <td className="px-5 py-5">
+        <OrderTypeBadge order={order} />
       </td>
 
       <td className="px-5 py-5 text-[#414844]">
@@ -137,6 +157,15 @@ export function ListingOrderMobileCard({
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E4E2E1] pt-4">
         <div>
+          <div>
+            <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
+              Order type
+            </dt>
+
+            <dd className="mt-1">
+              <OrderTypeBadge order={order} />
+            </dd>
+          </div>
           <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
             Created
           </dt>
