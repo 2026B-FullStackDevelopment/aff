@@ -4,13 +4,16 @@ export const API_ROUTES = {
     registerRecipient: '/auth/register/recipient',
     registerDonor: '/auth/register/donor',
     login: '/auth/login',
-    logout: '/auth/logout'
+    logout: '/auth/logout',
   },
   users: {
     me: '/users/me',
   },
   media: {
     uploadUrl: '/media/upload-url',
+  },
+  listings: {
+    create: '/listings',
   },
   food: {
     list: '/food',
