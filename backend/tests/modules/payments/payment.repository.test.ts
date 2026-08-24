@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { findOneMock, findByIdAndUpdateMock, createMock, leanMock } = vi.hoisted(() => {
+const {
+  findOneMock,
+  findOneAndUpdateMock,
+  findByIdAndUpdateMock,
+  createMock,
+  leanMock,
+} = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findOneMock: vi.fn(() => ({ lean: leanMock })),
+    findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
     leanMock,
@@ -14,6 +21,7 @@ vi.mock('../../../src/modules/payments/payment.model.js', () => ({
   default: {
     create: createMock,
     findOne: findOneMock,
+    findOneAndUpdate: findOneAndUpdateMock,
     findByIdAndUpdate: findByIdAndUpdateMock,
   },
 }));
@@ -24,6 +32,7 @@ import {
   findPaymentByPayable,
   findPaymentByRefundId,
   updatePaymentEvent,
+  markPaymentPaidIfPending,
   markPaymentRefundPending,
 } from '../../../src/modules/payments/payment.repository.js';
 
@@ -31,6 +40,7 @@ describe('payment.repository', () => {
   beforeEach(() => {
     createMock.mockClear();
     findOneMock.mockClear();
+    findOneAndUpdateMock.mockClear();
     findByIdAndUpdateMock.mockClear();
     leanMock.mockClear();
   });
@@ -108,6 +118,36 @@ describe('payment.repository', () => {
       { lastProcessedEventId: 'evt_2', status: 'REFUNDED', refundedAt: new Date('2026-01-02T00:00:00.000Z') },
       { new: true },
     );
+  });
+
+  it('atomically marks only a pending Payment paid and records webhook identifiers', async () => {
+    const paidAt = new Date('2026-01-01T00:00:00.000Z');
+    leanMock.mockResolvedValue({ _id: 'p1', status: 'PAID' });
+
+    const result = await markPaymentPaidIfPending(
+      'cs_123',
+      'evt_1',
+      paidAt,
+      undefined,
+      'pi_123',
+    );
+
+    expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+      {
+        stripeSessionId: 'cs_123',
+        status: 'PENDING',
+      },
+      {
+        $set: {
+          status: 'PAID',
+          paidAt,
+          lastProcessedEventId: 'evt_1',
+          stripePaymentIntentId: 'pi_123',
+        },
+      },
+      { new: true, session: undefined },
+    );
+    expect(result).toEqual({ _id: 'p1', status: 'PAID' });
   });
 
   it('findPaymentByRefundId queries by stripeRefundId and returns a lean document', async () => {

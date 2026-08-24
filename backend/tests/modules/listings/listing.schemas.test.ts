@@ -313,40 +313,47 @@ describe('listing.schemas', () => {
     });
   });
 
+  // describe() groups related test cases.
   describe('donorInitiatedDonationSchema', () => {
-    it('accepts a free donation body without a payment method', () => {
-      expect(
-        donorInitiatedDonationSchema.safeParse({
-          recipientEmail: 'recipient@example.com',
-          quantity: 2,
-        }).success,
-      ).toBe(true);
-    });
+    const validDonationBody = {
+      recipientEmail: 'recipient@example.com',
+      quantity: 2,
+      deliveryAddressText: '123 Example Street, Ho Chi Minh City',
+      deliveryLocation: {
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    };
 
-    it('accepts a donation body with a supported payment method', () => {
+    it('accepts a valid donor-initiated donation body', () => {
       expect(
-        donorInitiatedDonationSchema.safeParse({
-          recipientEmail: 'recipient@example.com',
-          quantity: 2,
-          paymentMethod: 'CASH',
-        }).success,
+        donorInitiatedDonationSchema.safeParse(validDonationBody).success,
       ).toBe(true);
     });
 
     it('trims and lowercases the recipient email', () => {
       const parsed = donorInitiatedDonationSchema.parse({
+        ...validDonationBody,
         recipientEmail: '  Recipient@Example.COM  ',
-        quantity: 2,
       });
 
       expect(parsed.recipientEmail).toBe('recipient@example.com');
     });
 
+    it('trims the delivery address', () => {
+      const parsed = donorInitiatedDonationSchema.parse({
+        ...validDonationBody,
+        deliveryAddressText: '  123 Example Street  ',
+      });
+
+      expect(parsed.deliveryAddressText).toBe('123 Example Street');
+    });
+
     it('rejects a malformed recipient email', () => {
       expect(
         donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
           recipientEmail: 'not-an-email',
-          quantity: 2,
         }).success,
       ).toBe(false);
     });
@@ -354,18 +361,61 @@ describe('listing.schemas', () => {
     it.each([0, -1])('rejects donation quantity %s', (quantity) => {
       expect(
         donorInitiatedDonationSchema.safeParse({
-          recipientEmail: 'recipient@example.com',
+          ...validDonationBody,
           quantity,
         }).success,
       ).toBe(false);
     });
 
-    it('rejects an unsupported payment method', () => {
+    it('rejects a missing delivery address', () => {
+      const {
+        deliveryAddressText: _deliveryAddressText,
+        ...bodyWithoutAddress
+      } = validDonationBody;
+
+      expect(
+        donorInitiatedDonationSchema.safeParse(bodyWithoutAddress).success,
+      ).toBe(false);
+    });
+
+    it('rejects an empty delivery address', () => {
       expect(
         donorInitiatedDonationSchema.safeParse({
-          recipientEmail: 'recipient@example.com',
-          quantity: 2,
-          paymentMethod: 'BANK_TRANSFER',
+          ...validDonationBody,
+          deliveryAddressText: '   ',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects an invalid latitude', () => {
+      expect(
+        donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
+          deliveryLocation: {
+            latitude: 91,
+            longitude: 106.7009,
+          },
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects an invalid longitude', () => {
+      expect(
+        donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
+          deliveryLocation: {
+            latitude: 10.7769,
+            longitude: 181,
+          },
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects paymentMethod because the Recipient chooses it later', () => {
+      expect(
+        donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
+          paymentMethod: 'CASH',
         }).success,
       ).toBe(false);
     });
@@ -373,8 +423,7 @@ describe('listing.schemas', () => {
     it('rejects additional fields', () => {
       expect(
         donorInitiatedDonationSchema.safeParse({
-          recipientEmail: 'recipient@example.com',
-          quantity: 2,
+          ...validDonationBody,
           recipientName: 'Recipient',
         }).success,
       ).toBe(false);

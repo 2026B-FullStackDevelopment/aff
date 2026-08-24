@@ -107,6 +107,17 @@ async function findRecipientByUserId(userId: string | Types.ObjectId) {
   return recipientRepository.findRecipientByUserId(userId);
 }
 
+async function searchRecipientsByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Avoid exposing a broad Recipient directory from a very short query.
+  if (normalizedEmail.length < 3) {
+    return [];
+  }
+
+  return userRepository.searchActiveRecipientsByEmail(normalizedEmail, 10);
+}
+
 async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: string) {
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
 }
@@ -209,6 +220,16 @@ async function changeEmail(userId: string, newEmail: string) {
   return getMyProfileDto(userId);
 }
 
+async function getDonorByUserId(userId: string | Types.ObjectId) {
+  const donor = await donorRepository.findDonorByUserId(userId);
+  if (!donor) {
+    const error: Error = new Error('Donor profile not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return donor;
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -219,7 +240,9 @@ export {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  getDonorByUserId,
   findRecipientByUserId,
+  searchRecipientsByEmail,
   setRecipientStripeCustomerId,
   getMyProfileDto,
   updateUserProfile,

@@ -2,6 +2,10 @@
 import User, { type UserDocument, type Role } from './user.model.js';
 import type { Types } from 'mongoose';
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 interface CreateUserInput {
   username: string;
   email: string;
@@ -11,12 +15,37 @@ interface CreateUserInput {
   city?: string;
 }
 
+interface RecipientSearchResult {
+  _id: Types.ObjectId;
+  username: string;
+  email: string;
+}
+
 function createUser(data: CreateUserInput) {
   return User.create(data);
 }
 
 function findUserByEmail(email: string) {
   return User.findOne({ email }).lean<UserDocument>();
+}
+
+// Limit autocomplete results so the endpoint does not expose a large user list.
+function searchActiveRecipientsByEmail(email: string, limit = 10) {
+  return User.find({
+    role: 'RECIPIENT',
+    status: 'ACTIVE',
+    email: {
+      $regex: `^${escapeRegExp(email)}`,
+      $options: 'i',
+    },
+  })
+    .select({
+      _id: 1,
+      username: 1,
+      email: 1,
+    })
+    .limit(limit)
+    .lean<RecipientSearchResult[]>();
 }
 
 function findUserById(id: string | Types.ObjectId) {
@@ -73,6 +102,7 @@ function deleteUser(id: string | Types.ObjectId) {
 export {
   createUser,
   findUserByEmail,
+  searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
   updateLoginState,
@@ -81,4 +111,4 @@ export {
   lockAccount,
   deleteUser,
 };
-export type { CreateUserInput, LoginStateUpdate };
+export type { CreateUserInput, LoginStateUpdate, RecipientSearchResult };
