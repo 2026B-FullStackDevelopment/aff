@@ -59,4 +59,4 @@ so that **my order enters the delivery queue without me having to arrange pickup
 6. **First-time Stripe card capture is D3's responsibility, not this story's.** This story only triggers the checkout-session call; the actual card-entry UI and `stripeCustomerId` registration live in D3.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

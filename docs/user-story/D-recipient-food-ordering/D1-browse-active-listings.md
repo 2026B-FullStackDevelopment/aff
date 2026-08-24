@@ -41,4 +41,4 @@ so that **I can quickly scan what surplus food is currently available before dec
 5. **Each card should link through to `GET /listings/:id` (D8)** for the detail/map view — this story only covers the list surface, not the detail page.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

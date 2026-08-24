@@ -46,4 +46,4 @@ so that **both intake paths converge on the same Courier pipeline with no diverg
 5. **This story should land before — or alongside — the first story that needs to call it (C3 or D2).** Per `docs/blockers.md`, it's the structural prerequisite for most of Epic E and for C3/D2; sequence it early rather than stubbing it out to unblock those stories first.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

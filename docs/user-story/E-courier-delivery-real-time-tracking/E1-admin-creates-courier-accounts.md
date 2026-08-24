@@ -41,4 +41,4 @@ so that **delivery staff can log in and work the queue without any public self-r
 5. **This story doesn't touch login.** Once created, the Courier logs in through the existing `POST /auth/login` (A3) like any other role — no separate Courier login flow to build.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

@@ -47,4 +47,4 @@ so that **the delivery is marked complete and, for cash orders, the payment reco
 6. **This action is what flips the Recipient's live state to `DELIVERED` (E10) and closes their map (also E10)** — don't build any Recipient-facing state changes as part of this story; those are driven by the `stage` change this endpoint produces, consumed separately by E8/E10.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

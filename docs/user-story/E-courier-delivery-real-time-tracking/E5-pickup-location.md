@@ -47,4 +47,4 @@ so that **I know where to go to pick up the order and can actually navigate ther
 6. **Once `stage=PICKED_UP`, E6 replaces this static pickup map with its own live, delivery-destination-centered map on the same screen** — don't keep both maps rendered simultaneously; it's one map component that changes mode at the pickup transition, not two stacked maps.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

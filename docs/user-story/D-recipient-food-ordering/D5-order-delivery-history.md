@@ -46,4 +46,4 @@ so that **I can track everything I've ordered without cross-referencing separate
 5. **This endpoint returns `donor: { id, companyName }`** — use it directly for the Donor column; don't make a second call per row to fetch Donor details.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

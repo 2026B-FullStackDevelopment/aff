@@ -51,4 +51,4 @@ so that **I can narrow down active listings to the ones actually relevant to me,
 5. **Reset to page 1 whenever a filter changes**, but keep the current filter state when only the page changes — don't lose applied filters on pagination.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

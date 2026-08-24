@@ -41,4 +41,4 @@ so that **I always know where my delivery stands without manually refreshing the
 5. **Handle the case where the Recipient opens the order detail page after missing an earlier event** (e.g. they weren't connected when the Courier claimed it) — always hydrate the stepper from the initial `GET` response first, then layer live updates on top; never rely on socket events alone to establish initial state.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

@@ -46,4 +46,4 @@ so that **I have full visibility into the Courier pipeline without any ability t
 5. **Deactivating a Courier account reuses G2's existing `PATCH /admin/users/:id/status` flow** — no Courier-specific deactivation logic needed; the same status toggle and `REVOKED_TOKEN` cascade apply uniformly across roles.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E) — also referenced by Epic G (Admin Functionality), story G6
+Courier Delivery & Real-Time Tracking (Epic E — #85) — also referenced by Epic G (Admin Functionality), story G6

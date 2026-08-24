@@ -41,4 +41,4 @@ so that **I don't need to re-enter card details on future card purchases, includ
 5. **After the Checkout Session redirect, there is nothing further for this story to do client-side** — Stripe hosts the actual card-entry form. This story's scope ends at "customer created/reused, session created," not at rendering payment fields.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

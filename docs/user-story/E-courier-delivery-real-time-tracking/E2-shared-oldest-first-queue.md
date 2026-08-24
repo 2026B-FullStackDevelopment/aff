@@ -46,4 +46,4 @@ so that **I always work the longest-waiting order first, with no separate queues
 5. **Each row's "Claim" action belongs to E3, not this story.** This story is the read-only queue surface; wire the claim button here but treat its behavior as E3's scope.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

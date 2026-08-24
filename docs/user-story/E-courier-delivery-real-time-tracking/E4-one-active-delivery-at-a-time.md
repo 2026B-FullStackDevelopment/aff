@@ -40,4 +40,4 @@ so that **I always have exactly one clear job to focus on, never a stack of comp
 4. **Don't add a "swap" or "override" affordance.** The scope boundary is explicit: no way for a Courier to abandon or override an active delivery to claim a different one — the only path back to claiming is completing (E7) or the delivery reaching a terminal state.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)
