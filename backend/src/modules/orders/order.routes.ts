@@ -10,6 +10,12 @@ const router = express.Router();
 router.get('/mine', requireAuth, requireRole('RECIPIENT'), orderController.listMyOrders);
 router.delete('/:id', requireAuth, requireRole('RECIPIENT'), orderController.cancelOrder);
 router.post('/:id/feedback', requireAuth, requireRole('RECIPIENT'), orderController.submitFeedback);
+router.post(
+  '/:id/payment-choice',
+  requireAuth,
+  requireRole('RECIPIENT'),
+  orderController.choosePaymentMethod,
+);
 router.post('/:id/checkout-session', requireAuth, requireRole('RECIPIENT'), orderController.createCheckoutSession);
 
 export default router;

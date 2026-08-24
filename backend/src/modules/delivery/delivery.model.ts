@@ -37,5 +37,9 @@ const deliverySchema = new Schema<DeliveryDocument>(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+// An Order can have at most one Delivery. This is the final concurrency
+// guard for DeliveryService.createForOrder.
+deliverySchema.index({ orderId: 1 }, { unique: true });
+
 export default mongoose.model<DeliveryDocument>('Delivery', deliverySchema);
 export type { DeliveryStage, DeliveryDocument };

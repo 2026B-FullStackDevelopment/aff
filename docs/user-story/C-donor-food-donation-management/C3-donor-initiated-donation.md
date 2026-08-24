@@ -47,8 +47,8 @@ so that **I can hand out food I've already committed to someone outside the app*
 ## Implementation Flow
 
 1. **The Recipient field must be a resolving search, never free text, and must search by email, not username.** Build it as an autocomplete/typeahead against registered emails; the form should only be submittable once a real Recipient has been selected, not just typed. Don't use username for this lookup — it isn't unique, so a username search could resolve to the wrong account.
-2. **Decide whether `paymentMethod` is required by checking the listing's `price` client-side** (>0 needs it, `price=0` doesn't) purely as a UX convenience — the server is still the actual enforcement point and will reject a missing `paymentMethod` on a priced listing.
-3. **Submit quantity, recipient, and (if priced) `paymentMethod` in one `POST /listings/:id/donations` call** — there's no separate confirmation step before this request.
+2. **Capture a delivery address and coordinates for this Order.** Recipient signup stores city, not a complete delivery destination, so the Donor supplies the destination for this manual donation.
+3. **Submit `recipientEmail`, `quantity`, `deliveryAddressText`, and `deliveryLocation` in `POST /listings/:id/donations`.** Do not submit `paymentMethod`; a priced Order starts as `PAYMENT_PENDING`, and the Recipient chooses Stripe or cash afterward through `POST /orders/:id/payment-choice`.
 4. **Branch the success UI on the returned `paymentStatus`.** `FREE` means the donation is already queued for delivery — show it as complete. `PAYMENT_PENDING` means the Recipient still has to act (Stripe or cash) — make clear to the Donor that the donation isn't finalized yet, don't show it as done.
 5. **Surface `422` (over stock/ration limit, or listing is `PER_REQUEST`) and `404` (unknown recipient email) as distinct, field-specific inline errors** rather than one generic failure banner.
 

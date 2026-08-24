@@ -248,6 +248,12 @@ Errors: `401` if already unauthenticated
 **Auth:** any authenticated role
 Response `200`: role-appropriate DTO (`RecipientDTO` \| `DonorDTO` \| `CourierDTO` \| `UserDTO` for Admin)
 
+### `GET /users/recipients/search?email=` — *supports `4.1.4` Recipient resolution*
+**Auth:** `DONOR`
+
+Searches active registered Recipients by case-insensitive email prefix. At least three characters are required; shorter input returns an empty array. Results are capped at 10 and expose only `{ id, username, email }`.
+Response `200`: `{ id: string, username: string, email: string }[]`
+
 ### `PATCH /users/me` — *`3.1.1`*
 **Auth:** any authenticated role
 
@@ -342,8 +348,8 @@ Response `200`: paginated `OrderDTO[]` (each including `recipient: { id, usernam
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`
 
-Request body: `{ recipientEmail: string, quantity: number, paymentMethod?: 'STRIPE'|'CASH' }` (`paymentMethod` required only if the listing's `price > 0`; omitted/ignored for free listings)
-Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used rather than username since `username` has no uniqueness constraint — see `docs/database_design.md`'s `USER` schema — while `email` does). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING`, `orderStatus=PENDING_PAYMENT`, and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE`, `orderStatus=PREPARING` (it's already queue-eligible), and `DeliveryService.createForOrder` fires immediately.
+Request body: `{ recipientEmail: string, quantity: number, deliveryAddressText: string, deliveryLocation: { latitude, longitude } }`. The Donor does not choose `paymentMethod`; a priced Order waits for the Recipient's choice through `POST /orders/:id/payment-choice`.
+Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used rather than username since `username` has no uniqueness constraint — see `docs/database_design.md`'s `USER` schema — while `email` does). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING` and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE` and `DeliveryService.createForOrder` fires immediately.
 Response `201`: `OrderDTO`
 Errors: `404` recipient email not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
 
@@ -415,6 +421,15 @@ Response `200`: `{ checkoutUrl: string }` (frontend redirects the browser here)
 Errors: `409` order not in a payable state; `502` Stripe API error
 
 Payment confirmation happens asynchronously via the Stripe webhook (§8), **not** as this endpoint's response — Stripe Checkout is a redirect flow.
+
+### `POST /orders/:id/payment-choice` — *supports Recipient choice for priced Donor-initiated Orders*
+**Auth:** `RECIPIENT`
+**Ownership:** the order must belong to `req.user.id`
+
+Request body: `{ paymentMethod: 'STRIPE'|'CASH' }`
+Behavior: records the choice only while `paymentStatus=PAYMENT_PENDING` and no different method has already been selected. Cash sets `orderStatus=PREPARING` and creates the Delivery immediately. Stripe remains `PENDING_PAYMENT`; the client then calls `POST /orders/:id/checkout-session`.
+Response `200`: `OrderDTO`
+Errors: `404` order not found; `409` order is not awaiting a choice or a different method was already selected
 
 ---
 

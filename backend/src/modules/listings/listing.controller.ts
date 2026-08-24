@@ -1,8 +1,23 @@
 // Handles listing HTTP requests and returns listing DTOs.
 import type { Request, Response, NextFunction } from 'express';
 import * as listingService from './listing.service.js';
-import { toListingResponseDto } from './listing.dto.js';
-import { created, ok, notImplemented } from '../../shared/http/response.js';
+import {
+  toListingResponseDto,
+  toListingDetailResponseDto,
+  toListingWithStatsResponseDto,
+  toListingOrderResponseDto,
+} from './listing.dto.js';
+import { created, ok, paginated, notImplemented } from '../../shared/http/response.js';
+import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
+import {
+  createListingSchema,
+  mineListingsQuerySchema,
+  listingIdParamsSchema,
+  updateListingStatusSchema,
+  listingOrdersQuerySchema,
+  donorInitiatedDonationSchema
+} from './listing.schemas.js';
+import { toOrderResponseDto } from '../orders/order.dto.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -16,41 +31,119 @@ async function listAvailableListings(req: Request, res: Response, next: NextFunc
 async function getListingById(req: Request, res: Response, next: NextFunction) {
   try {
     const listing = await listingService.getListingById(String(req.params.id));
-    return ok(res, toListingResponseDto(listing));
+    return ok(res, toListingDetailResponseDto(listing));
   } catch (error) {
     return next(error);
   }
 }
 
-async function createListing(req: Request, res: Response, next: NextFunction) {
+async function createListing(req: Request, res: Response, next: NextFunction ) {
   try {
-    const listing = await listingService.createListing(req.user!.id, req.body);
+    // validate and sanitize client request body
+    const payload = parseBody(createListingSchema, req.body);
+    const listing = await listingService.createListing(req.user!.id, payload);
+    // created() is a shared response helper for sending successful HTTP
+    // defined in backend/src/shared/http/response.ts
     return created(res, toListingResponseDto(listing));
   } catch (error) {
     return next(error);
   }
 }
 
-// The following need the Delivery module and Stripe integration before they can be implemented
-// — see docs/api_design.md §6 and docs/blockers.md.
-async function listMyListings(_req: Request, res: Response) {
-  return notImplemented(res);
+async function listMyListings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = parseBody(mineListingsQuerySchema, req.query);
+    const result = await listingService.listMyListings(req.user!.id, query);
+
+    return paginated(
+      res,
+      result.items.map(toListingWithStatsResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function cloneListing(_req: Request, res: Response) {
-  return notImplemented(res);
+async function cloneListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const listing = await listingService.cloneListing(id, req.user!.id);
+    return created(res, toListingResponseDto(listing));
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function updateListingStatus(_req: Request, res: Response) {
-  return notImplemented(res);
+async function updateListingStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const { status } = parseBody(updateListingStatusSchema, req.body);
+    const result = await listingService.updateListingStatus(
+      id,
+      req.user!.id,
+      status,
+    );
+
+    return ok(res, {
+      listing: toListingResponseDto(result.listing),
+      cancelledOrderCount: result.cancelledOrderCount,
+    });
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function listListingOrders(_req: Request, res: Response) {
-  return notImplemented(res);
+async function listListingOrders(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const query = parseBody(listingOrdersQuerySchema, req.query);
+    const result = await listingService.listListingOrders(
+      id,
+      req.user!.id,
+      query,
+    );
+
+    return paginated(
+      res,
+      result.items.map(toListingOrderResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function createDonorInitiatedDonation(_req: Request, res: Response) {
-  return notImplemented(res);
+// Validate listing ID from the URL, validate the submitted donation data
+// Convert the created order into a safe response DTO, returned HTTP 201 created
+// req - from client to backend & res - backend to client express objects
+// Express requests passed thru multiple functions. Next > this is done, to next function
+// async, try, catch
+async function createDonorInitiatedDonation( req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params); // validate listing :id of listing routes
+    const payload = parseBody(donorInitiatedDonationSchema, req.body);
+    if (!payload.recipientEmail) {
+      const error: Error = new Error('Recipient email is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const order = await listingService.createDonorInitiatedDonation(
+      id,
+      req.user!.id,
+      { ...payload, recipientEmail: payload.recipientEmail },
+    ); // user! is to get only non-null
+    // created() HTTP 201 response
+    // DTO mapping function, taking the order and returns only needed fields
+    return created(res, toOrderResponseDto(order));
+  } catch(error) {
+    return next(error)
+  }
 }
 
 async function reserveListing(_req: Request, res: Response) {
