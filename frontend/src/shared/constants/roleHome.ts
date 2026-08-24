@@ -1,7 +1,7 @@
-// Central mapping from a user's role to their home route after auth
+// Maps each authenticated role to its default home route.
 export const ROLE_HOME: Record<string, string> = {
   RECIPIENT: '/marketplace',
-  DONOR: '/listing/create',
+  DONOR: '/donor/donations',
   ADMIN: '/admin/user-directory',
-  COURIER: '/deliveries/queue'
+  COURIER: '/deliveries/queue',
 };

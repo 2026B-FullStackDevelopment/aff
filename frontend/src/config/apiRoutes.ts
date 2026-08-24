@@ -14,6 +14,17 @@ export const API_ROUTES = {
   },
   listings: {
     create: '/listings',
+    mine: '/listings/mine',
+    detail: (listingId: string) =>
+      `/listings/${listingId}`,
+    clone: (listingId: string) =>
+      `/listings/${listingId}/clone`,
+    status: (listingId: string) =>
+      `/listings/${listingId}/status`,
+    orders: (listingId: string) =>
+      `/listings/${listingId}/orders`,
+    donations: (listingId: string) =>
+      `/listings/${listingId}/donations`,
   },
   food: {
     list: '/food',

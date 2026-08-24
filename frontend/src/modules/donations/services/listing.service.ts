@@ -1,14 +1,121 @@
 import { API_ROUTES } from '@/config/apiRoutes';
 import { httpClient } from '@/services/httpClient';
-import type { ListingDTO } from '@/types/api';
-import type { CreateListingPayload } from '../types';
+import type {
+  ListingDTO,
+  PaginatedData,
+} from '@/types/api';
+import type {
+  CreateListingPayload,
+  ListingOrderDTO,
+  ManagedListingDTO,
+  MyListingsQuery,
+  UpdateListingStatusPayload,
+  UpdateListingStatusResponse,
+} from '../types';
+
+function buildMyListingsPath(
+  query: MyListingsQuery,
+): string {
+  const parameters = new URLSearchParams();
+
+  parameters.set('status', query.status);
+
+  if (query.search?.trim()) {
+    parameters.set('search', query.search.trim());
+  }
+
+  if (query.category) {
+    parameters.set('category', query.category);
+  }
+
+  if (query.from) {
+    parameters.set('from', query.from);
+  }
+
+  if (query.to) {
+    parameters.set('to', query.to);
+  }
+
+  if (query.sort) {
+    parameters.set('sort', query.sort);
+  }
+
+  if (query.order) {
+    parameters.set('order', query.order);
+  }
+
+  if (query.page) {
+    parameters.set('page', String(query.page));
+  }
+
+  if (query.limit) {
+    parameters.set('limit', String(query.limit));
+  }
+
+  return `${API_ROUTES.listings.mine}?${parameters.toString()}`;
+}
+
+function buildListingOrdersPath(
+  listingId: string,
+  page: number,
+  limit: number,
+): string {
+  const parameters = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  return `${API_ROUTES.listings.orders(listingId)}?${parameters.toString()}`;
+}
 
 export const listingService = {
-  //Creates an active food listing owned by the authenticated Donor.
-
-  createListing: (payload: CreateListingPayload) =>
+  // Creates a listing owned by the authenticated Donor.
+  createListing: (
+    payload: CreateListingPayload,
+  ) =>
     httpClient.post<ListingDTO>(
       API_ROUTES.listings.create,
       payload,
+    ),
+
+  // Loads one paginated Active or Past listing group.
+  getMyListings: (
+    query: MyListingsQuery,
+  ) =>
+    httpClient.get<PaginatedData<ManagedListingDTO>>(
+      buildMyListingsPath(query),
+    ),
+
+  // Creates a fresh active listing from an owned listing.
+  cloneListing: (
+    listingId: string,
+  ) =>
+    httpClient.post<ListingDTO>(
+      API_ROUTES.listings.clone(listingId),
+      undefined,
+    ),
+
+  // Applies a Donor-controlled listing status transition.
+  updateListingStatus: (
+    listingId: string,
+    payload: UpdateListingStatusPayload,
+  ) =>
+    httpClient.patch<UpdateListingStatusResponse>(
+      API_ROUTES.listings.status(listingId),
+      payload,
+    ),
+
+  // Loads tracked orders belonging to an owned listing.
+  getListingOrders: (
+    listingId: string,
+    page = 1,
+    limit = 20,
+  ) =>
+    httpClient.get<PaginatedData<ListingOrderDTO>>(
+      buildListingOrdersPath(
+        listingId,
+        page,
+        limit,
+      ),
     ),
 };
