@@ -6,7 +6,7 @@ vi.mock('../../../src/modules/auth/revoked-token.repository.js', () => ({
   revokeToken: revokeTokenMock,
 }));
 
-import { logout } from '../../../src/modules/auth/auth.logout.service.js';
+import { logout, revokeForPasswordChange } from '../../../src/modules/auth/auth.logout.service.js';
 
 const expiresAt = new Date('2026-08-11T12:00:00.000Z');
 const input = { userId: 'u1', jti: 'j1', expiresAt };
@@ -44,5 +44,29 @@ describe('auth.logout.service', () => {
     revokeTokenMock.mockRejectedValue(new Error('connection lost'));
 
     await expect(logout(input)).rejects.toThrow('connection lost');
+  });
+});
+
+describe('auth.logout.service revokeForPasswordChange', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    revokeTokenMock.mockResolvedValue(undefined);
+  });
+
+  it('revokes the presented jti for the user with reason PASSWORD_CHANGE', async () => {
+    await revokeForPasswordChange(input);
+
+    expect(revokeTokenMock).toHaveBeenCalledWith({
+      jti: 'j1',
+      userId: 'u1',
+      expiresAt,
+      reason: 'PASSWORD_CHANGE',
+    });
+  });
+
+  it('propagates a real database failure', async () => {
+    revokeTokenMock.mockRejectedValue(new Error('connection lost'));
+
+    await expect(revokeForPasswordChange(input)).rejects.toThrow('connection lost');
   });
 });

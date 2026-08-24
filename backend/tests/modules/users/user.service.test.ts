@@ -16,6 +16,7 @@ const {
   findDonorByUserIdMock,
   updateDonorMock,
   hashPasswordMock,
+  revokeTokenForPasswordChangeMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
@@ -32,6 +33,7 @@ const {
   findDonorByUserIdMock: vi.fn(),
   updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
+  revokeTokenForPasswordChangeMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.repository.js', () => ({
@@ -61,6 +63,12 @@ vi.mock('../../../src/shared/security/password.js', () => ({
   hashPassword: hashPasswordMock,
 }));
 
+vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
+  authInterface: {
+    revokeTokenForPasswordChange: revokeTokenForPasswordChangeMock,
+  },
+}));
+
 import {
   createUser,
   getUserById,
@@ -72,6 +80,8 @@ import {
   createDonorProfile,
   getMyProfileDto,
   updateUserProfile,
+  changePassword,
+  changeEmail,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -330,6 +340,83 @@ describe('user.service', () => {
       const dto = await updateUserProfile('u1', 'RECIPIENT', { city: 'Da Nang' });
 
       expect(dto).toMatchObject({ tier: 'STANDARD' });
+    });
+  });
+
+  describe('changePassword', () => {
+    const auth = { jti: 'j1', expiresAt: new Date('2026-08-24T12:00:00.000Z') };
+
+    it('hashes the new password and stores it via the user repository', async () => {
+      await changePassword('u1', 'NewStr0ng!Pass', auth);
+
+      expect(hashPasswordMock).toHaveBeenCalledWith('NewStr0ng!Pass');
+      expect(updateUserMock).toHaveBeenCalledWith('u1', { passwordHash: 'hashed-value' });
+    });
+
+    it('revokes the presented token with reason PASSWORD_CHANGE via the auth interface', async () => {
+      await changePassword('u1', 'NewStr0ng!Pass', auth);
+
+      expect(revokeTokenForPasswordChangeMock).toHaveBeenCalledWith({
+        userId: 'u1',
+        jti: 'j1',
+        expiresAt: auth.expiresAt,
+      });
+    });
+
+    it('propagates a failure from the revoke call', async () => {
+      revokeTokenForPasswordChangeMock.mockRejectedValueOnce(new Error('connection lost'));
+
+      await expect(changePassword('u1', 'NewStr0ng!Pass', auth)).rejects.toThrow('connection lost');
+    });
+  });
+
+  describe('changeEmail', () => {
+    beforeEach(() => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD', notificationPreferences: [] });
+    });
+
+    it('updates the email and returns a fresh profile DTO', async () => {
+      const dto = await changeEmail('u1', 'new@example.com');
+
+      expect(updateUserMock).toHaveBeenCalledWith('u1', { email: 'new@example.com' });
+      expect(dto).toMatchObject({ tier: 'STANDARD' });
+    });
+
+    it('throws a 409 when another account already has the email', async () => {
+      findUserByEmailMock.mockResolvedValue({ _id: 'other-user' });
+      let caught;
+
+      try {
+        await changeEmail('u1', 'taken@example.com');
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught.statusCode).toBe(409);
+      expect(updateUserMock).not.toHaveBeenCalled();
+    });
+
+    it('succeeds as a no-op when resubmitting the caller\'s own current email', async () => {
+      findUserByEmailMock.mockResolvedValue({ _id: 'u1' });
+
+      const dto = await changeEmail('u1', 'alice@example.com');
+
+      expect(updateUserMock).toHaveBeenCalledWith('u1', { email: 'alice@example.com' });
+      expect(dto).toMatchObject({ tier: 'STANDARD' });
+    });
+
+    it('converts a duplicate-key race into a 409', async () => {
+      updateUserMock.mockRejectedValueOnce({ code: 11000 });
+      let caught;
+
+      try {
+        await changeEmail('u1', 'new@example.com');
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught.statusCode).toBe(409);
     });
   });
 });
