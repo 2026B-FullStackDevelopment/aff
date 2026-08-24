@@ -165,25 +165,49 @@ export interface ListingDTO {
 
 // --- Orders ---
 
-export type OrderIntakePath = 'RESERVATION' | 'DONOR_INITIATED';
-export type PaymentMethod = 'STRIPE' | 'CASH';
-export type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID';
-export type OrderStatus = 'PENDING_PAYMENT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED';
+export type OrderIntakePath =
+  | 'RESERVATION'
+  | 'DONOR_INITIATED';
+
+export type PaymentMethod =
+  | 'STRIPE'
+  | 'CASH';
+
+export type PaymentStatus =
+  | 'FREE'
+  | 'PAYMENT_PENDING'
+  | 'PAID'
+  | 'REFUND_PENDING'
+  | 'REFUNDED';
+
+export type OrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'PREPARING'
+  | 'DELIVERED'
+  | 'CANCELLED';
 
 export interface OrderDTO {
   id: string;
   recipientId: string;
-  listing: { id: string; name: string; imageUrl: string | null; unit: ListingUnit };
+  listing: {
+    id: string;
+    name?: string;
+    imageUrl?: string | null;
+    unit?: ListingUnit;
+  };
   intakePath: OrderIntakePath;
   quantity: number;
   amount: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId: string | null;
-  feedback: { comment: string; createdAt: string } | null;
+  feedback: {
+    comment: string;
+    createdAt: string;
+  } | null;
   createdAt: string;
 }
 

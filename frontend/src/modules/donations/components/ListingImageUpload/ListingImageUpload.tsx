@@ -15,6 +15,7 @@ interface ListingImageUploadProps {
   helperText?: string;
   error?: string;
   isUploading?: boolean;
+  readOnly?: boolean;
   className?: string;
   onFileSelected: (file: File) => void;
   onRemove: () => void;
@@ -26,11 +27,7 @@ const ACCEPTED_IMAGE_TYPES = [
   'image/webp',
 ];
 
-/**
- * Presentational image selector for food listings.
- *
- * Upload state and signed-URL handling remain in the parent hook.
- */
+// Displays and optionally updates a food listing image.
 export function ListingImageUpload({
   currentImageUrl = null,
   previewUrl = null,
@@ -38,12 +35,14 @@ export function ListingImageUpload({
   helperText = 'PNG, JPEG or WebP image.',
   error,
   isUploading = false,
+  readOnly = false,
   className,
   onFileSelected,
   onRemove,
 }: ListingImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const displayUrl = previewUrl ?? currentImageUrl;
+  const isDisabled = isUploading || readOnly;
 
   const helperId = helperText
     ? 'listing-image-helper'
@@ -62,7 +61,9 @@ export function ListingImageUpload({
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) return;
+    if (!file || readOnly) {
+      return;
+    }
 
     onFileSelected(file);
 
@@ -84,7 +85,7 @@ export function ListingImageUpload({
         aria-label="Upload food listing image"
         aria-describedby={describedBy}
         className="sr-only"
-        disabled={isUploading}
+        disabled={isDisabled}
         onChange={handleFileChange}
       />
 
@@ -122,48 +123,62 @@ export function ListingImageUpload({
             className="size-8 text-slate-400"
             aria-hidden="true"
           />
+
+          <span className="sr-only">
+            No listing image
+          </span>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isUploading}
-          onClick={() => inputRef.current?.click()}
-          className={cn(
-            'h-10 border-[#E4E2E1] bg-[#FFF6E3] px-4',
-            'text-xs font-bold uppercase tracking-wider text-[#805300]',
-            'transition-all duration-200 ease-out',
-            'hover:border-[#805300] hover:bg-[#805300]/10 hover:shadow-md',
-            'active:scale-[0.98]',
-          )}
-        >
-          {isUploading ? (
-            <LoaderCircle
-              className="size-4 animate-spin"
-              aria-hidden="true"
-            />
-          ) : (
-            <Upload className="size-4" aria-hidden="true" />
-          )}
-
-          {displayUrl ? 'Replace Picture' : 'Upload Picture'}
-        </Button>
-
-        {displayUrl && (
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={isUploading}
-            onClick={onRemove}
-            className="h-10 px-3 text-red-700 transition-all duration-200 ease-out hover:bg-red-50 hover:text-red-800 active:scale-[0.98]"
+            onClick={() => inputRef.current?.click()}
+            className={cn(
+              'h-10 border-[#E4E2E1] bg-[#FFF6E3] px-4',
+              'text-xs font-bold uppercase tracking-wider text-[#805300]',
+              'transition-all duration-200 ease-out',
+              'hover:border-[#805300] hover:bg-[#805300]/10 hover:shadow-md',
+              'active:scale-[0.98]',
+            )}
           >
-            <Trash2 className="size-4" aria-hidden="true" />
-            Remove
+            {isUploading ? (
+              <LoaderCircle
+                className="size-4 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Upload
+                className="size-4"
+                aria-hidden="true"
+              />
+            )}
+
+            {displayUrl
+              ? 'Replace Picture'
+              : 'Upload Picture'}
           </Button>
-        )}
-      </div>
+
+          {displayUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isUploading}
+              onClick={onRemove}
+              className="h-10 px-3 text-red-700 transition-all duration-200 ease-out hover:bg-red-50 hover:text-red-800 active:scale-[0.98]"
+            >
+              <Trash2
+                className="size-4"
+                aria-hidden="true"
+              />
+              Remove
+            </Button>
+          )}
+        </div>
+      )}
 
       {helperText && (
         <p
