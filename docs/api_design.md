@@ -20,6 +20,8 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Auth (§4) | `POST /auth/logout` | any role |
 | Users (§5) | `GET /users/me` | any role |
 | Users (§5) | `PATCH /users/me` | any role |
+| Users (§5) | `PATCH /users/me/password` | any role |
+| Users (§5) | `PATCH /users/me/email` | any role |
 | Media (§5A) | `POST /media/upload-url` | any role |
 | Listings (§6) | `POST /listings` | DONOR |
 | Listings (§6) | `GET /listings/mine` | DONOR |
@@ -256,16 +258,16 @@ Errors: `400` invalid field values
 ### `PATCH /users/me/password` — *(new — not tied to a PRD story; see `docs/epic/B-profile-management.md`)*
 **Auth:** any authenticated role
 
-Request body: `{ newPassword }` — validated against the same strength rules used at registration (`passwordSchema` in `auth.schemas.ts`: 8–72 chars, at least 1 digit, 1 special character, 1 uppercase letter). No `currentPassword` field — the active session token is treated as sufficient proof of identity, consistent with every other authenticated write in this API.
-Behavior: hashes and stores the new `USER.passwordHash`, then revokes the request's own token exactly as `POST /auth/logout` does, but with `reason=PASSWORD_CHANGE` instead of `LOGOUT` (§4) — so the token used to make this call cannot be reused afterward, and the client must call `POST /auth/login` again with the new password. No new token is issued in the response.
+Request body: `{ newPassword }` (same `passwordSchema` as registration: 8–72 chars, 1 digit, 1 special char, 1 uppercase; no `currentPassword` field — the session token is treated as sufficient proof of identity).
+Behavior: updates `USER.passwordHash`, then revokes the request's own token — same mechanism as `POST /auth/logout` (§4), but `reason=PASSWORD_CHANGE`. No new token is issued; client must re-`POST /auth/login`.
 Response `200`: `{ data: null }`
 Errors: `400` invalid password format
 
 ### `PATCH /users/me/email` — *(new — not tied to a PRD story; see `docs/epic/B-profile-management.md`)*
 **Auth:** any authenticated role
 
-Request body: `{ newEmail }` — validated with the same `emailSchema` used at registration.
-Behavior: checked for uniqueness the same way registration is (`409` if another account already holds it; re-submitting the requester's own current email is not a conflict — the check excludes the requester's own user id), then updates `USER.email` directly. No `currentPassword` confirmation. The session token is left valid — its claims carry only `userId`/`role`, never `email`, so nothing about the existing token goes stale.
+Request body: `{ newEmail }` (same `emailSchema` as registration; no `currentPassword` confirmation).
+Behavior: uniqueness check as at registration (excludes the requester's own id, so resubmitting the current email is not a conflict), then updates `USER.email` directly. Session token stays valid — its claims carry only `userId`/`role`, never `email`.
 Response `200`: updated role DTO (`RecipientDTO` \| `DonorDTO` \| `CourierDTO` \| `UserDTO`)
 Errors: `400` invalid format; `409` email already registered to another account
 
