@@ -116,8 +116,19 @@ async function listListingOrders(req: Request, res: Response, next: NextFunction
   }
 }
 
-async function createDonorInitiatedDonation(_req: Request, res: Response) {
-  return notImplemented(res);
+// Validate listing ID from the URL, validate the submitted donation data
+// Convert the created order into a safe response DTO, returned HTTP 201 created
+// req - from client to backend & res - backend to client express objects
+// Express requests passed thru multiple functions. Next > this is done, to next function
+// async, try, catch
+async function createDonorInitiatedDonation( req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params); // validate listing :id of listing routes
+    const payload = parseBody(donorInitiatedDonationSchema, req.body);
+
+  } catch(error) {
+
+  }
 }
 
 async function reserveListing(_req: Request, res: Response) {

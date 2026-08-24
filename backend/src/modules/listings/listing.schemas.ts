@@ -208,6 +208,11 @@ const updateListingStatusSchema = z
  * required depends on the existing Listing's price. The Listing service must
  * enforce that business rule after loading the Listing.
  */
+const deliveryLocationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
 const donorInitiatedDonationSchema = z
   .object({
     recipientEmail: z
