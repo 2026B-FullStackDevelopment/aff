@@ -15,6 +15,12 @@ interface CreateUserInput {
   city?: string;
 }
 
+interface RecipientSearchResult {
+  _id: Types.ObjectId;
+  username: string;
+  email: string;
+}
+
 function createUser(data: CreateUserInput) {
   return User.create(data);
 }
@@ -22,20 +28,20 @@ function createUser(data: CreateUserInput) {
 function findUserByEmail(email: string) {
   return User.findOne({ email }).lean<UserDocument>();
 }
-// limit to searching 10 recipients
-function searchActiveRecipientByEmail(email: string, limit = 10) {
+// Limit autocomplete results so the endpoint does not expose a large user list.
+function searchActiveRecipientsByEmail(email: string, limit = 10) {
   // mongoDB .find() function returns an array, return empty and not null
   return User.find({
     role: 'RECIPIENT',
     status: 'ACTIVE',
     //regex MongoDB text matching. '^...' starts with the text
-    // option 'i' case sensitive
+    // Option 'i' makes the comparison case-insensitive.
     email: {$regex: `^${escapeRegExp(email)}`, $options: 'i'},
   }).select({
     _id: 1, username: 1, email: 1, // select the fields to include
   })
     .limit(limit) // limit by the limit parameter
-    .lean<UserDocument[]>(); // lean<generic>, ask to return plain JS oject
+    .lean<RecipientSearchResult[]>(); // Return plain JS objects with only selected fields.
 }
 
 function findUserById(id: string | Types.ObjectId) {
@@ -89,7 +95,7 @@ function deleteUser(id: string | Types.ObjectId) {
 export {
   createUser,
   findUserByEmail,
-  searchActiveRecipientByEmail,
+  searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
   updateLoginState,
@@ -98,4 +104,4 @@ export {
   lockAccount,
   deleteUser,
 };
-export type { CreateUserInput, LoginStateUpdate };
+export type { CreateUserInput, LoginStateUpdate, RecipientSearchResult };

@@ -283,6 +283,57 @@ function updateListingStatusIfCurrent(
   ).lean<ListingDocument>();
 }
 
+/**
+ * Decrements stock only while the Listing is active and has enough quantity.
+ * The same atomic update changes the Listing to SOLD_OUT when stock reaches 0.
+ */
+function decrementStockAtomically(
+  listingId: string | Types.ObjectId,
+  donorId: string | Types.ObjectId,
+  quantity: number,
+  session?: ClientSession,
+) {
+  const soldOutAt = new Date();
+
+  return Listing.findOneAndUpdate(
+    {
+      _id: listingId,
+      donorId,
+      status: 'ACTIVE',
+      unit: { $ne: 'PER_REQUEST' },
+      quantityRemaining: { $gte: quantity },
+    },
+    [
+      {
+        $set: {
+          quantityRemaining: {
+            $subtract: ['$quantityRemaining', quantity],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              'SOLD_OUT',
+              '$status',
+            ],
+          },
+          closedAt: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              soldOutAt,
+              '$closedAt',
+            ],
+          },
+        },
+      },
+    ],
+    { new: true, session },
+  ).lean<ListingDocument>();
+}
+
 async function withTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
@@ -308,5 +359,6 @@ export {
   findListingById,
   updateListing,
   updateListingStatusIfCurrent,
+  decrementStockAtomically,
   withTransaction,
 };

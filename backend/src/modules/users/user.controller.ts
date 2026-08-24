@@ -21,19 +21,19 @@ async function updateMyProfile(_req: Request, res: Response) {
 async function searchRecipients(req: Request, res: Response, next: NextFunction, ) {
   try {
     // req.query is from the url, typeof is JS to check value type
-    const email = typeof req.query.email === 'string' ? req.query.email : ' ';
+    const email = typeof req.query.email === 'string' ? req.query.email : '';
 
-    const recipients = await userService.searchRecipientByEmail(email);
+    const recipients = await userService.searchRecipientsByEmail(email);
 
     // HTTP ok(res, data) 200 response
     return ok(
       res,
       recipients.map((recipient) => ({
-        it: String(recipient._id),
+        id: String(recipient._id),
         username: recipient.username,
         email: recipient.email,
       })), //map() loops thru & returns new array
-    )
+    );
   } catch (error) {
     return next(error);
   }

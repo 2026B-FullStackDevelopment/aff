@@ -2,11 +2,18 @@
 import Delivery, { type DeliveryDocument } from './delivery.model.js';
 import type { ClientSession, Types } from 'mongoose';
 
-function findDeliveryByOrderId(orderId: string | Types.ObjectId) {
-  return Delivery.findOne({ orderId }).lean<DeliveryDocument>();
+function findDeliveryByOrderId(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  const query = Delivery.findOne({ orderId });
+  return (session ? query.session(session) : query).lean<DeliveryDocument>();
 }
 
-function findOrCreateForOrder(orderId: string | Types.ObjectId) {
+function findOrCreateForOrder(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
   return Delivery.findOneAndUpdate(
     { orderId },
     {
@@ -20,6 +27,7 @@ function findOrCreateForOrder(orderId: string | Types.ObjectId) {
       upsert: true,
       setDefaultsOnInsert: true,
       runValidators: true,
+      session,
     },
   ).lean<DeliveryDocument>();
 }

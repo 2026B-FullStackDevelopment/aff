@@ -3,6 +3,7 @@ import * as listingRepository from './listing.repository.js';
 import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { emitToUser } from '../../realtime/socket.js';
 import type { ClientSession } from 'mongoose';
 import type {
   MeasurementUnit,
@@ -16,6 +17,7 @@ import type {
   ListingWithStatsDtoSource,
   ListingOrderDtoSource,
   UpdateListingStatusRequestDto,
+  CreateDonorInitiatedDonationRequestDto,
 } from './listing.dto.js';
 
 import type {
@@ -373,6 +375,127 @@ async function listListingOrders(
   };
 }
 
+/**
+ * Creates a Donor-initiated Order for a registered Recipient.
+ * Stock, Order creation, and free-order Delivery creation commit together.
+ */
+async function createDonorInitiatedDonation(
+  listingId: string,
+  donorId: string,
+  payload: CreateDonorInitiatedDonationRequestDto,
+) {
+  const recipient = await userInterface.findUserByEmail(
+    payload.recipientEmail,
+  );
+
+  if (!recipient) {
+    throw createHttpError(404, 'Recipient email was not found.');
+  }
+
+  if (recipient.role !== 'RECIPIENT' || recipient.status !== 'ACTIVE') {
+    throw createHttpError(
+      422,
+      'The selected account is not an active Recipient.',
+    );
+  }
+
+  const result = await listingRepository.withTransaction(
+    async (session) => {
+      const listing = await requireOwnedListing(
+        listingId,
+        donorId,
+        session,
+      );
+
+      if (listing.status !== 'ACTIVE') {
+        throw createHttpError(422, 'The listing is not active.');
+      }
+
+      if (listing.unit === 'PER_REQUEST') {
+        throw createHttpError(
+          422,
+          'PER_REQUEST listings do not create Orders.',
+        );
+      }
+
+      if (
+        listing.rationLimitPerPerson != null &&
+        payload.quantity > listing.rationLimitPerPerson
+      ) {
+        throw createHttpError(422, 'Quantity exceeds the ration limit.');
+      }
+
+      if (payload.quantity > listing.quantityRemaining) {
+        throw createHttpError(422, 'Quantity exceeds the remaining stock.');
+      }
+
+      const updatedListing =
+        await listingRepository.decrementStockAtomically(
+          listingId,
+          donorId,
+          payload.quantity,
+          session,
+        );
+
+      if (!updatedListing) {
+        throw createHttpError(
+          422,
+          'The requested stock is no longer available.',
+        );
+      }
+
+      const isFree = listing.price === 0;
+      const order = await orderInterface.createOrder(
+        {
+          recipientId: recipient._id,
+          listingId: listing._id,
+          intakePath: 'DONOR_INITIATED',
+          quantity: payload.quantity,
+          amount: listing.price * payload.quantity,
+          paymentStatus: isFree ? 'FREE' : 'PAYMENT_PENDING',
+          orderStatus: isFree ? 'PREPARING' : 'PENDING_PAYMENT',
+          deliveryAddressText: payload.deliveryAddressText,
+          deliveryLocation: {
+            ...payload.deliveryLocation,
+            updatedAt: new Date(),
+          },
+        },
+        session,
+      );
+
+      if (isFree) {
+        await deliveryInterface.createForOrder(String(order._id), session);
+      }
+
+      return {
+        order,
+        listingName: listing.name,
+        recipientId: String(recipient._id),
+        becameSoldOut: updatedListing.status === 'SOLD_OUT',
+        isFree,
+      };
+    },
+  );
+
+  // Emit only after the database transaction has committed successfully.
+  if (result.becameSoldOut) {
+    emitToUser(donorId, 'listing:sold_out', {
+      listingId,
+      name: result.listingName,
+    });
+  }
+
+  if (!result.isFree) {
+    emitToUser(result.recipientId, 'notification:payment_requested', {
+      orderId: String(result.order._id),
+      listingName: result.listingName,
+      amount: result.order.amount,
+    });
+  }
+
+  return result.order;
+}
+
 export {
   listMyListings,
   listAvailableListings,
@@ -381,4 +504,5 @@ export {
   cloneListing,
   updateListingStatus,
   listListingOrders,
+  createDonorInitiatedDonation,
 };

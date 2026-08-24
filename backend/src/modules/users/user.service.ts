@@ -97,11 +97,11 @@ async function findRecipientByUserId(userId: string | Types.ObjectId) {
   return recipientRepository.findRecipientByUserId(userId);
 }
 
-async function searchRecipientByEmail(email: string) {
+async function searchRecipientsByEmail(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   // check email length at least 3 char
   if (normalizedEmail.length < 3) {return []}
-  return userRepository.searchActiveRecipientByEmail(normalizedEmail, 10);
+  return userRepository.searchActiveRecipientsByEmail(normalizedEmail, 10);
 };
 
 async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: string) {
@@ -134,7 +134,7 @@ export {
   createDonorProfile,
   getDonorByUserId,
   findRecipientByUserId,
-  searchRecipientByEmail,
+  searchRecipientsByEmail,
   setRecipientStripeCustomerId,
 };
 export type { CreateDonorProfileInput };

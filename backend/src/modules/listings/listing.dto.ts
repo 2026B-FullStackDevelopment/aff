@@ -131,8 +131,10 @@ interface CreateDonorInitiatedDonationRequestDto {
   recipientEmail: string;
   quantity: number;
   deliveryAddressText: string;
-  deliveryLocation: {latitude: number, longtitude: number},
-  paymentMethod?: 'STRIPE' | 'CASH';
+  deliveryLocation: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 interface ReserveListingRequestDto {

@@ -1,5 +1,5 @@
 // Contains order database queries so services do not call Mongoose directly.
-import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus } from './order.model.js';
+import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 import {
   Types,
@@ -15,6 +15,7 @@ interface CreateOrderInput {
   amount: number;
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
+  orderStatus: OrderStatus;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
 }
@@ -86,13 +87,38 @@ function markOrderPaid(orderId: string | Types.ObjectId, session?: ClientSession
 
 function findOrderByIdAndRecipient(
   orderId: string | Types.ObjectId, 
-  recipientId: string | Types.ObjectId
-) 
-{
-  return Order.findOne({
+  recipientId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  const query = Order.findOne({
     _id: orderId,
-    recipientId
-  }).lean<OrderDocument>()
+    recipientId,
+  });
+
+  return (session ? query.session(session) : query).lean<OrderDocument>();
+}
+
+function setPaymentMethodIfUnset(
+  orderId: string | Types.ObjectId,
+  recipientId: string | Types.ObjectId,
+  paymentMethod: PaymentMethod,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      recipientId,
+      paymentStatus: 'PAYMENT_PENDING',
+      paymentMethod: { $exists: false },
+    },
+    {
+      $set: {
+        paymentMethod,
+        orderStatus: paymentMethod === 'CASH' ? 'PREPARING' : 'PENDING_PAYMENT',
+      },
+    },
+    { new: true, runValidators: true, session },
+  ).lean<OrderDocument>();
 }
 
 async function findNonCancelledOrderIdsByListing(
@@ -198,6 +224,7 @@ export {
   findOrderByIdAndRecipient,
   createOrder,
   markOrderPaid,
+  setPaymentMethodIfUnset,
   findNonCancelledOrderIdsByListing,
   cancelOrdersByIds,
   findOrdersForListing,

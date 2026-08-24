@@ -127,7 +127,17 @@ async function createDonorInitiatedDonation( req: Request, res: Response, next: 
   try {
     const { id } = parseBody(listingIdParamsSchema, req.params); // validate listing :id of listing routes
     const payload = parseBody(donorInitiatedDonationSchema, req.body);
-    const order = await listingService.createDonorInitiatedDonation( id, req.user!.id, payload); //user! is to get only non-null
+    if (!payload.recipientEmail) {
+      const error: Error = new Error('Recipient email is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const order = await listingService.createDonorInitiatedDonation(
+      id,
+      req.user!.id,
+      { ...payload, recipientEmail: payload.recipientEmail },
+    ); // user! is to get only non-null
     // created() HTTP 201 response
     // DTO mapping function, taking the order and returns only needed fields
     return created(res, toOrderResponseDto(order));

@@ -218,7 +218,7 @@ const donorInitiatedDonationSchema = z
       .string({ message: 'Recipient email is required.' }) // must be string
       .trim() // no whitespace
       .email({ message: 'Recipient email must be valid.' }) // function auto check email structure
-      .transform((email) => email.toLowerCase()), // transfrom input to lowercase
+      .transform((email) => email.toLowerCase()), // transform input to lowercase
 
     quantity: positiveQuantitySchema,
 

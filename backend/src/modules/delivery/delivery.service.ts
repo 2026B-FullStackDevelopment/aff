@@ -12,15 +12,18 @@ function isDuplicateKeyError(error: unknown): boolean {
   );
 }
 
-async function createForOrder(orderId: string): Promise<DeliveryDocument> {
+async function createForOrder(
+  orderId: string,
+  session?: ClientSession,
+): Promise<DeliveryDocument> {
   try {
-    const delivery = await deliveryRepository.findOrCreateForOrder(orderId);
+    const delivery = await deliveryRepository.findOrCreateForOrder(orderId, session);
     if (delivery) return delivery;
   } catch (error) {
     // If a concurrent request inserted first, the unique index wins and the
     // existing Delivery is the correct idempotent result.
     if (isDuplicateKeyError(error)) {
-      const existing = await deliveryRepository.findDeliveryByOrderId(orderId);
+      const existing = await deliveryRepository.findDeliveryByOrderId(orderId, session);
       if (existing) return existing;
     }
 
