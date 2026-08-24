@@ -2,7 +2,9 @@ import type {
   ListingUnit,
   OrderDTO,
 } from '@/types/api';
-import type { ListingOrderDTO } from '../../types';
+import type {
+  ListingOrderDTO,
+} from '../../types';
 
 const UNIT_LABELS: Record<ListingUnit, string> = {
   KILOGRAM: 'kg',
@@ -48,7 +50,10 @@ export function formatOrderQuantity(
       },
     );
 
-  return `${formattedQuantity} ${UNIT_LABELS[unit]}`;
+  return (
+    `${formattedQuantity} `
+    + UNIT_LABELS[unit]
+  );
 }
 
 export function formatOrderAmount(
@@ -68,6 +73,10 @@ export function formatPaymentMethod(
 ): string | null {
   if (order.paymentStatus === 'FREE') {
     return null;
+  }
+
+  if (!order.paymentMethod) {
+    return 'Awaiting Recipient';
   }
 
   return order.paymentMethod === 'STRIPE'
@@ -97,6 +106,13 @@ export function getDeliveryStatusDisplay(
     return {
       status: 'cancelled',
       label: 'Cancelled',
+    };
+  }
+
+  if (order.delivery === undefined) {
+    return {
+      status: 'inactive',
+      label: 'Unavailable',
     };
   }
 

@@ -5,11 +5,9 @@ import type {
   ListingStatus,
   ListingUnit,
   OrderDTO,
-  PaymentMethod,
 } from '@/types/api';
 
 // Request body accepted by POST /listings.
-// City and quantityRemaining are derived by the backend.
 export interface CreateListingPayload {
   name: string;
   description?: string;
@@ -22,15 +20,27 @@ export interface CreateListingPayload {
   rationLimitPerPerson?: number;
 }
 
+// Recipient summary returned by GET /users/recipients/search.
+export interface RecipientSearchResult {
+  id: string;
+  username: string;
+  email: string;
+}
+
 // Request body accepted by POST /listings/:id/donations.
-// Payment method is omitted for free listings.
 export interface DonorInitiatedDonationPayload {
   recipientEmail: string;
   quantity: number;
-  paymentMethod?: PaymentMethod;
+  deliveryAddressText: string;
+  deliveryLocation: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
-export type ListingGroup = 'ACTIVE' | 'PAST';
+export type ListingGroup =
+  | 'ACTIVE'
+  | 'PAST';
 
 export type ListingSortField =
   | 'createdAt'
@@ -41,7 +51,6 @@ export type SortDirection =
   | 'desc';
 
 // Query parameters accepted by GET /listings/mine.
-// Donor ownership is inferred from the authenticated session.
 export interface MyListingsQuery {
   status: ListingGroup;
   search?: string;
@@ -72,12 +81,13 @@ export interface UpdateListingStatusResponse {
   cancelledOrderCount: number;
 }
 
-export type ListingOrderDTO = OrderDTO & {
-  recipient: {
-    id: string;
-    username: string;
+export type ListingOrderDTO =
+  OrderDTO & {
+    recipient: {
+      id: string;
+      username: string;
+    };
+    delivery?: {
+      stage: DeliveryStage;
+    } | null;
   };
-  delivery: {
-    stage: DeliveryStage;
-  } | null;
-};

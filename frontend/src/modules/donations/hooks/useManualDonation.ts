@@ -1,539 +1,804 @@
 import {
-  useEffect,
-  useState,
-  type SubmitEvent,
+    useEffect,
+    useState,
+    type SubmitEvent,
 } from 'react';
 import type {
-  OrderDTO,
-  PaymentMethod,
-} from '@/types/api';
+    LocationData,
+} from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
+import type { OrderDTO } from '@/types/api';
 import { listingService } from '../services/listing.service';
-import type { ManagedListingDTO } from '../types';
+import { recipientService } from '../services/recipient.service';
+import type {
+    ManagedListingDTO,
+    RecipientSearchResult,
+} from '../types';
 
 export interface ManualDonationFieldErrors {
-  recipientEmail?: string;
-  listingId?: string;
-  quantity?: string;
-  paymentMethod?: string;
+    recipientEmail?: string;
+    listingId?: string;
+    quantity?: string;
+    deliveryAddressText?: string;
 }
 
 interface ManualDonationFormState {
-  recipientQuery: string;
-  resolvedRecipientEmail: string | null;
-  listingId: string;
-  quantity: string;
-  paymentMethod: PaymentMethod | '';
+    recipientQuery: string;
+    listingId: string;
+    quantity: string;
+    deliveryAddressText: string;
+    deliveryLocation: {
+        latitude: number;
+        longitude: number;
+    } | null;
+}
+
+interface SubmittedListingSummary {
+    name: string;
+    imageUrl: string | null;
 }
 
 const INITIAL_FORM: ManualDonationFormState = {
-  recipientQuery: '',
-  resolvedRecipientEmail: null,
-  listingId: '',
-  quantity: '1',
-  paymentMethod: '',
+    recipientQuery: '',
+    listingId: '',
+    quantity: '1',
+    deliveryAddressText: '',
+    deliveryLocation: null,
 };
 
 function getResponseMessage(
-  data: unknown,
-  fallback: string,
+    data: unknown,
+    fallback: string,
 ): string {
-  if (
-    typeof data === 'object'
-    && data !== null
-    && 'message' in data
-    && typeof data.message === 'string'
-  ) {
-    return data.message;
-  }
+    if (
+        typeof data === 'object'
+        && data !== null
+        && 'message' in data
+        && typeof data.message === 'string'
+    ) {
+        return data.message;
+    }
 
-  return fallback;
+    return fallback;
 }
 
 function parseQuantity(
-  value: string,
+    value: string,
 ): number | null {
-  if (!value.trim()) {
-    return null;
-  }
+    if (!value.trim()) {
+        return null;
+    }
 
-  const quantity = Number(value);
+    const quantity = Number(value);
 
-  if (
-    !Number.isFinite(quantity)
-    || quantity <= 0
-  ) {
-    return null;
-  }
+    if (
+        !Number.isFinite(quantity)
+        || quantity <= 0
+    ) {
+        return null;
+    }
 
-  return quantity;
+    return quantity;
 }
 
 function validateForm(
-  form: ManualDonationFormState,
-  selectedListing: ManagedListingDTO | null,
+    form: ManualDonationFormState,
+    selectedRecipient: RecipientSearchResult | null,
+    selectedListing: ManagedListingDTO | null,
 ): ManualDonationFieldErrors {
-  const errors: ManualDonationFieldErrors = {};
+    const errors: ManualDonationFieldErrors = {};
 
-  if (!form.recipientQuery.trim()) {
-    errors.recipientEmail =
-      'Search for a registered Recipient by email.';
-  } else if (!form.resolvedRecipientEmail) {
-    errors.recipientEmail =
-      'Select a registered Recipient from the email lookup results.';
-  }
+    if (!form.recipientQuery.trim()) {
+        errors.recipientEmail =
+            'Enter the Recipient email address.';
+    } else if (!selectedRecipient) {
+        errors.recipientEmail =
+            'Select a registered Recipient from the search results.';
+    }
 
-  if (!selectedListing) {
-    errors.listingId =
-      'Select an eligible active listing.';
-  } else if (selectedListing.status !== 'ACTIVE') {
-    errors.listingId =
-      'Only active listings can be used for a manual donation.';
-  } else if (
-    selectedListing.unit === 'PER_REQUEST'
-  ) {
-    errors.listingId =
-      'Per Request listings do not create tracked donations.';
-  } else if (
-    selectedListing.quantityRemaining <= 0
-  ) {
-    errors.listingId =
-      'This listing has no remaining quantity.';
-  }
-
-  const quantity = parseQuantity(form.quantity);
-
-  if (quantity === null) {
-    errors.quantity =
-      'Quantity must be greater than 0.';
-  } else if (selectedListing) {
-    if (
-      quantity
-      > selectedListing.quantityRemaining
-    ) {
-      errors.quantity =
-        `Quantity cannot exceed the remaining ${selectedListing.quantityRemaining}.`;
+    if (!selectedListing) {
+        errors.listingId =
+            'Select an eligible active listing.';
+    } else if (selectedListing.status !== 'ACTIVE') {
+        errors.listingId =
+            'Only active listings can be used for a manual donation.';
     } else if (
-      selectedListing.rationLimitPerPerson !== null
-      && quantity
-        > selectedListing.rationLimitPerPerson
+        selectedListing.unit === 'PER_REQUEST'
     ) {
-      errors.quantity =
-        `Quantity cannot exceed the ration limit of ${selectedListing.rationLimitPerPerson}.`;
-    }
-  }
-
-  if (
-    selectedListing
-    && selectedListing.price > 0
-    && !form.paymentMethod
-  ) {
-    errors.paymentMethod =
-      'Select Stripe or cash for this priced listing.';
-  }
-
-  return errors;
-}
-
-// Owns C3 listing selection, validation, and donation submission.
-export function useManualDonation() {
-  const [form, setForm] =
-    useState<ManualDonationFormState>(
-      INITIAL_FORM,
-    );
-
-  const [listings, setListings] =
-    useState<ManagedListingDTO[]>([]);
-
-  const [fieldErrors, setFieldErrors] =
-    useState<ManualDonationFieldErrors>({});
-
-  const [loadError, setLoadError] =
-    useState<string | null>(null);
-
-  const [submitError, setSubmitError] =
-    useState<string | null>(null);
-
-  const [createdOrder, setCreatedOrder] =
-    useState<OrderDTO | null>(null);
-
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
-
-  const [isListingsEndpointUnavailable, setIsListingsEndpointUnavailable] =
-    useState(false);
-
-  const [loadVersion, setLoadVersion] =
-    useState(0);
-
-  useEffect(() => {
-    let ignoreResult = false;
-
-    async function loadEligibleListings() {
-      setIsLoading(true);
-      setLoadError(null);
-      setIsListingsEndpointUnavailable(false);
-
-      try {
-        const response =
-          await listingService.getMyListings({
-            status: 'ACTIVE',
-            sort: 'createdAt',
-            order: 'desc',
-            page: 1,
-            limit: 100,
-          });
-
-        if (ignoreResult) {
-          return;
-        }
-
-        if (response.status === 501) {
-          setIsListingsEndpointUnavailable(true);
-          setLoadError(
-            'Owned listing management is not implemented by the backend yet.',
-          );
-          return;
-        }
-
-        if (!response.ok || !response.data) {
-          setLoadError(
-            getResponseMessage(
-              response.data,
-              'Unable to load your active listings.',
-            ),
-          );
-          return;
-        }
-
-        const eligibleListings =
-          response.data.items.filter(
-            (listing) =>
-              listing.status === 'ACTIVE'
-              && listing.unit !== 'PER_REQUEST'
-              && listing.quantityRemaining > 0,
-          );
-
-        setListings(eligibleListings);
-      } catch {
-        if (!ignoreResult) {
-          setLoadError(
-            'Unable to reach AFF. Check your connection and try again.',
-          );
-        }
-      } finally {
-        if (!ignoreResult) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadEligibleListings();
-
-    return () => {
-      ignoreResult = true;
-    };
-  }, [loadVersion]);
-
-  const selectedListing =
-    listings.find(
-      (listing) =>
-        listing.id === form.listingId,
-    ) ?? null;
-
-  const isPriced =
-    Boolean(
-      selectedListing
-      && selectedListing.price > 0,
-    );
-
-  function clearFieldError(
-    field: keyof ManualDonationFieldErrors,
-  ) {
-    setFieldErrors((current) => ({
-      ...current,
-      [field]: undefined,
-    }));
-  }
-
-  function setRecipientQuery(
-    nextQuery: string,
-  ) {
-    setForm((current) => ({
-      ...current,
-      recipientQuery: nextQuery,
-      resolvedRecipientEmail:
-        current.resolvedRecipientEmail
-        === nextQuery.trim().toLowerCase()
-          ? current.resolvedRecipientEmail
-          : null,
-    }));
-
-    clearFieldError('recipientEmail');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  function selectRecipient(
-    recipientEmail: string,
-  ) {
-    const normalizedEmail =
-      recipientEmail.trim().toLowerCase();
-
-    setForm((current) => ({
-      ...current,
-      recipientQuery: normalizedEmail,
-      resolvedRecipientEmail:
-        normalizedEmail,
-    }));
-
-    clearFieldError('recipientEmail');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  function clearRecipientSelection() {
-    setForm((current) => ({
-      ...current,
-      recipientQuery: '',
-      resolvedRecipientEmail: null,
-    }));
-
-    clearFieldError('recipientEmail');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  function setListingId(
-    nextListingId: string,
-  ) {
-    const nextListing =
-      listings.find(
-        (listing) =>
-          listing.id === nextListingId,
-      ) ?? null;
-
-    setForm((current) => ({
-      ...current,
-      listingId: nextListingId,
-      paymentMethod:
-        nextListing?.price === 0
-          ? ''
-          : current.paymentMethod,
-    }));
-
-    clearFieldError('listingId');
-    clearFieldError('quantity');
-    clearFieldError('paymentMethod');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  function setQuantity(
-    nextQuantity: string,
-  ) {
-    setForm((current) => ({
-      ...current,
-      quantity: nextQuantity,
-    }));
-
-    clearFieldError('quantity');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  function setPaymentMethod(
-    nextPaymentMethod: PaymentMethod | '',
-  ) {
-    setForm((current) => ({
-      ...current,
-      paymentMethod: nextPaymentMethod,
-    }));
-
-    clearFieldError('paymentMethod');
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
-
-  async function handleSubmit(
-    event: SubmitEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    setSubmitError(null);
-    setCreatedOrder(null);
-
-    const nextErrors = validateForm(
-      form,
-      selectedListing,
-    );
-
-    setFieldErrors(nextErrors);
-
-    if (
-      Object.keys(nextErrors).length > 0
-      || !selectedListing
-      || !form.resolvedRecipientEmail
+        errors.listingId =
+            'Per Request listings do not create tracked donations.';
+    } else if (
+        selectedListing.quantityRemaining <= 0
     ) {
-      return;
+        errors.listingId =
+            'This listing has no remaining quantity.';
     }
 
     const quantity =
-      parseQuantity(form.quantity);
+        parseQuantity(form.quantity);
 
     if (quantity === null) {
-      return;
+        errors.quantity =
+            'Quantity must be greater than 0.';
+    } else if (selectedListing) {
+        if (
+            quantity
+            > selectedListing.quantityRemaining
+        ) {
+            errors.quantity =
+                `Quantity cannot exceed the remaining ${selectedListing.quantityRemaining}.`;
+        } else if (
+            selectedListing.rationLimitPerPerson !== null
+            && quantity
+            > selectedListing.rationLimitPerPerson
+        ) {
+            errors.quantity =
+                `Quantity cannot exceed the ration limit of ${selectedListing.rationLimitPerPerson}.`;
+        }
     }
 
-    setIsSubmitting(true);
+    if (!form.deliveryAddressText.trim()) {
+        errors.deliveryAddressText =
+            'Enter the Recipient delivery address.';
+    } else if (!form.deliveryLocation) {
+        errors.deliveryAddressText =
+            'Select an address suggestion so AFF can save its location.';
+    }
 
-    try {
-      const response =
-        await listingService.createDonorInitiatedDonation(
-          selectedListing.id,
-          {
-            recipientEmail:
-              form.resolvedRecipientEmail,
-            quantity,
-            paymentMethod:
-              selectedListing.price > 0
-                ? form.paymentMethod as PaymentMethod
-                : undefined,
-          },
+    return errors;
+}
+
+function isAbortError(
+    error: unknown,
+): boolean {
+    return (
+        error instanceof DOMException
+        && error.name === 'AbortError'
+    );
+}
+
+// Owns C3 recipient lookup, validation, and donation submission.
+export function useManualDonation() {
+    const [form, setForm] =
+        useState<ManualDonationFormState>(
+            INITIAL_FORM,
         );
 
-      if (response.status === 501) {
-        setSubmitError(
-          'Manual donations are not implemented by the backend yet.',
-        );
-        return;
-      }
+    const [listings, setListings] =
+        useState<ManagedListingDTO[]>([]);
 
-      if (response.status === 403) {
-        setSubmitError(
-          'You do not have permission to donate from this listing.',
-        );
-        return;
-      }
+    const [
+        selectedRecipient,
+        setSelectedRecipient,
+    ] = useState<RecipientSearchResult | null>(
+        null,
+    );
 
-      if (response.status === 404) {
-        setFieldErrors((current) => ({
-          ...current,
-          recipientEmail:
-            'No registered Recipient was found for this email.',
-        }));
-        return;
-      }
+    const [
+        recipientResults,
+        setRecipientResults,
+    ] = useState<RecipientSearchResult[]>([]);
 
-      if (response.status === 422) {
-        const message = getResponseMessage(
-          response.data,
-          'The quantity or listing is not eligible for this donation.',
-        );
+    const [
+        recipientSearchError,
+        setRecipientSearchError,
+    ] = useState<string | null>(null);
 
-        const normalizedMessage =
-          message.toLowerCase();
+    const [
+        hasRecipientSearchRun,
+        setHasRecipientSearchRun,
+    ] = useState(false);
 
-        if (
-          normalizedMessage.includes(
-            'per request',
-          )
-          || normalizedMessage.includes(
-            'per_request',
-          )
-        ) {
-          setFieldErrors((current) => ({
-            ...current,
-            listingId: message,
-          }));
-        } else {
-          setFieldErrors((current) => ({
-            ...current,
-            quantity: message,
-          }));
+    const [
+        isRecipientSearching,
+        setIsRecipientSearching,
+    ] = useState(false);
+
+    const [fieldErrors, setFieldErrors] =
+        useState<ManualDonationFieldErrors>({});
+
+    const [loadError, setLoadError] =
+        useState<string | null>(null);
+
+    const [submitError, setSubmitError] =
+        useState<string | null>(null);
+
+    const [createdOrder, setCreatedOrder] =
+        useState<OrderDTO | null>(null);
+
+    const [
+        submittedListing,
+        setSubmittedListing,
+    ] = useState<SubmittedListingSummary | null>(
+        null,
+    );
+
+    const [isLoading, setIsLoading] =
+        useState(true);
+
+    const [isSubmitting, setIsSubmitting] =
+        useState(false);
+
+    const [
+        isListingsEndpointUnavailable,
+        setIsListingsEndpointUnavailable,
+    ] = useState(false);
+
+    const [loadVersion, setLoadVersion] =
+        useState(0);
+
+    useEffect(() => {
+        let ignoreResult = false;
+
+        async function loadEligibleListings() {
+            setIsLoading(true);
+            setLoadError(null);
+            setIsListingsEndpointUnavailable(false);
+
+            try {
+                const response =
+                    await listingService.getMyListings({
+                        status: 'ACTIVE',
+                        sort: 'createdAt',
+                        order: 'desc',
+                        page: 1,
+                        limit: 100,
+                    });
+
+                if (ignoreResult) {
+                    return;
+                }
+
+                if (response.status === 501) {
+                    setIsListingsEndpointUnavailable(true);
+                    setLoadError(
+                        'Owned listing management is not available from the backend.',
+                    );
+                    return;
+                }
+
+                if (!response.ok || !response.data) {
+                    setLoadError(
+                        getResponseMessage(
+                            response.data,
+                            'Unable to load your active listings.',
+                        ),
+                    );
+                    return;
+                }
+
+                setListings(
+                    response.data.items.filter(
+                        (listing) =>
+                            listing.status === 'ACTIVE'
+                            && listing.unit !== 'PER_REQUEST'
+                            && listing.quantityRemaining > 0,
+                    ),
+                );
+            } catch {
+                if (!ignoreResult) {
+                    setLoadError(
+                        'Unable to reach AFF. Check your connection and try again.',
+                    );
+                }
+            } finally {
+                if (!ignoreResult) {
+                    setIsLoading(false);
+                }
+            }
         }
 
-        return;
-      }
+        void loadEligibleListings();
 
-      if (response.status === 400) {
-        setFieldErrors((current) => ({
-          ...current,
-          paymentMethod:
-            getResponseMessage(
-              response.data,
-              'Select a payment method for this listing.',
-            ),
-        }));
-        return;
-      }
+        return () => {
+            ignoreResult = true;
+        };
+    }, [loadVersion]);
 
-      if (!response.ok || !response.data) {
-        setSubmitError(
-          getResponseMessage(
-            response.data,
-            'Unable to record the donation.',
-          ),
+    useEffect(() => {
+        const query =
+            form.recipientQuery.trim();
+
+        setRecipientSearchError(null);
+        setHasRecipientSearchRun(false);
+
+        if (
+            selectedRecipient
+            && selectedRecipient.email.toLowerCase()
+            === query.toLowerCase()
+        ) {
+            setRecipientResults([]);
+            setIsRecipientSearching(false);
+            return;
+        }
+
+        if (query.length < 3) {
+            setRecipientResults([]);
+            setIsRecipientSearching(false);
+            return;
+        }
+
+        const controller =
+            new AbortController();
+
+        const timeoutId = window.setTimeout(
+            async () => {
+                setIsRecipientSearching(true);
+
+                try {
+                    const response =
+                        await recipientService.searchByEmail(
+                            query,
+                            controller.signal,
+                        );
+
+                    if (
+                        !response.ok
+                        || !response.data
+                    ) {
+                        setRecipientResults([]);
+                        setRecipientSearchError(
+                            getResponseMessage(
+                                response.data,
+                                'Unable to search registered Recipients.',
+                            ),
+                        );
+                        return;
+                    }
+
+                    setRecipientResults(response.data);
+                } catch (error) {
+                    if (!isAbortError(error)) {
+                        setRecipientResults([]);
+                        setRecipientSearchError(
+                            'Unable to reach AFF while searching Recipients.',
+                        );
+                    }
+                } finally {
+                    if (!controller.signal.aborted) {
+                        setIsRecipientSearching(false);
+                        setHasRecipientSearchRun(true);
+                    }
+                }
+            },
+            300,
         );
-        return;
-      }
 
-      setCreatedOrder(response.data);
-    } catch {
-      setSubmitError(
-        'Unable to reach AFF. Check your connection and try again.',
-      );
-    } finally {
-      setIsSubmitting(false);
+        return () => {
+            window.clearTimeout(timeoutId);
+            controller.abort();
+        };
+    }, [
+        form.recipientQuery,
+        selectedRecipient,
+    ]);
+
+    const selectedListing =
+        listings.find(
+            (listing) =>
+                listing.id === form.listingId,
+        ) ?? null;
+
+    const isPriced =
+        Boolean(
+            selectedListing
+            && selectedListing.price > 0,
+        );
+
+    function clearFieldError(
+        field: keyof ManualDonationFieldErrors,
+    ) {
+        setFieldErrors((current) => ({
+            ...current,
+            [field]: undefined,
+        }));
     }
-  }
 
-  function clearForm() {
-    setForm(INITIAL_FORM);
-    setFieldErrors({});
-    setSubmitError(null);
-    setCreatedOrder(null);
-  }
+    function clearSubmissionOutcome() {
+        setSubmitError(null);
+        setCreatedOrder(null);
+        setSubmittedListing(null);
+    }
 
-  function retryListings() {
-    setLoadVersion((current) => current + 1);
-  }
+    function setRecipientQuery(
+        nextQuery: string,
+    ) {
+        setForm((current) => ({
+            ...current,
+            recipientQuery: nextQuery,
+        }));
 
-  const canSubmit =
-    !isLoading
-    && !isSubmitting
-    && !createdOrder
-    && Object.keys(
-      validateForm(
+        setSelectedRecipient((current) =>
+            current?.email.toLowerCase()
+                === nextQuery.trim().toLowerCase()
+                ? current
+                : null,
+        );
+
+        clearFieldError('recipientEmail');
+        clearSubmissionOutcome();
+    }
+
+    function selectRecipient(
+        recipient: RecipientSearchResult,
+    ) {
+        setSelectedRecipient(recipient);
+        setRecipientResults([]);
+        setRecipientSearchError(null);
+        setHasRecipientSearchRun(false);
+
+        setForm((current) => ({
+            ...current,
+            recipientQuery: recipient.email,
+        }));
+
+        clearFieldError('recipientEmail');
+        clearSubmissionOutcome();
+    }
+
+    function clearRecipientSelection() {
+        setSelectedRecipient(null);
+        setRecipientResults([]);
+        setRecipientSearchError(null);
+        setHasRecipientSearchRun(false);
+
+        setForm((current) => ({
+            ...current,
+            recipientQuery: '',
+        }));
+
+        clearFieldError('recipientEmail');
+        clearSubmissionOutcome();
+    }
+
+    function setListingId(
+        nextListingId: string,
+    ) {
+        setForm((current) => ({
+            ...current,
+            listingId: nextListingId,
+        }));
+
+        clearFieldError('listingId');
+        clearFieldError('quantity');
+        clearSubmissionOutcome();
+    }
+
+    function setQuantity(
+        nextQuantity: string,
+    ) {
+        setForm((current) => ({
+            ...current,
+            quantity: nextQuantity,
+        }));
+
+        clearFieldError('quantity');
+        clearSubmissionOutcome();
+    }
+
+    function setDeliveryAddressInput(
+        nextAddress: string,
+    ) {
+        setForm((current) => ({
+            ...current,
+            deliveryAddressText: nextAddress,
+            deliveryLocation:
+                nextAddress === current.deliveryAddressText
+                    ? current.deliveryLocation
+                    : null,
+        }));
+
+        clearFieldError(
+            'deliveryAddressText',
+        );
+        clearSubmissionOutcome();
+    }
+
+    function selectDeliveryAddress(
+        location: LocationData,
+    ) {
+        setForm((current) => ({
+            ...current,
+            deliveryAddressText:
+                location.addressText,
+            deliveryLocation: {
+                latitude: location.latitude,
+                longitude: location.longitude,
+            },
+        }));
+
+        clearFieldError(
+            'deliveryAddressText',
+        );
+        clearSubmissionOutcome();
+    }
+
+    function assignBadRequestError(
+        message: string,
+    ) {
+        const normalized =
+            message.toLowerCase();
+
+        if (normalized.includes('recipient')) {
+            setFieldErrors((current) => ({
+                ...current,
+                recipientEmail: message,
+            }));
+            return;
+        }
+
+        if (
+            normalized.includes('address')
+            || normalized.includes('location')
+            || normalized.includes('latitude')
+            || normalized.includes('longitude')
+        ) {
+            setFieldErrors((current) => ({
+                ...current,
+                deliveryAddressText: message,
+            }));
+            return;
+        }
+
+        if (normalized.includes('quantity')) {
+            setFieldErrors((current) => ({
+                ...current,
+                quantity: message,
+            }));
+            return;
+        }
+
+        setSubmitError(message);
+    }
+
+    async function handleSubmit(
+        event: SubmitEvent<HTMLFormElement>,
+    ) {
+        event.preventDefault();
+        setSubmitError(null);
+        setCreatedOrder(null);
+        setSubmittedListing(null);
+
+        const nextErrors =
+            validateForm(
+                form,
+                selectedRecipient,
+                selectedListing,
+            );
+
+        setFieldErrors(nextErrors);
+
+        if (
+            Object.keys(nextErrors).length > 0
+            || !selectedListing
+            || !selectedRecipient
+            || !form.deliveryLocation
+        ) {
+            return;
+        }
+
+        const quantity =
+            parseQuantity(form.quantity);
+
+        if (quantity === null) {
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const response =
+                await listingService
+                    .createDonorInitiatedDonation(
+                        selectedListing.id,
+                        {
+                            recipientEmail:
+                                selectedRecipient.email,
+                            quantity,
+                            deliveryAddressText:
+                                form.deliveryAddressText.trim(),
+                            deliveryLocation:
+                                form.deliveryLocation,
+                        },
+                    );
+
+            if (response.status === 501) {
+                setSubmitError(
+                    'Manual donations are not available from the backend.',
+                );
+                return;
+            }
+
+            if (response.status === 403) {
+                setSubmitError(
+                    'You do not have permission to donate from this listing.',
+                );
+                return;
+            }
+
+            if (response.status === 404) {
+                const message =
+                    getResponseMessage(
+                        response.data,
+                        'The listing or Recipient could not be found.',
+                    );
+
+                if (
+                    message.toLowerCase().includes(
+                        'listing',
+                    )
+                ) {
+                    setFieldErrors((current) => ({
+                        ...current,
+                        listingId: message,
+                    }));
+                } else {
+                    setFieldErrors((current) => ({
+                        ...current,
+                        recipientEmail: message,
+                    }));
+                }
+
+                return;
+            }
+
+            if (response.status === 422) {
+                const message =
+                    getResponseMessage(
+                        response.data,
+                        'The listing or quantity is not eligible for this donation.',
+                    );
+
+                const normalized =
+                    message.toLowerCase();
+
+                if (
+                    normalized.includes('listing')
+                    || normalized.includes('per request')
+                    || normalized.includes('per_request')
+                ) {
+                    setFieldErrors((current) => ({
+                        ...current,
+                        listingId: message,
+                    }));
+                } else {
+                    setFieldErrors((current) => ({
+                        ...current,
+                        quantity: message,
+                    }));
+                }
+
+                return;
+            }
+
+            if (response.status === 400) {
+                assignBadRequestError(
+                    getResponseMessage(
+                        response.data,
+                        'Review the donation details and try again.',
+                    ),
+                );
+                return;
+            }
+
+            if (!response.ok || !response.data) {
+                setSubmitError(
+                    getResponseMessage(
+                        response.data,
+                        'Unable to record the donation.',
+                    ),
+                );
+                return;
+            }
+
+            setSubmittedListing({
+                name: selectedListing.name,
+                imageUrl:
+                    selectedListing.imageUrl,
+            });
+
+            setCreatedOrder(response.data);
+
+            setListings((current) =>
+                current.flatMap((listing) => {
+                    if (
+                        listing.id
+                        !== selectedListing.id
+                    ) {
+                        return [listing];
+                    }
+
+                    const quantityRemaining =
+                        Math.max(
+                            0,
+                            listing.quantityRemaining
+                            - quantity,
+                        );
+
+                    if (quantityRemaining === 0) {
+                        return [];
+                    }
+
+                    return [{
+                        ...listing,
+                        quantityRemaining,
+                        donatedQuantity:
+                            listing.donatedQuantity
+                            + quantity,
+                        revenue:
+                            listing.revenue
+                            + quantity * listing.price,
+                    }];
+                }),
+            );
+        } catch {
+            setSubmitError(
+                'Unable to reach AFF. Check your connection and try again.',
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    function clearForm() {
+        setForm(INITIAL_FORM);
+        setSelectedRecipient(null);
+        setRecipientResults([]);
+        setRecipientSearchError(null);
+        setHasRecipientSearchRun(false);
+        setFieldErrors({});
+        setSubmitError(null);
+        setCreatedOrder(null);
+        setSubmittedListing(null);
+    }
+
+    function retryListings() {
+        setLoadVersion((current) =>
+            current + 1,
+        );
+    }
+
+    const canSubmit =
+        !isLoading
+        && !isSubmitting
+        && !createdOrder
+        && Object.keys(
+            validateForm(
+                form,
+                selectedRecipient,
+                selectedListing,
+            ),
+        ).length === 0;
+
+    return {
         form,
+        listings,
         selectedListing,
-      ),
-    ).length === 0;
-
-  return {
-    form,
-    listings,
-    selectedListing,
-    fieldErrors,
-    loadError,
-    submitError,
-    createdOrder,
-    isLoading,
-    isSubmitting,
-    isPriced,
-    isListingsEndpointUnavailable,
-    canSubmit,
-    setRecipientQuery,
-    selectRecipient,
-    clearRecipientSelection,
-    setListingId,
-    setQuantity,
-    setPaymentMethod,
-    handleSubmit,
-    clearForm,
-    retryListings,
-  };
+        selectedRecipient,
+        recipientResults,
+        recipientSearchError,
+        hasRecipientSearchRun,
+        fieldErrors,
+        loadError,
+        submitError,
+        createdOrder,
+        submittedListing,
+        isLoading,
+        isSubmitting,
+        isRecipientSearching,
+        isPriced,
+        isListingsEndpointUnavailable,
+        canSubmit,
+        setRecipientQuery,
+        selectRecipient,
+        clearRecipientSelection,
+        setListingId,
+        setQuantity,
+        setDeliveryAddressInput,
+        selectDeliveryAddress,
+        handleSubmit,
+        clearForm,
+        retryListings,
+    };
 }
 
 export default useManualDonation;

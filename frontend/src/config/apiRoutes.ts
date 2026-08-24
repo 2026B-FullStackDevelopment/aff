@@ -9,7 +9,8 @@ export const API_ROUTES = {
   users: {
     me: '/users/me',
     meEmail: '/users/me/email',
-    mePassword: '/users/me/password'
+    mePassword: '/users/me/password',
+    recipientSearch: '/users/recipients/search',
   },
   media: {
     uploadUrl: '/media/upload-url',
