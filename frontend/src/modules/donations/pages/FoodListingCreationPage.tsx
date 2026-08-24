@@ -1,16 +1,28 @@
+import {
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom';
 import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
+import { CloneListingForm } from '../components/CloneListingForm/CloneListingForm';
 import { CreateListingForm } from '../components/CreateListingForm/CreateListingForm';
 
-// Renders the Donor New Food Listing route.
+// Renders new-listing and C2 duplicate-review modes.
 export function FoodListingCreationPage() {
+  const navigate = useNavigate();
+  const [searchParameters] = useSearchParams();
   const storedUser = getStoredUser();
 
   const donor =
     storedUser?.role === 'DONOR'
       ? storedUser
       : null;
+
+  const cloneFrom =
+    searchParameters.get('cloneFrom');
+
+  const isCloneMode = Boolean(cloneFrom);
 
   return (
     <div className="min-h-screen bg-[#FBF9F8]">
@@ -27,12 +39,29 @@ export function FoodListingCreationPage() {
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
         <PageHeader
-          title="New Food Listing"
-          description="Create a food listing for donation or affordable sale."
+          title={
+            isCloneMode
+              ? 'Duplicate Food Listing'
+              : 'New Food Listing'
+          }
+          description={
+            isCloneMode
+              ? 'Review the source listing before creating an independent active copy.'
+              : 'Create a food listing for donation or affordable sale.'
+          }
         />
 
         <div className="mt-6">
-          <CreateListingForm />
+          {cloneFrom ? (
+            <CloneListingForm
+              listingId={cloneFrom}
+              onBack={() =>
+                navigate('/donor/donations')
+              }
+            />
+          ) : (
+            <CreateListingForm />
+          )}
         </div>
       </main>
     </div>

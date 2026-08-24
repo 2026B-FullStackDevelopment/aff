@@ -78,6 +78,14 @@ export const listingService = {
       payload,
     ),
 
+  // Loads a listing for detail or clone review.
+  getListing: (
+    listingId: string,
+  ) =>
+    httpClient.get<ListingDTO>(
+      API_ROUTES.listings.detail(listingId),
+    ),
+
   // Loads one paginated Active or Past listing group.
   getMyListings: (
     query: MyListingsQuery,
