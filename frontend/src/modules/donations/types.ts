@@ -27,6 +27,12 @@ export interface RecipientSearchResult {
   email: string;
 }
 
+// Payload emitted by the private listing:sold_out Socket.IO event.
+export interface SoldOutEvent {
+  listingId: string;
+  name: string;
+}
+
 // Request body accepted by POST /listings/:id/donations.
 export interface DonorInitiatedDonationPayload {
   recipientEmail: string;

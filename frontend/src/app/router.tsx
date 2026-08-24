@@ -20,10 +20,12 @@ import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPag
 import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
+import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts/DonorSoldOutAlerts';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <DonorSoldOutAlerts />
       <Routes>
         <Route
           path="/"

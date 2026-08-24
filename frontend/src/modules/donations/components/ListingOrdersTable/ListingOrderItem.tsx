@@ -94,10 +94,14 @@ export function ListingOrderDesktopRow({
       </td>
 
       <td className="max-w-72 px-5 py-5 text-sm leading-6 text-[#414844]">
-        {order.feedback && (
+        {order.feedback ? (
           <p>
             {order.feedback.comment}
           </p>
+        ) : (
+          <span className="text-xs italic text-[#6B7280]">
+            No feedback yet
+          </span>
         )}
       </td>
     </tr>
@@ -178,17 +182,21 @@ export function ListingOrderMobileCard({
         </div>
       </dl>
 
-      {order.feedback && (
-        <section className="mt-4 border-t border-[#E4E2E1] pt-4">
-          <h4 className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-            Feedback
-          </h4>
+      <section className="mt-4 border-t border-[#E4E2E1] pt-4">
+        <h4 className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
+          Feedback
+        </h4>
 
+        {order.feedback ? (
           <p className="mt-1 text-sm leading-6 text-[#414844]">
             {order.feedback.comment}
           </p>
-        </section>
-      )}
+        ) : (
+          <p className="mt-1 text-xs italic text-[#6B7280]">
+            No feedback yet
+          </p>
+        )}
+      </section>
     </article>
   );
 }

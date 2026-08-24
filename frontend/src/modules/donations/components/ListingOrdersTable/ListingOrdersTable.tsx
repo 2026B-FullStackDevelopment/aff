@@ -54,7 +54,7 @@ export function ListingOrdersTable({
         title={
           isEndpointUnavailable
             ? 'Backend endpoint not implemented'
-            : 'Unable to load reservations'
+            : 'Unable to load orders'
         }
         message={error}
         retryLabel="Try Again"

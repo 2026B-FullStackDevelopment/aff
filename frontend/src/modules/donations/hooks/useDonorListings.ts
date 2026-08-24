@@ -13,6 +13,7 @@ import type {
   MyListingsQuery,
   SortDirection,
 } from '../types';
+import { donorRealtimeService } from '../services/donorRealtime.service';
 
 const FOOD_CATEGORIES: FoodCategory[] = [
   'FRUIT',
@@ -300,6 +301,47 @@ export function useDonorListings() {
       return next;
     });
   }
+
+ useEffect(() => {
+  return donorRealtimeService
+    .subscribeToSoldOut(
+      (event) => {
+        setListings((current) =>
+          current
+            .map(
+              (
+                listing,
+              ): ManagedListingDTO => {
+                if (
+                  listing.id
+                  !== event.listingId
+                ) {
+                  return listing;
+                }
+
+                return {
+                  ...listing,
+                  status: 'SOLD_OUT',
+                  quantityRemaining: 0,
+                };
+              },
+            )
+            .filter((listing) =>
+              group === 'ACTIVE'
+                ? listing.id
+                  !== event.listingId
+                : true,
+            ),
+        );
+
+        // Refresh totals and load the listing when Past Donations is open.
+        setRefreshTrigger(
+          (current) =>
+            current + 1,
+        );
+      },
+    );
+}, [group]);
 
   function setGroup(nextGroup: ListingGroup) {
     updateParameter('status', nextGroup);

@@ -25,10 +25,6 @@ const DONOR_NAV_ITEMS: readonly PortalNavItem[] = [
     to: '/donor/reservations',
   },
   {
-    label: 'Analytics',
-    to: '/donor/analytics',
-  },
-  {
     label: 'Profile',
     to: '/profile',
   },

@@ -28,6 +28,10 @@ export interface CreateListingFormState {
   acknowledgedPerRequest: boolean;
 }
 
+interface UseCreateListingOptions {
+  cloneSource?: ListingDTO | null;
+}
+
 type TextFieldName =
   | 'name'
   | 'category'
@@ -41,23 +45,49 @@ export type CreateListingFieldErrors = Partial<
   Record<keyof CreateListingFormState, string>
 >;
 
+export type ListingSubmissionKind =
+  | 'CREATED'
+  | 'CLONED'
+  | 'EDITED_COPY';
+
 const ACCEPTED_IMAGE_TYPES = [
   'image/png',
   'image/jpeg',
   'image/webp',
 ];
 
-const INITIAL_FORM: CreateListingFormState = {
-  name: '',
-  category: '',
-  description: '',
-  unit: '',
-  donationLimit: '',
-  rationLimitPerPerson: '',
-  price: '0',
-  isVegetarian: false,
-  acknowledgedPerRequest: false,
-};
+function getInitialForm(
+  source?: ListingDTO | null,
+): CreateListingFormState {
+  if (!source) {
+    return {
+      name: '',
+      category: '',
+      description: '',
+      unit: '',
+      donationLimit: '',
+      rationLimitPerPerson: '',
+      price: '0',
+      isVegetarian: false,
+      acknowledgedPerRequest: false,
+    };
+  }
+
+  return {
+    name: source.name,
+    category: source.category,
+    description: source.description ?? '',
+    unit: source.unit,
+    donationLimit: String(source.donationLimit),
+    rationLimitPerPerson:
+      source.rationLimitPerPerson === null
+        ? ''
+        : String(source.rationLimitPerPerson),
+    price: String(source.price),
+    isVegetarian: source.isVegetarian,
+    acknowledgedPerRequest: false,
+  };
+}
 
 function parseNumber(value: string): number | null {
   if (value.trim() === '') {
@@ -104,9 +134,14 @@ function validateForm(
     errors.unit = 'Select a measurement unit.';
   }
 
-  const donationLimit = parseNumber(form.donationLimit);
+  const donationLimit = parseNumber(
+    form.donationLimit,
+  );
 
-  if (donationLimit === null || donationLimit <= 0) {
+  if (
+    donationLimit === null
+    || donationLimit <= 0
+  ) {
     errors.donationLimit =
       'Donation limit must be greater than 0.';
   }
@@ -117,7 +152,10 @@ function validateForm(
 
   if (
     form.rationLimitPerPerson.trim() !== ''
-    && (rationLimit === null || rationLimit <= 0)
+    && (
+      rationLimit === null
+      || rationLimit <= 0
+    )
   ) {
     errors.rationLimitPerPerson =
       'Ration limit must be greater than 0 when provided.';
@@ -129,7 +167,10 @@ function validateForm(
     errors.price = 'Enter a valid price.';
   } else if (price < 0) {
     errors.price = 'Price cannot be negative.';
-  } else if (price !== 0 && price <= 1000) {
+  } else if (
+    price !== 0
+    && price <= 1000
+  ) {
     errors.price =
       'Price must be free (0) or strictly greater than 1000 VND.';
   }
@@ -145,10 +186,60 @@ function validateForm(
   return errors;
 }
 
-// Owns New Food Listing form state, validation, upload, and submission.
-export function useCreateListing() {
+function hasPersistedChanges(
+  form: CreateListingFormState,
+  imageUrl: string | null,
+  source: ListingDTO,
+): boolean {
+  const description =
+    form.description.trim() || null;
+
+  const rationLimit = parseNumber(
+    form.rationLimitPerPerson,
+  );
+
+  return (
+    form.name.trim() !== source.name
+    || form.category !== source.category
+    || description !== source.description
+    || form.unit !== source.unit
+    || parseNumber(form.donationLimit)
+      !== source.donationLimit
+    || rationLimit
+      !== source.rationLimitPerPerson
+    || parseNumber(form.price) !== source.price
+    || form.isVegetarian
+      !== source.isVegetarian
+    || imageUrl !== source.imageUrl
+  );
+}
+
+function getCloneErrorMessage(
+  status: number,
+  data: unknown,
+): string {
+  if (status === 403) {
+    return 'This listing does not belong to your Donor account.';
+  }
+
+  if (status === 404) {
+    return 'The source listing no longer exists.';
+  }
+
+  return getResponseMessage(
+    data,
+    'Unable to duplicate the listing. Please try again.',
+  );
+}
+
+// Owns listing form state, validation, upload, creation, and duplication.
+export function useCreateListing({
+  cloneSource = null,
+}: UseCreateListingOptions = {}) {
   const [form, setForm] =
-    useState<CreateListingFormState>(INITIAL_FORM);
+    useState<CreateListingFormState>(
+      () => getInitialForm(cloneSource),
+    );
 
   const [errors, setErrors] =
     useState<CreateListingFieldErrors>({});
@@ -159,11 +250,16 @@ export function useCreateListing() {
   const [createdListing, setCreatedListing] =
     useState<ListingDTO | null>(null);
 
+  const [submissionKind, setSubmissionKind] =
+    useState<ListingSubmissionKind | null>(null);
+
   const [previewUrl, setPreviewUrl] =
     useState<string | null>(null);
 
   const [imageUrl, setImageUrl] =
-    useState<string | null>(null);
+    useState<string | null>(
+      cloneSource?.imageUrl ?? null,
+    );
 
   const [imageError, setImageError] =
     useState<string | undefined>();
@@ -181,6 +277,12 @@ export function useCreateListing() {
       }
     };
   }, [previewUrl]);
+
+  function clearSubmissionResult() {
+    setSubmitError(null);
+    setCreatedListing(null);
+    setSubmissionKind(null);
+  }
 
   function clearFieldError(
     field: keyof CreateListingFormState,
@@ -218,8 +320,7 @@ export function useCreateListing() {
       });
 
       clearFieldError(field);
-      setSubmitError(null);
-      setCreatedListing(null);
+      clearSubmissionResult();
     };
   }
 
@@ -230,8 +331,7 @@ export function useCreateListing() {
     }));
 
     clearFieldError('isVegetarian');
-    setSubmitError(null);
-    setCreatedListing(null);
+    clearSubmissionResult();
   }
 
   function setPerRequestAcknowledgement(
@@ -248,8 +348,7 @@ export function useCreateListing() {
 
   async function selectImage(file: File) {
     setImageError(undefined);
-    setSubmitError(null);
-    setCreatedListing(null);
+    clearSubmissionResult();
 
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       setImageError(
@@ -294,7 +393,9 @@ export function useCreateListing() {
         return;
       }
 
-      setImageUrl(uploadUrlResponse.data.mediaUrl);
+      setImageUrl(
+        uploadUrlResponse.data.mediaUrl,
+      );
     } catch {
       setImageError(
         'The image upload failed. Check your connection and try again.',
@@ -308,12 +409,12 @@ export function useCreateListing() {
     setPreviewUrl(null);
     setImageUrl(null);
     setImageError(undefined);
-    setSubmitError(null);
-    setCreatedListing(null);
+    clearSubmissionResult();
   }
 
   function buildPayload(): CreateListingPayload {
     const description = form.description.trim();
+
     const rationLimit = parseNumber(
       form.rationLimitPerPerson,
     );
@@ -326,7 +427,9 @@ export function useCreateListing() {
       category: form.category as FoodCategory,
       isVegetarian: form.isVegetarian,
       price: Number(form.price),
-      donationLimit: Number(form.donationLimit),
+      donationLimit: Number(
+        form.donationLimit,
+      ),
       rationLimitPerPerson:
         rationLimit ?? undefined,
     };
@@ -338,11 +441,14 @@ export function useCreateListing() {
     event.preventDefault();
     setSubmitError(null);
     setCreatedListing(null);
+    setSubmissionKind(null);
 
     const nextErrors = validateForm(form);
     setErrors(nextErrors);
 
-    if (Object.keys(nextErrors).length > 0) {
+    if (
+      Object.keys(nextErrors).length > 0
+    ) {
       return;
     }
 
@@ -360,24 +466,49 @@ export function useCreateListing() {
       return;
     }
 
+    const isExactClone =
+      cloneSource !== null
+      && !hasPersistedChanges(
+        form,
+        imageUrl,
+        cloneSource,
+      );
+
     setIsSubmitting(true);
 
     try {
-      const response = await listingService.createListing(
-        buildPayload(),
-      );
+      const response = isExactClone
+        ? await listingService.cloneListing(
+            cloneSource.id,
+          )
+        : await listingService.createListing(
+            buildPayload(),
+          );
 
       if (!response.ok || !response.data) {
         setSubmitError(
-          getResponseMessage(
-            response.data,
-            'Unable to create the listing. Please review the form and try again.',
-          ),
+          isExactClone
+            ? getCloneErrorMessage(
+                response.status,
+                response.data,
+              )
+            : getResponseMessage(
+                response.data,
+                'Unable to create the listing. Please review the form and try again.',
+              ),
         );
         return;
       }
 
       setCreatedListing(response.data);
+
+      setSubmissionKind(
+        isExactClone
+          ? 'CLONED'
+          : cloneSource
+            ? 'EDITED_COPY'
+            : 'CREATED',
+      );
     } catch {
       setSubmitError(
         'Unable to reach AFF. Check your connection and try again.',
@@ -388,11 +519,16 @@ export function useCreateListing() {
   }
 
   function resetForm() {
-    setForm(INITIAL_FORM);
+    setForm(getInitialForm(cloneSource));
     setErrors({});
     setSubmitError(null);
     setCreatedListing(null);
-    removeImage();
+    setSubmissionKind(null);
+    setPreviewUrl(null);
+    setImageUrl(
+      cloneSource?.imageUrl ?? null,
+    );
+    setImageError(undefined);
   }
 
   const isPerRequest =
@@ -401,8 +537,17 @@ export function useCreateListing() {
   const isBusy =
     isUploading || isSubmitting;
 
+  const hasCloneChanges =
+    cloneSource !== null
+    && hasPersistedChanges(
+      form,
+      imageUrl,
+      cloneSource,
+    );
+
   const canSubmit =
     !isBusy
+    && !createdListing
     && (
       !isPerRequest
       || form.acknowledgedPerRequest
@@ -413,12 +558,14 @@ export function useCreateListing() {
     errors,
     submitError,
     createdListing,
+    submissionKind,
     previewUrl,
+    currentImageUrl: imageUrl,
     imageError,
     isUploading,
     isSubmitting,
     isPerRequest,
-    isBusy,
+    hasCloneChanges,
     canSubmit,
     updateField,
     setVegetarian,
