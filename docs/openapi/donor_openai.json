@@ -1,0 +1,922 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Donor API",
+    "version": "0.1.0",
+    "description": "Frontend integration contract for Donor Food Donation Management (Epic C). This file reflects the routes currently implemented in backend/src/modules/listings and backend/src/modules/users, rather than unimplemented design intent. Donor registration, profile editing, and listing-image upload are documented separately in auth_openapi.json, users_openapi.json, and media_openapi.json."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Donor Listings",
+      "description": "Create, find, clone, and manage the authenticated Donor's listings"
+    },
+    {
+      "name": "Donor Donations",
+      "description": "Find registered Recipients and create or inspect tracked donations"
+    }
+  ],
+  "paths": {
+    "/users/recipients/search": {
+      "get": {
+        "tags": ["Donor Donations"],
+        "operationId": "searchRecipientsByEmail",
+        "summary": "Search active Recipients by email prefix",
+        "description": "Autocomplete endpoint for the donor-initiated donation form. Matching is case-insensitive, prefix-based, limited to 10 active RECIPIENT accounts, and returns only id, username, and email. A trimmed query shorter than 3 characters returns an empty array. The client should only submit a Recipient selected from these results.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "description": "Recipient email prefix. Use at least 3 non-whitespace characters.",
+            "schema": {
+              "type": "string",
+              "minLength": 3
+            },
+            "example": "recipient@"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching active Recipients, or an empty array when no match exists or the query is too short",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RecipientSearchResponse" },
+                "example": {
+                  "data": [
+                    {
+                      "id": "507f1f77bcf86cd799439012",
+                      "username": "jane_doe",
+                      "email": "recipient@example.com"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorRoleRequired" }
+        }
+      }
+    },
+    "/listings": {
+      "post": {
+        "tags": ["Donor Listings"],
+        "operationId": "createDonorListing",
+        "summary": "Create a listing",
+        "description": "Creates an ACTIVE listing owned by the authenticated Donor. city is inherited from the Donor profile and quantityRemaining is initialized to donationLimit; neither field may be sent by the client. PER_REQUEST is a valid unit, but those listings cannot create tracked Orders. Upload an image first through POST /media/upload-url with purpose LISTING_IMAGE, then send the returned mediaUrl as imageUrl.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateListingRequest" },
+              "example": {
+                "name": "Fresh bread",
+                "description": "Baked this morning",
+                "imageUrl": "https://storage.example.com/listings/bread.jpg",
+                "unit": "UNIT",
+                "category": "BAKED_GOODS",
+                "isVegetarian": true,
+                "price": 0,
+                "donationLimit": 20,
+                "rationLimitPerPerson": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Listing created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListingResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorRoleRequired" }
+        }
+      }
+    },
+    "/listings/mine": {
+      "get": {
+        "tags": ["Donor Listings"],
+        "operationId": "listMyDonorListings",
+        "summary": "Search, filter, sort, and paginate the Donor's listings",
+        "description": "Always scopes results to the authenticated Donor; donorId is not an accepted query parameter. The required ACTIVE grouping includes ACTIVE and PAUSED listings. PAST includes CANCELLED and SOLD_OUT listings. donatedQuantity counts quantities from non-cancelled Orders; revenue sums only Orders whose paymentStatus is PAID.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "description": "UI grouping, not a raw ListingStatus",
+            "schema": {
+              "type": "string",
+              "enum": ["ACTIVE", "PAST"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Case-insensitive partial match on listing name",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/FoodCategory" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Inclusive createdAt lower bound; must parse as an ISO 8601 date",
+            "schema": { "type": "string" },
+            "example": "2026-08-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Inclusive createdAt upper bound. A YYYY-MM-DD value includes that entire UTC day.",
+            "schema": { "type": "string" },
+            "example": "2026-08-24"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["createdAt", "revenue"],
+              "default": "createdAt"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc"
+            }
+          },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the Donor's listings with computed statistics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MyListingsResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorRoleRequired" }
+        }
+      }
+    },
+    "/listings/{id}": {
+      "get": {
+        "tags": ["Donor Listings"],
+        "operationId": "getListingDetail",
+        "summary": "Get listing detail",
+        "description": "Public endpoint used to populate a Duplicate form and to render PER_REQUEST pickup details. The detail DTO replaces donor.city with donor.addressText and donor.location. Current implementation returns HTTP 200 with data: null when no listing has the supplied valid ObjectId; it does not currently return the 404 described in docs/api_design.md.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing detail, or null when no listing exists for the ID",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NullableListingDetailResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{id}/clone": {
+      "post": {
+        "tags": ["Donor Listings"],
+        "operationId": "cloneDonorListing",
+        "summary": "Clone an owned listing",
+        "description": "Takes no request body. Copies the source listing's static fields into an independent listing, resets status to ACTIVE and quantityRemaining to donationLimit, and assigns a fresh id and createdAt. The source can have any status as long as it belongs to the caller.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" }
+        ],
+        "responses": {
+          "201": {
+            "description": "New independent listing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListingResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidListingId" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/ListingNotFound" }
+        }
+      }
+    },
+    "/listings/{id}/status": {
+      "patch": {
+        "tags": ["Donor Listings"],
+        "operationId": "updateDonorListingStatus",
+        "summary": "Pause, resume, or cancel an owned listing",
+        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling also cancels non-cancelled Orders that have no Delivery or whose Delivery is still AWAITING_COURIER; claimed or later deliveries remain untouched. cancelledOrderCount is authoritative for the completed cascade.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateListingStatusRequest" },
+              "example": { "status": "CANCELLED" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated listing and number of Orders cancelled by this request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UpdateListingStatusResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/ListingNotFound" },
+          "409": { "$ref": "#/components/responses/InvalidStatusTransition" }
+        }
+      }
+    },
+    "/listings/{id}/orders": {
+      "get": {
+        "tags": ["Donor Donations"],
+        "operationId": "listDonorListingOrders",
+        "summary": "List tracked Orders against an owned listing",
+        "description": "Returns Reservation and Donor-initiated Orders newest first, with Recipient and Listing summaries. For a PER_REQUEST listing, returns an empty page because that flow never creates Orders. paymentMethod can be absent for a free Order or a priced donor-initiated Order whose Recipient has not chosen a payment method yet.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of tracked Orders",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListingOrdersResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidListingId" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/ListingNotFound" }
+        }
+      }
+    },
+    "/listings/{id}/donations": {
+      "post": {
+        "tags": ["Donor Donations"],
+        "operationId": "createDonorInitiatedDonation",
+        "summary": "Create a Donor-initiated donation",
+        "description": "Creates a tracked Order for a selected active Recipient and atomically decrements stock. Do not send paymentMethod. A free listing returns paymentStatus FREE and orderStatus PREPARING and enters the Courier queue immediately. A priced listing returns paymentStatus PAYMENT_PENDING and orderStatus PENDING_PAYMENT; the Recipient is notified to choose Stripe or cash. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateDonorDonationRequest" },
+              "example": {
+                "recipientEmail": "recipient@example.com",
+                "quantity": 2,
+                "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                "deliveryLocation": {
+                  "latitude": 10.7769,
+                  "longitude": 106.7009
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Donor-initiated Order created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OrderResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "Listing not found, or no account exists for recipientEmail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "listing": { "value": { "message": "Listing not found." } },
+                  "recipient": { "value": { "message": "Recipient email was not found." } }
+                }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/DonationNotProcessable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "ListingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Listing MongoDB ObjectId",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        },
+        "example": "507f1f77bcf86cd799439011"
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "MeasurementUnit": {
+        "type": "string",
+        "enum": ["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "PER_REQUEST"]
+      },
+      "FoodCategory": {
+        "type": "string",
+        "enum": ["FRUIT", "VEGETABLE", "MEAT", "COOKED_DISH", "BAKED_GOODS", "DRINK"]
+      },
+      "ListingStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "PAUSED", "CANCELLED", "SOLD_OUT"]
+      },
+      "GeoLocationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["latitude", "longitude"],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        }
+      },
+      "GeoLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["latitude", "longitude", "updatedAt"],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecipientSearchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "username", "email"],
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        }
+      },
+      "RecipientSearchResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 10,
+            "items": { "$ref": "#/components/schemas/RecipientSearchResult" }
+          }
+        }
+      },
+      "CreateListingRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "unit", "category", "isVegetarian", "price", "donationLimit"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": { "type": "string" },
+          "imageUrl": { "type": "string", "format": "uri" },
+          "unit": { "$ref": "#/components/schemas/MeasurementUnit" },
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "isVegetarian": { "type": "boolean" },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Must be exactly 0 (free) or strictly greater than 1000 VND. OpenAPI 3.0 cannot express this disjoint numeric constraint compactly, so clients must enforce both branches."
+          },
+          "donationLimit": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "rationLimitPerPerson": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "description": "Omit when no cap is desired; do not send 0 or null."
+          }
+        }
+      },
+      "ListingDonorSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "companyName", "city", "location"],
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" },
+          "city": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/GeoLocation" }
+        }
+      },
+      "ListingDonorDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "companyName", "addressText", "location"],
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" },
+          "addressText": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/GeoLocation" }
+        }
+      },
+      "ListingBase": {
+        "type": "object",
+        "required": ["id", "name", "description", "imageUrl", "unit", "category", "isVegetarian", "price", "city", "status", "donationLimit", "rationLimitPerPerson", "quantityRemaining", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "imageUrl": { "type": "string", "format": "uri", "nullable": true },
+          "unit": { "$ref": "#/components/schemas/MeasurementUnit" },
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "isVegetarian": { "type": "boolean" },
+          "price": { "type": "number" },
+          "city": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/ListingStatus" },
+          "donationLimit": { "type": "number" },
+          "rationLimitPerPerson": { "type": "number", "nullable": true },
+          "quantityRemaining": { "type": "number" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Listing": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ListingBase" },
+          {
+            "type": "object",
+            "required": ["donor"],
+            "properties": {
+              "donor": { "$ref": "#/components/schemas/ListingDonorSummary" }
+            }
+          }
+        ]
+      },
+      "ListingDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ListingBase" },
+          {
+            "type": "object",
+            "required": ["donor"],
+            "properties": {
+              "donor": { "$ref": "#/components/schemas/ListingDonorDetail" }
+            }
+          }
+        ]
+      },
+      "ListingWithStats": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Listing" },
+          {
+            "type": "object",
+            "required": ["donatedQuantity", "revenue"],
+            "properties": {
+              "donatedQuantity": { "type": "number" },
+              "revenue": {
+                "type": "number",
+                "description": "Sum of amount for non-cancelled Orders whose paymentStatus is PAID"
+              }
+            }
+          }
+        ]
+      },
+      "ListingResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Listing" }
+        }
+      },
+      "NullableListingDetailResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "allOf": [{ "$ref": "#/components/schemas/ListingDetail" }],
+            "nullable": true
+          }
+        }
+      },
+      "MyListingsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ListingWithStats" }
+              },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "UpdateListingStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["PAUSED", "ACTIVE", "CANCELLED"]
+          }
+        }
+      },
+      "UpdateListingStatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["listing", "cancelledOrderCount"],
+            "properties": {
+              "listing": { "$ref": "#/components/schemas/Listing" },
+              "cancelledOrderCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "CreateDonorDonationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["recipientEmail", "quantity", "deliveryAddressText", "deliveryLocation"],
+        "properties": {
+          "recipientEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "The API trims and lowercases this value. It should come from /users/recipients/search."
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "deliveryAddressText": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocationInput" }
+        }
+      },
+      "Feedback": {
+        "type": "object",
+        "required": ["comment", "createdAt"],
+        "properties": {
+          "comment": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderListingSummary": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": {
+            "type": "string",
+            "description": "Present in GET /listings/{id}/orders; omitted by the current POST /listings/{id}/donations mapper"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Present when the listing has an image in GET /listings/{id}/orders; otherwise omitted"
+          },
+          "unit": {
+            "allOf": [{ "$ref": "#/components/schemas/MeasurementUnit" }],
+            "description": "Present in GET /listings/{id}/orders; omitted by the current POST /listings/{id}/donations mapper"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "recipientId": { "type": "string" },
+          "listing": { "$ref": "#/components/schemas/OrderListingSummary" },
+          "intakePath": {
+            "type": "string",
+            "enum": ["RESERVATION", "DONOR_INITIATED"]
+          },
+          "quantity": { "type": "number" },
+          "amount": {
+            "type": "number",
+            "description": "listing.price multiplied by quantity"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["STRIPE", "CASH"],
+            "description": "Optional and omitted until selected; free Orders never need one"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": ["FREE", "PAYMENT_PENDING", "PAID", "REFUND_PENDING", "REFUNDED"]
+          },
+          "orderStatus": {
+            "type": "string",
+            "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"]
+          },
+          "deliveryAddressText": { "type": "string" },
+          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "cancelledByUserId": { "type": "string", "nullable": true },
+          "feedback": {
+            "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ListingOrder": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Order" },
+          {
+            "type": "object",
+            "required": ["recipient"],
+            "properties": {
+              "recipient": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "username"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "username": { "type": "string" }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OrderResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Order" }
+        }
+      },
+      "ListingOrdersResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ListingOrder" }
+              },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "SoldOutEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["listingId", "name"],
+        "properties": {
+          "listingId": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Request path, query, or body validation failed. Strict body/query schemas also reject unknown fields.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "price": { "value": { "message": "Price must be 0 or greater than 1000 VND." } },
+              "unknownField": { "value": { "message": "Unrecognized key: city" } }
+            }
+          }
+        }
+      },
+      "InvalidListingId": {
+        "description": "id is not a 24-character MongoDB ObjectId",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Listing ID must be a valid MongoDB ObjectId." }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Authentication is required." } },
+              "invalid": { "value": { "message": "Your session is invalid or has expired." } }
+            }
+          }
+        }
+      },
+      "DonorRoleRequired": {
+        "description": "The authenticated account is not a Donor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The authenticated account is not a Donor, or the listing belongs to a different Donor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "wrongRole": { "value": { "message": "You do not have permission to access this resource." } },
+              "notOwner": { "value": { "message": "You do not own this listing." } }
+            }
+          }
+        }
+      },
+      "ListingNotFound": {
+        "description": "No listing exists for id",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Listing not found." }
+          }
+        }
+      },
+      "InvalidStatusTransition": {
+        "description": "The requested status transition is not allowed, or the listing changed concurrently",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "terminal": { "value": { "message": "Cannot change listing status from CANCELLED to ACTIVE." } },
+              "concurrent": { "value": { "message": "The listing status changed before this request completed." } }
+            }
+          }
+        }
+      },
+      "DonationNotProcessable": {
+        "description": "The account is not an active Recipient, the listing is inactive or PER_REQUEST, or the requested quantity exceeds a ration/stock constraint",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "inactiveRecipient": { "value": { "message": "The selected account is not an active Recipient." } },
+              "inactiveListing": { "value": { "message": "The listing is not active." } },
+              "perRequest": { "value": { "message": "PER_REQUEST listings do not create Orders." } },
+              "rationLimit": { "value": { "message": "Quantity exceeds the ration limit." } },
+              "remainingStock": { "value": { "message": "Quantity exceeds the remaining stock." } },
+              "concurrentStock": { "value": { "message": "The requested stock is no longer available." } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-socket-io": {
+    "serverUrl": "http://localhost:5000",
+    "connection": {
+      "auth": {
+        "token": "<JWT access token>"
+      },
+      "description": "Connect only after login using io(serverUrl, { auth: { token } }). The server verifies the token and automatically joins the socket to the authenticated user's private room. Missing tokens fail with 'Authentication is required.'; invalid, expired, or revoked tokens fail with 'Authentication failed.'."
+    },
+    "serverToClientEvents": {
+      "listing:sold_out": {
+        "audience": "Owning Donor only",
+        "description": "Emitted after a tracked donation transaction commits and reduces quantityRemaining to zero. Update the matching listing locally to status SOLD_OUT and trigger the in-app/audible alert.",
+        "payloadSchema": { "$ref": "#/components/schemas/SoldOutEvent" },
+        "example": {
+          "listingId": "507f1f77bcf86cd799439011",
+          "name": "Fresh bread"
+        }
+      }
+    }
+  }
+}
