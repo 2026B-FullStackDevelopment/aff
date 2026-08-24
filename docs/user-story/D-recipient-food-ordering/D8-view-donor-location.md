@@ -40,4 +40,4 @@ so that **I understand where the food is coming from, and — for Per-Request li
 4. **This story is read-only rendering.** It doesn't call any reservation or donation endpoint itself — D2 (Reserve & Pay) and C7 (Per-Request enforcement) own those actions; this story just needs to link to them from the same page.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

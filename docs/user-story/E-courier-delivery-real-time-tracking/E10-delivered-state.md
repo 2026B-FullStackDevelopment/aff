@@ -42,4 +42,4 @@ so that **I have clear, final confirmation that the delivery is complete, with n
 6. **There is intentionally no Recipient-side confirmation step here.** `DELIVERED` is sole-source-of-truth from the Courier's action (E7) — don't add a "confirm receipt" button or any control that implies the Recipient's state contributes to whether the order counts as delivered.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

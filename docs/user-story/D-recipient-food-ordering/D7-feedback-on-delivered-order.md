@@ -46,4 +46,4 @@ so that **the Donor gets visibility into how the donation actually landed**.
 5. **This story only covers the Recipient's submission side.** The Donor-facing display of feedback is already part of C8's `GET /listings/:id/orders` response — don't duplicate that rendering logic here.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

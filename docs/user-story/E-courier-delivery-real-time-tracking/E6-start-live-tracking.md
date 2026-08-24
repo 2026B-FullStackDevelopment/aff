@@ -47,4 +47,4 @@ so that **the Recipient can watch their delivery approach in real time**.
 6. **This story's map is the Courier-side view.** E9 covers the equivalent Recipient-side "watch the Courier" map — don't conflate the two; they render for different roles from the same underlying `courierLastLocation` data.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

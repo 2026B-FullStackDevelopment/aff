@@ -62,4 +62,4 @@ so that **I'm not locked into a mistaken purchase just because I've already plac
 6. **Don't build any refund-retry or dispute UI for the `FAILED` case.** Per Epic D's Out of Scope, that remains a manual/unaddressed edge case — this story's job is surfacing the state clearly, not resolving it.
 
 ## Related Epic
-Recipient Food Ordering (Epic D)
+Recipient Food Ordering (Epic D — #84)

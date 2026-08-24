@@ -47,4 +47,4 @@ so that **I know how close my delivery is and can prepare to receive it**.
 6. **On transition to `DELIVERED`, tear down the map/room subscription and hand off to E10** rather than leaving a frozen last-position marker on screen.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

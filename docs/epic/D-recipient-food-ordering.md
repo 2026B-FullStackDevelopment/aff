@@ -9,14 +9,14 @@ labels: epic
 Let Recipients browse, search, and reserve active listings; pay by Stripe or cash-on-delivery; cancel before a Courier claims the order; and track and give feedback on their order history — so a Recipient can go from discovering surplus food to receiving it entirely inside the app.
 
 ## User Stories
-- [ ] D1 — Browse Active Listings
-- [ ] D2 — Reserve & Pay
-- [ ] D3 — Stripe Card Registration at First Card Checkout
-- [ ] D4 — Cancel Order Before Courier Claim
-- [ ] D5 — Order/Delivery History
-- [ ] D6 — Search/Filter/Sort Listings
-- [ ] D7 — Feedback on Delivered Order
-- [ ] D8 — View Donor Location
+- [ ] #86 — Browse Active Listings
+- [ ] #87 — Reserve & Pay
+- [ ] #88 — Stripe Card Registration at First Card Checkout
+- [ ] #89 — Cancel Order Before Courier Claim
+- [ ] #90 — Order/Delivery History
+- [ ] #91 — Search/Filter/Sort Listings
+- [ ] #92 — Feedback on Delivered Order
+- [ ] #93 — View Donor Location
 
 ## Acceptance Criteria
 - [ ] A Recipient can browse active listings showing name, category, vegetarian flag, quantity, unit, price, Donor municipality, and created date
@@ -43,4 +43,3 @@ Let Recipients browse, search, and reserve active listings; pay by Stripe or cas
 - D4 has two *separate* real-time considerations, worth not conflating: the "Cancel Order" button's visibility deliberately does **not** need a live Socket.IO update (a page-load snapshot plus the `409` fallback on a stale click is sufficient — see the story's Implementation Flow). The refund confirmation (`REFUND_PENDING` → `REFUNDED`) **does** need one — `payment:refunded` (`docs/api_design.md` §12), since that transition is driven by an external Stripe webhook arriving independently of anything the Recipient does on the page.
 - D6 (browse) and D8 (Donor location) both depend on the Epic C `LISTING`/`DONOR` schema rebuild (`docs/blockers.md`) — nothing to browse or locate until that lands.
 - Per `docs/blockers.md`: every story in this epic is 🔴 Blocked as of the last assessment, on the `listing.model.ts`/`order.model.ts` schema rebuild and the not-yet-built `delivery` module.
-- No GitHub issues have been filed for this epic yet — the checklist above uses story IDs (`D1`–`D8`) rather than issue numbers; file issues from `docs/user-story/D-recipient-food-ordering/` following the same pattern as Epics A–C (#47–#76) when ready to track them on the board.

@@ -46,4 +46,4 @@ so that **it becomes my job to deliver, with no risk that another Courier ends u
 5. **After a successful claim, route the Courier straight into the claimed-order view (E5)** — don't leave them back on the queue screen after a successful claim.
 
 ## Related Epic
-Courier Delivery & Real-Time Tracking (Epic E)
+Courier Delivery & Real-Time Tracking (Epic E — #85)

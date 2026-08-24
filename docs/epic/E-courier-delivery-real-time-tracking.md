@@ -9,18 +9,18 @@ labels: epic
 Give Couriers a claim-based, one-job-at-a-time delivery queue covering both tracked intake paths (Reservation, Donor-initiated), with live GPS tracking visible to the Recipient while out for delivery and cash-collection confirmation at the door — so every Path 1/2 order reaches the Recipient through one shared, auditable pipeline, with read-only Admin oversight and no manual dispatch.
 
 ## User Stories
-- [ ] E1 — Admin Creates Courier Accounts
-- [ ] E2 — Shared Oldest-First Queue
-- [ ] E3 — Atomic Claim
-- [ ] E4 — One Active Delivery at a Time
-- [ ] E5 — Pickup Location
-- [ ] E6 — Start Live Tracking
-- [ ] E7 — Complete Delivery (with Cash Confirmation)
-- [ ] E8 — Live Order Status for Recipient
-- [ ] E9 — Live Courier Position
-- [ ] E10 — Delivered State
-- [ ] E11 — Admin Read-Only Delivery Oversight
-- [ ] E12 — Single Delivery Entry Point
+- [ ] #94 — Admin Creates Courier Accounts
+- [ ] #95 — Shared Oldest-First Queue
+- [ ] #96 — Atomic Claim
+- [ ] #97 — One Active Delivery at a Time
+- [ ] #98 — Pickup Location
+- [ ] #99 — Start Live Tracking
+- [ ] #100 — Complete Delivery (with Cash Confirmation)
+- [ ] #101 — Live Order Status for Recipient
+- [ ] #102 — Live Courier Position
+- [ ] #103 — Delivered State
+- [ ] #104 — Admin Read-Only Delivery Oversight
+- [ ] #105 — Single Delivery Entry Point
 
 ## Acceptance Criteria
 - [ ] An Admin can create a Courier account (username, email, temp password, full name) — Couriers never self-register
@@ -53,4 +53,3 @@ Give Couriers a claim-based, one-job-at-a-time delivery queue covering both trac
 - E7's cash-confirmation audit trail is intentionally shallow — Courier ID + timestamp only, no deeper reconciliation (PRD §9 risk mitigation); don't build anything more elaborate.
 - E11/G6 are the same story — E11 is authoritative here; Epic G's admin epic file cross-references it for `7`-group traceability rather than duplicating it.
 - Per `docs/blockers.md`: every story in this epic is 🔴 Blocked as of the last assessment.
-- No GitHub issues have been filed for this epic yet — the checklist above uses story IDs (`E1`–`E12`) rather than issue numbers; file issues from `docs/user-story/E-courier-delivery-real-time-tracking/` following the same pattern as Epics A–C (#47–#76) when ready to track them on the board.
