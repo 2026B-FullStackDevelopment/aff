@@ -50,8 +50,38 @@ function findOrdersByRecipient(recipientId: string | Types.ObjectId) {
   return Order.find({ recipientId }).lean<OrderDocument[]>();
 }
 
-function createOrder(data: CreateOrderInput) {
-  return Order.create(data);
+// MongoDB database session, session? means not mandatory
+// const session = await mongoose.startSession();
+// to gather multiple database operations
+async function createOrder(data: CreateOrderInput, session?: ClientSession, ) {
+  if (!session) { return Order.create(data); }
+  // Mongoose form Model.create([data], { session });
+  const [order] = await Order.create([data], {session});
+  return order;
+ 
+}
+
+// update Order to paid only when Stripe is selected (cash payment usually made later)
+function markOrderPaid(orderId: string | Types.ObjectId, session?: ClientSession, ) {
+  // update Order status
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      paymentMethod: 'STRIPE',
+      paymentStatus: 'PAYMENT_PENDING',
+    },
+    {
+      $set: {
+        paymentStatus: 'PAID',
+        orderStatus: 'PREPARING',
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
 }
 
 function findOrderByIdAndRecipient(
@@ -167,6 +197,7 @@ export {
   findOrdersByRecipient,
   findOrderByIdAndRecipient,
   createOrder,
+  markOrderPaid,
   findNonCancelledOrderIdsByListing,
   cancelOrdersByIds,
   findOrdersForListing,

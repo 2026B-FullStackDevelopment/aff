@@ -39,4 +39,8 @@ async function searchRecipients(req: Request, res: Response, next: NextFunction,
   }
 }
 
-export { getMyProfile, updateMyProfile };
+export { 
+  getMyProfile, 
+  updateMyProfile,
+  searchRecipients, 
+};
