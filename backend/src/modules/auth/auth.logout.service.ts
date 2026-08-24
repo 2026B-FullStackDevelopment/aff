@@ -30,5 +30,21 @@ async function logout(input: LogoutInput): Promise<void> {
   });
 }
 
-export { logout };
+/**
+ * Revokes the presented token because its owner just changed their password
+ * (`PATCH /users/me/password`) — same mechanism as `logout`, different reason,
+ * so a stolen-but-live session dies the moment the credential it relies on changes.
+ *
+ * @param input - The token to revoke, from the password-change request's `req.auth`.
+ */
+async function revokeForPasswordChange(input: LogoutInput): Promise<void> {
+  await revokeToken({
+    jti: input.jti,
+    userId: input.userId,
+    expiresAt: input.expiresAt,
+    reason: 'PASSWORD_CHANGE',
+  });
+}
+
+export { logout, revokeForPasswordChange };
 export type { LogoutInput };

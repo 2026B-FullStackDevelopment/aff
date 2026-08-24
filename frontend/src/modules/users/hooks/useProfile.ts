@@ -1,6 +1,6 @@
 // Loads the authenticated user's profile while keeping API state out of ProfilePage.
 import { useEffect, useState } from 'react';
-import type { AnyUserDTO } from '../../../types/api';
+import type { AnyUserDTO } from '@/types/api';
 import { userService } from '../services/user.service';
 
 export function useProfile() {

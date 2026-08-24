@@ -57,6 +57,68 @@
           "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
+    },
+    "/users/me/password": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Change the caller's password",
+        "description": "Request body is { newPassword } only — no currentPassword confirmation, since the caller's live session token is treated as sufficient proof of identity, matching every other authenticated write in this API. On success, updates USER.passwordHash and immediately revokes the presented token server-side (REVOKED_TOKEN.reason=PASSWORD_CHANGE) via the same mechanism POST /auth/logout uses. No new token is issued — the client must POST /auth/login again.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" },
+              "example": { "newPassword": "NewStr0ng!Pass" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; the presented token is now revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "nullable": true, "example": null } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/users/me/email": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Change the caller's email",
+        "description": "Request body is { newEmail } only — no currentPassword confirmation. Uniqueness is checked excluding the caller's own account, so resubmitting the current email succeeds as a no-op 200 rather than a 409. The session token stays valid — no re-login is required, since its claims carry only userId/role, never email.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeEmailRequest" },
+              "example": { "newEmail": "new-address@example.com" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
     }
   },
   "components": {
@@ -161,6 +223,29 @@
             }
           }
         }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["newPassword"],
+        "description": "No currentPassword field — the session token is treated as sufficient proof of identity.",
+        "properties": {
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "Must contain at least 1 digit, 1 special character, and 1 uppercase letter — same passwordSchema as registration"
+          }
+        }
+      },
+      "ChangeEmailRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["newEmail"],
+        "description": "No currentPassword field — the session token is treated as sufficient proof of identity.",
+        "properties": {
+          "newEmail": { "type": "string", "format": "email" }
+        }
       }
     },
     "responses": {
@@ -182,6 +267,15 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The submitted email is already registered to another account",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "This email is already registered." }
           }
         }
       }

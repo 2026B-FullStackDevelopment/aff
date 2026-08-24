@@ -1,7 +1,13 @@
 // Validates PATCH /users/me request bodies. .strict() rejects unknown keys (e.g.
 // taxCode, email) with 400 — those fields aren't editable post-signup.
 import { z } from 'zod';
-import { usernameSchema, citySchema, locationSchema } from '../../shared/validation/common-fields.schemas.js';
+import {
+  usernameSchema,
+  citySchema,
+  locationSchema,
+  passwordSchema,
+  emailSchema,
+} from '../../shared/validation/common-fields.schemas.js';
 
 const updateUserSchema = z
   .object({
@@ -17,5 +23,23 @@ const updateUserSchema = z
 
 type UpdateUserRequestDto = z.infer<typeof updateUserSchema>;
 
-export { updateUserSchema };
-export type { UpdateUserRequestDto };
+/**
+ * Validates `PATCH /users/me/password` request bodies: `{ newPassword }` only.
+ * No `currentPassword` — the session token is treated as sufficient proof of
+ * identity (`docs/api_design.md` §5). `.strict()` rejects any other key,
+ * including an accidentally-sent `currentPassword`.
+ */
+const changePasswordSchema = z.object({ newPassword: passwordSchema }).strict();
+
+type ChangePasswordRequestDto = z.infer<typeof changePasswordSchema>;
+
+/**
+ * Validates `PATCH /users/me/email` request bodies: `{ newEmail }` only.
+ * Same trust model as `changePasswordSchema` above — no `currentPassword`.
+ */
+const changeEmailSchema = z.object({ newEmail: emailSchema }).strict();
+
+type ChangeEmailRequestDto = z.infer<typeof changeEmailSchema>;
+
+export { updateUserSchema, changePasswordSchema, changeEmailSchema };
+export type { UpdateUserRequestDto, ChangePasswordRequestDto, ChangeEmailRequestDto };
