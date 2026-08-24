@@ -126,9 +126,12 @@ interface UpdateListingStatusResponseDto {
   cancelledOrderCount: number;
 }
 
+// dto interface restricts the attributes being transfered
 interface CreateDonorInitiatedDonationRequestDto {
   recipientEmail: string;
   quantity: number;
+  deliveryAddressText: string;
+  deliveryLocation: {latitude: number, longtitude: number},
   paymentMethod?: 'STRIPE' | 'CASH';
 }
 

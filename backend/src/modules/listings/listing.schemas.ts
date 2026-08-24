@@ -203,10 +203,6 @@ const updateListingStatusSchema = z
 
 /**
  * Validates `POST /listings/:id/donations`.
- *
- * `paymentMethod` remains optional at this boundary because whether it is
- * required depends on the existing Listing's price. The Listing service must
- * enforce that business rule after loading the Listing.
  */
 const deliveryLocationSchema = z.object({
   latitude: z.number().min(-90).max(90),
