@@ -3,12 +3,19 @@ import * as userRepository from './user.repository.js';
 import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import { hashPassword } from '../../shared/security/password.js';
+import { authInterface } from '../auth/auth.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { Role } from './user.model.js';
 import type { Types } from 'mongoose';
+
+/** The presented token's claims, from `req.auth` (set by `requireAuth`). */
+interface RequestAuth {
+  jti: string;
+  expiresAt: Date;
+}
 
 interface CreateDonorProfileInput {
   userId: string | Types.ObjectId;
@@ -159,6 +166,49 @@ async function updateUserProfile(userId: string, role: Role, patch: UpdateUserRe
   return getMyProfileDto(userId);
 }
 
+/**
+ * Applies a `PATCH /users/me/password` change. No `currentPassword` check —
+ * the caller's live session token is treated as sufficient proof of identity
+ * (`docs/api_design.md` §5). Revokes the presented token immediately after
+ * the hash is stored so a stolen-but-live session dies the moment the
+ * credential it relies on changes; no new token is issued, mirroring `logout`.
+ */
+async function changePassword(userId: string, newPassword: string, auth: RequestAuth): Promise<void> {
+  const passwordHash = await hashPassword(newPassword);
+  await userRepository.updateUser(userId, { passwordHash });
+  await authInterface.revokeTokenForPasswordChange({
+    userId,
+    jti: auth.jti,
+    expiresAt: auth.expiresAt,
+  });
+}
+
+/**
+ * Applies a `PATCH /users/me/email` change. Uniqueness excludes the
+ * requester's own row, so resubmitting the current email succeeds as a
+ * no-op instead of a `409` — mirroring `createUser`'s check-then-write
+ * pattern, including the `11000` race-condition backstop.
+ */
+async function changeEmail(userId: string, newEmail: string) {
+  const existing = await userRepository.findUserByEmail(newEmail);
+
+  if (existing && String(existing._id) !== String(userId)) {
+    throw duplicateEmailError();
+  }
+
+  try {
+    await userRepository.updateUser(userId, { email: newEmail });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw duplicateEmailError();
+    }
+
+    throw error;
+  }
+
+  return getMyProfileDto(userId);
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -173,5 +223,7 @@ export {
   setRecipientStripeCustomerId,
   getMyProfileDto,
   updateUserProfile,
+  changePassword,
+  changeEmail,
 };
 export type { CreateDonorProfileInput };
