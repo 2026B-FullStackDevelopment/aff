@@ -28,20 +28,24 @@ function createUser(data: CreateUserInput) {
 function findUserByEmail(email: string) {
   return User.findOne({ email }).lean<UserDocument>();
 }
+
 // Limit autocomplete results so the endpoint does not expose a large user list.
 function searchActiveRecipientsByEmail(email: string, limit = 10) {
-  // mongoDB .find() function returns an array, return empty and not null
   return User.find({
     role: 'RECIPIENT',
     status: 'ACTIVE',
-    //regex MongoDB text matching. '^...' starts with the text
-    // Option 'i' makes the comparison case-insensitive.
-    email: {$regex: `^${escapeRegExp(email)}`, $options: 'i'},
-  }).select({
-    _id: 1, username: 1, email: 1, // select the fields to include
+    email: {
+      $regex: `^${escapeRegExp(email)}`,
+      $options: 'i',
+    },
   })
-    .limit(limit) // limit by the limit parameter
-    .lean<RecipientSearchResult[]>(); // Return plain JS objects with only selected fields.
+    .select({
+      _id: 1,
+      username: 1,
+      email: 1,
+    })
+    .limit(limit)
+    .lean<RecipientSearchResult[]>();
 }
 
 function findUserById(id: string | Types.ObjectId) {

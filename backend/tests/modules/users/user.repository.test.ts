@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   createMock,
+  findMock,
   findOneMock,
   findByIdMock,
   findByIdAndUpdateMock,
@@ -9,10 +10,17 @@ const {
   updateOneMock,
   deleteOneMock,
   leanMock,
+  searchLeanMock,
+  selectMock,
+  limitMock,
 } = vi.hoisted(() => {
   const leanMock = vi.fn();
+  const searchLeanMock = vi.fn();
+  const limitMock = vi.fn(() => ({ lean: searchLeanMock }));
+  const selectMock = vi.fn(() => ({ limit: limitMock }));
   return {
     createMock: vi.fn(),
+    findMock: vi.fn(() => ({ select: selectMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     findByIdMock: vi.fn(() => ({ lean: leanMock })),
     findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
@@ -20,12 +28,16 @@ const {
     updateOneMock: vi.fn(),
     deleteOneMock: vi.fn(),
     leanMock,
+    searchLeanMock,
+    selectMock,
+    limitMock,
   };
 });
 
 vi.mock('../../../src/modules/users/user.model.js', () => ({
   default: {
     create: createMock,
+    find: findMock,
     findOne: findOneMock,
     findById: findByIdMock,
     findByIdAndUpdate: findByIdAndUpdateMock,
@@ -38,6 +50,7 @@ vi.mock('../../../src/modules/users/user.model.js', () => ({
 import {
   createUser,
   findUserByEmail,
+  searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
   updateLoginState,
@@ -50,6 +63,7 @@ import {
 describe('user.repository', () => {
   beforeEach(() => {
     createMock.mockClear();
+    findMock.mockClear();
     findOneMock.mockClear();
     findByIdMock.mockClear();
     findByIdAndUpdateMock.mockClear();
@@ -58,6 +72,9 @@ describe('user.repository', () => {
     deleteOneMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue({ _id: 'u1' });
+    searchLeanMock.mockReset();
+    selectMock.mockClear();
+    limitMock.mockClear();
   });
 
   it('createUser calls User.create with the given data', async () => {
@@ -84,6 +101,34 @@ describe('user.repository', () => {
 
     expect(findOneMock).toHaveBeenCalledWith({ email: 'alice@example.com' });
     expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('searches only active Recipient emails with an escaped prefix and limit', async () => {
+    searchLeanMock.mockResolvedValue([
+      {
+        _id: 'r1',
+        username: 'recipient',
+        email: 'rec+test@example.com',
+      },
+    ]);
+
+    const result = await searchActiveRecipientsByEmail('rec+test', 10);
+
+    expect(findMock).toHaveBeenCalledWith({
+      role: 'RECIPIENT',
+      status: 'ACTIVE',
+      email: {
+        $regex: '^rec\\+test',
+        $options: 'i',
+      },
+    });
+    expect(selectMock).toHaveBeenCalledWith({
+      _id: 1,
+      username: 1,
+      email: 1,
+    });
+    expect(limitMock).toHaveBeenCalledWith(10);
+    expect(result).toHaveLength(1);
   });
 
   it('findUserById queries by id and returns a lean document', async () => {

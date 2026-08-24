@@ -1,17 +1,25 @@
 import { z } from 'zod';
 
-// PATCH /deliveries/:id/deliver
+/** Validates the Delivery id used by `PATCH /deliveries/:id/deliver`. */
 const deliveryIdParamsSchema = z
-    .object({
-        id: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: 'Delivery id must be valid.'})
-    })
-    .strict();
+  .object({
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, {
+      message: 'Delivery id must be valid.',
+    }),
+  })
+  .strict();
 
+/**
+ * Validates delivery completion input. Cash confirmation is conditionally
+ * required by the service after it loads the related Order.
+ */
 const markDeliveredSchema = z
-    .object({
-        // check cashConfirmed only when paymentMethod === 'CASH'
-        cashConfirmed: z.boolean().optional(),
-    })
-    .strict();
+  .object({
+    cashConfirmed: z.boolean().optional(),
+  })
+  .strict();
 
-export { deliveryIdParamsSchema, markDeliveredSchema }
+type MarkDeliveredPayload = z.infer<typeof markDeliveredSchema>;
+
+export { deliveryIdParamsSchema, markDeliveredSchema };
+export type { MarkDeliveredPayload };

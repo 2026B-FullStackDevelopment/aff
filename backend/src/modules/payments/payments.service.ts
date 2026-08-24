@@ -162,36 +162,59 @@ async function startSubscriptionCheckout({
   return { checkoutUrl: session.checkoutUrl };
 }
 
-// handles Stripe message - an order payment succeeded
-// payment, order > PAID, creates Delivery, prevent multiple payment processing
-// Stripe.Checkout.Session contains: session.id, session.mode, session.customer, etc.
-// eventId of the Stripe webhook event
-async function handlePaymentCheckoutCompleted(stripeSession: Stripe.Checkout.Session, eventId: string) {
-  
+/**
+ * Completes an Order payment after Stripe verifies checkout success.
+ * All database changes commit together; the Recipient event is emitted only
+ * after the transaction succeeds.
+ */
+async function handlePaymentCheckoutCompleted(
+  stripeSession: Stripe.Checkout.Session,
+  eventId: string,
+) {
+  const stripePaymentIntentId =
+    typeof stripeSession.payment_intent === 'string'
+      ? stripeSession.payment_intent
+      : stripeSession.payment_intent?.id;
+
   const result = await paymentRepository.withTransaction(
-    async(databaseSession) => {
-        const payment = await paymentRepository.findPaymentBySessionId(stripeSession.id, databaseSession,);
-        
-        // if cannot find payment, payment not belongs to order, payment is paid
-        if (!payment || payment.payableType !== 'ORDER' || payment.status === 'PAID') {
-          return null;
-        }
+    async (databaseSession) => {
+      const payment = await paymentRepository.findPaymentBySessionId(
+        stripeSession.id,
+        databaseSession,
+      );
 
-        // update payment to Paid
-        const paidPayment = await paymentRepository.markPaymentPaidIfPending(stripeSession.id, eventId, new Date(), databaseSession);
+      if (
+        !payment ||
+        payment.payableType !== 'ORDER' ||
+        payment.status !== 'PENDING'
+      ) {
+        return null;
+      }
 
-        // if update not successful
-        if (!paidPayment) {
-          return null;
-        }
+      const paidPayment =
+        await paymentRepository.markPaymentPaidIfPending(
+          stripeSession.id,
+          eventId,
+          new Date(),
+          databaseSession,
+          stripePaymentIntentId,
+        );
 
-        const order = await orderInterface.markOrderPaid(String(paidPayment.payableId), databaseSession);
+      // Another webhook request may have processed this Payment first.
+      if (!paidPayment) {
+        return null;
+      }
 
-        if (!order) {
-          throw new Error(
-            'The Order linked to this Payment could not be updated.',
-          );
-        }
+      const order = await orderInterface.markOrderPaid(
+        String(paidPayment.payableId),
+        databaseSession,
+      );
+
+      if (!order) {
+        throw new Error(
+          'The Order linked to this Payment could not be updated.',
+        );
+      }
 
       await deliveryInterface.createForOrder(
         String(order._id),
@@ -202,8 +225,14 @@ async function handlePaymentCheckoutCompleted(stripeSession: Stripe.Checkout.Ses
         orderId: String(order._id),
         recipientId: String(order.recipientId),
       };
-    }
-  )
+    },
+  );
+
+  if (result) {
+    emitToUser(result.recipientId, 'payment:success', {
+      orderId: result.orderId,
+    });
+  }
 }
 
 /**

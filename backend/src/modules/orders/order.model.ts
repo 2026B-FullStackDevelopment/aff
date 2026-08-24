@@ -24,6 +24,8 @@ interface OrderAttrs {
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId?: mongoose.Types.ObjectId;
+  cashConfirmedByCourierId?: mongoose.Types.ObjectId;
+  cashConfirmedAt?: Date;
   feedback?: OrderFeedback;
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +59,8 @@ const orderSchema = new Schema<OrderDocument>(
       updatedAt: { type: Date, required: true },
     },
     cancelledByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
+    cashConfirmedByCourierId: { type: Schema.Types.ObjectId, ref: 'User' },
+    cashConfirmedAt: { type: Date },
     feedback: {
       comment: { type: String },
       createdAt: { type: Date },

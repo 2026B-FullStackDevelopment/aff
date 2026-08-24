@@ -4,6 +4,7 @@ const {
   createUserMock,
   findUserByEmailMock,
   findUserByIdMock,
+  searchActiveRecipientsByEmailMock,
   updateUserMock,
   updateLoginStateMock,
   incrementFailedLoginInWindowMock,
@@ -21,6 +22,7 @@ const {
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
   findUserByIdMock: vi.fn(),
+  searchActiveRecipientsByEmailMock: vi.fn(),
   updateUserMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
   incrementFailedLoginInWindowMock: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   createUser: createUserMock,
   findUserByEmail: findUserByEmailMock,
   findUserById: findUserByIdMock,
+  searchActiveRecipientsByEmail: searchActiveRecipientsByEmailMock,
   updateUser: updateUserMock,
   updateLoginState: updateLoginStateMock,
   incrementFailedLoginInWindow: incrementFailedLoginInWindowMock,
@@ -82,6 +85,7 @@ import {
   updateUserProfile,
   changePassword,
   changeEmail,
+  searchRecipientsByEmail,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -98,6 +102,27 @@ describe('user.service', () => {
     hashPasswordMock.mockResolvedValue('hashed-value');
     findUserByEmailMock.mockResolvedValue(null);
     createUserMock.mockResolvedValue({ _id: 'u1' });
+  });
+
+  describe('searchRecipientsByEmail', () => {
+    it('normalizes a useful email prefix and limits results to ten', async () => {
+      searchActiveRecipientsByEmailMock.mockResolvedValue([
+        { _id: 'r1', email: 'recipient@example.com' },
+      ]);
+
+      const result = await searchRecipientsByEmail('  RECIPIENT@  ');
+
+      expect(searchActiveRecipientsByEmailMock).toHaveBeenCalledWith(
+        'recipient@',
+        10,
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('does not query the database for fewer than three characters', async () => {
+      await expect(searchRecipientsByEmail('re')).resolves.toEqual([]);
+      expect(searchActiveRecipientsByEmailMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('createUser', () => {

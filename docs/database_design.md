@@ -128,6 +128,8 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | deliveryAddressText | string | | |
 | deliveryLocation | GeoLocation | | Embedded value object |
 | cancelledByUserId | ObjectId | FK → USER._id | Nullable; captures who cancelled (incl. admin) |
+| cashConfirmedByCourierId | ObjectId | FK → COURIER.userId | Set only when a Courier completes a cash Order and confirms receipt |
+| cashConfirmedAt | datetime | | Timestamp of the Courier's cash-receipt confirmation |
 | feedback | Feedback | | Embedded value object, optional |
 | createdAt | datetime | | |
 | cancelledAt | datetime | | |
