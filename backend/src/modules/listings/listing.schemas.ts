@@ -213,17 +213,25 @@ const deliveryLocationSchema = z.object({
   longitude: z.number().min(-180).max(180),
 });
 
+
+// data validation: ensure data's format is valid
 const donorInitiatedDonationSchema = z
+  // the value coming in has to be a JS object
   .object({
     recipientEmail: z
-      .string({ message: 'Recipient email is required.' })
-      .trim()
-      .email({ message: 'Recipient email must be valid.' })
-      .transform((email) => email.toLowerCase()),
+      .string({ message: 'Recipient email is required.' }) // must be string
+      .trim() // no whitespace
+      .email({ message: 'Recipient email must be valid.' }) // function auto check email structure
+      .transform((email) => email.toLowerCase()), // transfrom input to lowercase
 
     quantity: positiveQuantitySchema,
 
-    paymentMethod: paymentMethodSchema.optional(),
+    deliveryAddressText: z
+      .string({ message: 'Delivery address is required.' })
+      .trim()
+      .min(1, { message: 'Delivery address is required.' }),
+
+    deliveryLocation: deliveryLocationSchema,
   })
   .strict();
 

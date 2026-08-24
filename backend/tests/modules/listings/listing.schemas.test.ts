@@ -313,7 +313,23 @@ describe('listing.schemas', () => {
     });
   });
 
+  // describe() group related tests
   describe('donorInitiatedDonationSchema', () => {
+    const validDonationBody = {
+      recipientEmail: 'recipient@example.com',
+      quantity: 2,
+      deliveryAddressText: '123 Example Street, Ho Chi Minh City',
+      deliveryLocation: { latitude: 10.7769, longitude: 106.7009,}, // geolocation has latitude & longtitude
+    };
+    // one test case
+    it('accepts a donation-intiated body which is valid', () =>{
+      // defies what is expected to be checked
+      expect(
+        donorInitiatedDonationSchema.safeParse(validDonationBody).success,
+      ).toBe(true); // true or false
+    });
+
+
     it('accepts a free donation body without a payment method', () => {
       expect(
         donorInitiatedDonationSchema.safeParse({

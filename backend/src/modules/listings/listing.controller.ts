@@ -15,6 +15,7 @@ import {
   listingIdParamsSchema,
   updateListingStatusSchema,
   listingOrdersQuerySchema,
+  donorInitiatedDonationSchema
 } from './listing.schemas.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {
@@ -125,7 +126,7 @@ async function createDonorInitiatedDonation( req: Request, res: Response, next: 
   try {
     const { id } = parseBody(listingIdParamsSchema, req.params); // validate listing :id of listing routes
     const payload = parseBody(donorInitiatedDonationSchema, req.body);
-
+    const order = await listingService.createDonorInitiatedDonation( id, req.user!.id, payload);
   } catch(error) {
 
   }
