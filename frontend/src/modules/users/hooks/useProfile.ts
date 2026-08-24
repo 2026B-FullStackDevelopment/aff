@@ -1,15 +1,17 @@
 // Loads the authenticated user's profile while keeping API state out of ProfilePage.
 import { useEffect, useState } from 'react';
-import type { AnyUserDTO } from '../../../types/api';
+import type { AnyUserDTO } from '@/types/api';
 import { userService } from '../services/user.service';
 
 export function useProfile() {
   const [profile, setProfile] = useState<AnyUserDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
+    setIsLoading(true);
 
     async function loadProfile() {
       const response = await userService.getMyProfile();
@@ -30,7 +32,11 @@ export function useProfile() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshTrigger]);
 
-  return { profile, isLoading, error };
+  function refetch() {
+    setRefreshTrigger(prev => prev + 1);
+  }
+
+  return { profile, isLoading, error, refetch };
 }

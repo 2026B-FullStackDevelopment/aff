@@ -1,62 +1,54 @@
-// import notifications & profile icons
-import { Bell, UserRound } from 'lucide-react';
-// smart link. Active when user is on the page the link is linked to
+import { useState } from 'react';
+import { Bell, UserRound, Menu, X } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 
 type PortalVariant = 'donor' | 'recipient' | 'admin' | 'courier';
 
-// Describe one navigation link in the navigation bar
 export interface PortalNavItem {
-  label: string; // link label
-  to: string; // URL opened when the user selects the link.
-  end?: boolean; // When true, the link is active only when the current URL exactly matches
+  label: string;
+  to: string;
+  end?: boolean;
 }
 
-// Describe the information accepted by PortalTopNavigation.
 interface PortalTopNavigationProps {
-  variant: PortalVariant; // role-specific color theme
-  brandLabel: string; // brandLabel, ie. Donor Portal for Donor
-  brandTo: string; // brand URL
-  navItems: readonly PortalNavItem[]; // navItems list
+  variant: PortalVariant;
+  brandLabel: string;
+  brandTo: string;
+  navItems: readonly PortalNavItem[];
   avatarUrl?: string | null;
   avatarAlt?: string;
   hasUnreadNotification?: boolean;
   onNotificationsClick?: () => void;
   profileTo?: string;
+  extraRightActions?: React.ReactNode;
 }
-
-// Define the Tailwind classes used by each portal variant.
 
 const VARIANT_STYLES: Record<
   PortalVariant,
   {
-    header: string; // type of the value containing the Tailwind class name
-    brand: string; 
+    header: string;
+    brand: string;
     activeLink: string;
     inactiveLink: string;
     avatar: string;
+    iconButton: string;
   }
 > = {
-  // Donor portal uses an emerald-green visual theme.
   donor: {
-    // White header with a light emerald bottom border.
-    header: 'border-emerald-200 bg-white',
-    // Dark emerald text for the "Donor Portal" brand.
-    brand: 'text-emerald-700',
-    // Highlight the currently selected donor page.
-    activeLink: 'bg-emerald-100 text-emerald-800',
-    // Default link appearance and hover state.
-    inactiveLink:
-      'text-slate-600 hover:bg-emerald-50 hover:text-emerald-700',
-    // Fallback avatar colours when there is no avatar image.
-    avatar: 'bg-emerald-100 text-emerald-700',
+    header: 'border-[#805300] bg-[#805300]',
+    brand: 'text-white',
+    activeLink: 'bg-white/20 text-white',
+    inactiveLink: 'text-white/80 hover:bg-white/10 hover:text-white',
+    avatar: 'bg-white/20 text-white',
+    iconButton: 'text-white/80 hover:bg-white/10 hover:text-white',
   },
   recipient: {
-    header: 'border-blue-200 bg-white',
-    brand: 'text-blue-700',
-    activeLink: 'bg-blue-100 text-blue-800',
-    inactiveLink: 'text-slate-600 hover:bg-blue-50 hover:text-blue-700',
-    avatar: 'bg-blue-100 text-blue-700',
+    header: 'border-[#e9f5ee] bg-[#e9f5ee]',
+    brand: 'text-[#2E5A47]',
+    activeLink: 'bg-[#3D6852]/15 text-[#2E5A47]',
+    inactiveLink: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
+    avatar: 'bg-white text-[#2E5A47]',
+    iconButton: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
   },
   admin: {
     header: 'border-violet-200 bg-white',
@@ -64,6 +56,7 @@ const VARIANT_STYLES: Record<
     activeLink: 'bg-violet-100 text-violet-800',
     inactiveLink: 'text-slate-600 hover:bg-violet-50 hover:text-violet-700',
     avatar: 'bg-violet-100 text-violet-700',
+    iconButton: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
   },
   courier: {
     header: 'border-amber-200 bg-white',
@@ -71,6 +64,7 @@ const VARIANT_STYLES: Record<
     activeLink: 'bg-amber-100 text-amber-800',
     inactiveLink: 'text-slate-600 hover:bg-amber-50 hover:text-amber-700',
     avatar: 'bg-amber-100 text-amber-700',
+    iconButton: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
   },
 };
 
@@ -84,14 +78,56 @@ export function PortalTopNavigation({
   hasUnreadNotification = false,
   onNotificationsClick,
   profileTo = '/profile',
+  extraRightActions,
 }: PortalTopNavigationProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const styles = VARIANT_STYLES[variant];
 
-  return (
-    <header
-      className={`sticky top-0 z-40 border-b shadow-sm ${styles.header}`}
+  const renderBell = () => (
+    <button
+      type="button"
+      aria-label={
+        hasUnreadNotification
+          ? 'Open notifications; unread notifications available'
+          : 'Open notifications'
+      }
+      onClick={onNotificationsClick}
+      className={`relative rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <Bell aria-hidden="true" className="size-5" />
+      {hasUnreadNotification && (
+        <span
+          aria-hidden="true"
+          className="absolute right-1 top-1 size-2 rounded-full bg-red-500 ring-2 ring-white"
+        />
+      )}
+    </button>
+  );
+
+  const renderAvatar = () => (
+    <Link
+      to={profileTo}
+      aria-label="Open profile"
+      className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-slate-200 ${styles.avatar}`}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={avatarAlt}
+          className="size-full object-cover"
+        />
+      ) : (
+        <>
+          <UserRound aria-hidden="true" className="size-5" />
+          <span className="sr-only">{avatarAlt}</span>
+        </>
+      )}
+    </Link>
+  );
+
+  return (
+    <header className={`sticky top-0 z-40 border-b shadow-sm ${styles.header}`}>
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           to={brandTo}
           className={`shrink-0 text-lg font-bold ${styles.brand}`}
@@ -99,11 +135,12 @@ export function PortalTopNavigation({
           {brandLabel}
         </Link>
 
+        {/* Desktop Navigation */}
         <nav
-          aria-label={`${brandLabel} navigation`}
-          className="min-w-0 flex-1 overflow-x-auto"
+          aria-label={`${brandLabel} desktop navigation`}
+          className="hidden md:flex min-w-0 flex-1 items-center justify-center overflow-x-auto mx-4"
         >
-          <ul className="flex min-w-max items-center gap-1">
+          <ul className="flex min-w-max items-center justify-center gap-1">
             {navItems.map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -124,47 +161,62 @@ export function PortalTopNavigation({
           </ul>
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Desktop Right Actions */}
+        <div className="hidden md:flex shrink-0 items-center gap-2">
+          {variant === 'recipient' && renderBell()}
+          {extraRightActions}
+          {renderAvatar()}
+        </div>
+
+        {/* Mobile Toggle & Actions */}
+        <div className="flex md:hidden shrink-0 items-center gap-1">
+          {variant === 'recipient' && renderBell()}
           <button
             type="button"
-            aria-label={
-              hasUnreadNotification
-                ? 'Open notifications; unread notifications available'
-                : 'Open notifications'
-            }
-            onClick={onNotificationsClick}
-            className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className={`p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
+            aria-expanded={isMobileMenuOpen}
           >
-            <Bell aria-hidden="true" className="size-5" />
-
-            {hasUnreadNotification && (
-              <span
-                aria-hidden="true"
-                className="absolute right-1 top-1 size-2 rounded-full bg-red-500 ring-2 ring-white"
-              />
+            <span className="sr-only">{isMobileMenuOpen ? 'Close menu' : 'Open menu'}</span>
+            {isMobileMenuOpen ? (
+              <X className="size-6" aria-hidden="true" />
+            ) : (
+              <Menu className="size-6" aria-hidden="true" />
             )}
           </button>
-
-          <Link
-            to={profileTo}
-            aria-label="Open profile"
-            className={`flex size-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-slate-200 ${styles.avatar}`}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={avatarAlt}
-                className="size-full object-cover"
-              />
-            ) : (
-              <>
-                <UserRound aria-hidden="true" className="size-5" />
-                <span className="sr-only">{avatarAlt}</span>
-              </>
-            )}
-          </Link>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-black/5">
+          <nav className="flex flex-col px-2 pt-2 pb-3 space-y-1" aria-label={`${brandLabel} mobile navigation`}>
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  [
+                    'block rounded-md px-3 py-2 text-base font-medium transition-colors',
+                    isActive ? styles.activeLink : styles.inactiveLink,
+                  ].join(' ')
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="border-t border-black/5 p-4 flex items-center gap-3">
+            {renderAvatar()}
+            <div className="flex flex-col flex-1">
+              <span className={`text-sm font-medium ${styles.brand}`}>{avatarAlt}</span>
+            </div>
+            {extraRightActions}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

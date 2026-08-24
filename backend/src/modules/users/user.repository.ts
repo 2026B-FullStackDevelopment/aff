@@ -48,7 +48,10 @@ function findUserById(id: string | Types.ObjectId) {
   return User.findById(id).lean<UserDocument>();
 }
 
-function updateUser(id: string | Types.ObjectId, data: Partial<CreateUserInput>) {
+function updateUser(
+  id: string | Types.ObjectId,
+  data: Partial<CreateUserInput> & { avatarUrl?: string | null },
+) {
   return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
 }
 

@@ -1,19 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, findOneMock, leanMock } = vi.hoisted(() => {
+const { createMock, findOneMock, findOneAndUpdateMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     createMock: vi.fn(),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
+    findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     leanMock,
   };
 });
 
 vi.mock('../../../src/modules/users/donor.model.js', () => ({
-  default: { create: createMock, findOne: findOneMock },
+  default: { create: createMock, findOne: findOneMock, findOneAndUpdate: findOneAndUpdateMock },
 }));
 
-import { createDonor, findDonorByUserId } from '../../../src/modules/users/donor.repository.js';
+import { createDonor, findDonorByUserId, updateDonor } from '../../../src/modules/users/donor.repository.js';
 
 const input = {
   userId: 'u1',
@@ -27,6 +28,7 @@ describe('donor.repository', () => {
   beforeEach(() => {
     createMock.mockClear();
     findOneMock.mockClear();
+    findOneAndUpdateMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue({ userId: 'u1' });
   });
@@ -59,5 +61,36 @@ describe('donor.repository', () => {
 
     expect(findOneMock).toHaveBeenCalledWith({ userId: 'u1' });
     expect(leanMock).toHaveBeenCalled();
+  });
+
+  describe('updateDonor', () => {
+    it('updates by userId and returns the new lean document', async () => {
+      await updateDonor('u1', { companyName: 'New Name Ltd' });
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        { userId: 'u1' },
+        { companyName: 'New Name Ltd' },
+        { new: true }
+      );
+      expect(leanMock).toHaveBeenCalled();
+    });
+
+    it('stamps location.updatedAt when a new location is given', async () => {
+      await updateDonor('u1', { location: { latitude: 21.0278, longitude: 105.8342 } });
+
+      const [, update] = findOneAndUpdateMock.mock.calls[0];
+
+      expect(update.location.latitude).toBe(21.0278);
+      expect(update.location.longitude).toBe(105.8342);
+      expect(update.location.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it('does not touch location when it is not part of the patch', async () => {
+      await updateDonor('u1', { addressText: '99 Lê Lợi' });
+
+      const [, update] = findOneAndUpdateMock.mock.calls[0];
+
+      expect(update).not.toHaveProperty('location');
+    });
   });
 });

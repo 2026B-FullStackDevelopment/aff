@@ -4,8 +4,8 @@ import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 type IntakePath = 'RESERVATION' | 'DONOR_INITIATED';
 type PaymentMethod = 'STRIPE' | 'CASH';
-type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID';
-type OrderStatus = 'PENDING_PAYMENT' | 'PREPARING' | 'PICKED_UP' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED';
+type OrderStatus = 'PENDING_PAYMENT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED';
 
 interface OrderFeedback {
   comment: string;
@@ -40,10 +40,14 @@ const orderSchema = new Schema<OrderDocument>(
     quantity: { type: Number, required: true },
     amount: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['STRIPE', 'CASH'] },
-    paymentStatus: { type: String, enum: ['FREE', 'PAYMENT_PENDING', 'PAID'], required: true },
+    paymentStatus: {
+      type: String,
+      enum: ['FREE', 'PAYMENT_PENDING', 'PAID', 'REFUND_PENDING', 'REFUNDED'],
+      required: true,
+    },
     orderStatus: {
       type: String,
-      enum: ['PENDING_PAYMENT', 'PREPARING', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
+      enum: ['PENDING_PAYMENT', 'PREPARING', 'DELIVERED', 'CANCELLED'],
       default: 'PENDING_PAYMENT',
     },
     deliveryAddressText: { type: String, required: true },

@@ -8,6 +8,11 @@ export const API_ROUTES = {
   },
   users: {
     me: '/users/me',
+    meEmail: '/users/me/email',
+    mePassword: '/users/me/password'
+  },
+  media: {
+    uploadUrl: '/media/upload-url',
   },
   food: {
     list: '/food',

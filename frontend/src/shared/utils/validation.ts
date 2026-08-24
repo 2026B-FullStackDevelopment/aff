@@ -23,3 +23,14 @@ export function validatePassword(password: string): ValidationResult {
 
   return { isValid: errors.length === 0, errors };
 }
+
+export function validateTaxCode(taxCode: string): ValidationResult {
+  const errors: string[] = [];
+  const value = taxCode.trim();
+
+  if (!/^\d{10,13}$/.test(value)) {
+    errors.push('Tax code must be 10 to 13 digits.');
+  }
+
+  return { isValid: errors.length === 0, errors };
+}

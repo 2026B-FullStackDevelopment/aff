@@ -29,5 +29,26 @@ function findDonorByUserId(userId: string | Types.ObjectId) {
   return Donor.findOne({ userId }).lean<DonorDocument>();
 }
 
-export { createDonor, findDonorByUserId };
-export type { CreateDonorInput };
+interface UpdateDonorInput {
+  companyName?: string;
+  addressText?: string;
+  location?: { latitude: number; longitude: number };
+}
+
+function updateDonor(userId: string | Types.ObjectId, data: UpdateDonorInput) {
+  const update: Record<string, unknown> = { ...data };
+
+  // The client sends coordinates only; the server owns the timestamp.
+  if (data.location) {
+    update.location = {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+      updatedAt: new Date(),
+    };
+  }
+
+  return Donor.findOneAndUpdate({ userId }, update, { new: true }).lean<DonorDocument>();
+}
+
+export { createDonor, findDonorByUserId, updateDonor };
+export type { CreateDonorInput, UpdateDonorInput };

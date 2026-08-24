@@ -1,0 +1,284 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Users API",
+    "version": "0.1.0",
+    "description": "Profile read and edit endpoints. Design intent lives in docs/api_design.md §5; this document reflects the routes as implemented in backend/src/modules/users. Courier-specific response fields are not documented here — no courier.model.ts exists yet (docs/blockers.md), so a Courier or Admin caller currently receives the base UserDTO."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Users", "description": "Authenticated caller's own profile — read and edit" }
+  ],
+  "paths": {
+    "/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get the caller's profile",
+        "description": "Returns a role-appropriate DTO: DonorDTO for a Donor, RecipientDTO for a Recipient, or the base UserDTO for an Admin/Courier. Used to hydrate the profile edit form and to refresh session state after a page load.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "The caller's current profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update the caller's profile",
+        "description": "Accepts a partial patch of the editable contact fields (username, city, country, avatarUrl), plus Donor-only company fields (companyName, addressText, location). avatarUrl is normally set to the mediaUrl returned by POST /media/upload-url, not typed in directly. Unknown keys (e.g. taxCode, email — not editable post-signup) are rejected with 400. Sending a Donor-only field as a non-Donor is also rejected with 400. Returns the same role-appropriate DTO shape as GET /users/me, reflecting the update.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserRequest" },
+              "example": { "city": "Da Nang", "avatarUrl": "https://storage.example.supabase.co/object/public/avatars/u1/abc.png" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/users/me/password": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Change the caller's password",
+        "description": "Request body is { newPassword } only — no currentPassword confirmation, since the caller's live session token is treated as sufficient proof of identity, matching every other authenticated write in this API. On success, updates USER.passwordHash and immediately revokes the presented token server-side (REVOKED_TOKEN.reason=PASSWORD_CHANGE) via the same mechanism POST /auth/logout uses. No new token is issued — the client must POST /auth/login again.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" },
+              "example": { "newPassword": "NewStr0ng!Pass" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; the presented token is now revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "nullable": true, "example": null } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/users/me/email": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Change the caller's email",
+        "description": "Request body is { newEmail } only — no currentPassword confirmation. Uniqueness is checked excluding the caller's own account, so resubmitting the current email succeeds as a no-op 200 rather than a 409. The session token stays valid — no re-login is required, since its claims carry only userId/role, never email.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeEmailRequest" },
+              "example": { "newEmail": "new-address@example.com" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "GeoLocation": {
+        "type": "object",
+        "required": ["latitude", "longitude", "updatedAt"],
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["RECIPIENT", "DONOR", "ADMIN", "COURIER"] },
+          "country": { "type": "string" },
+          "city": { "type": "string" },
+          "status": { "type": "string", "enum": ["ACTIVE", "DEACTIVATED"] },
+          "avatarUrl": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecipientDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "properties": {
+              "tier": { "type": "string", "enum": ["STANDARD", "PREMIUM"] },
+              "notificationPreferences": { "type": "array", "items": {} },
+              "hasStripeCard": {
+                "type": "boolean",
+                "description": "Derived from whether a Stripe customer is on file — the raw Stripe id is never returned"
+              }
+            }
+          }
+        ]
+      },
+      "DonorDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string" },
+              "taxCode": { "type": "string" },
+              "addressText": { "type": "string" },
+              "location": { "$ref": "#/components/schemas/GeoLocation" }
+            }
+          }
+        ]
+      },
+      "ProfileResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/DonorDTO" },
+              { "$ref": "#/components/schemas/RecipientDTO" },
+              { "$ref": "#/components/schemas/UserDTO" }
+            ]
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Every field is optional — only the fields present in the body are changed. companyName/addressText/location are rejected with 400 for any caller whose role is not DONOR.",
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "English letters, numbers, underscore, and hyphen only"
+          },
+          "city": { "type": "string" },
+          "country": { "type": "string" },
+          "avatarUrl": { "type": "string", "nullable": true, "format": "uri" },
+          "companyName": { "type": "string" },
+          "addressText": { "type": "string" },
+          "location": {
+            "type": "object",
+            "required": ["latitude", "longitude"],
+            "description": "Selected from an OSM Nominatim address candidate on the client; the server only range-checks it, it does not geocode",
+            "properties": {
+              "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+              "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+            }
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["newPassword"],
+        "description": "No currentPassword field — the session token is treated as sufficient proof of identity.",
+        "properties": {
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "Must contain at least 1 digit, 1 special character, and 1 uppercase letter — same passwordSchema as registration"
+          }
+        }
+      },
+      "ChangeEmailRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["newEmail"],
+        "description": "No currentPassword field — the session token is treated as sufficient proof of identity.",
+        "properties": {
+          "newEmail": { "type": "string", "format": "email" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "An editable field failed validation, an unknown/non-editable key was sent, or a Donor-only field was sent by a non-Donor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "invalidField": { "summary": "A field failed its own validation rule", "value": { "message": "City is required." } },
+              "donorFieldFromNonDonor": { "summary": "companyName/addressText/location sent by a non-Donor", "value": { "message": "Only Donors can edit company profile fields." } }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, or already-revoked token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The submitted email is already registered to another account",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "This email is already registered." }
+          }
+        }
+      }
+    }
+  }
+}

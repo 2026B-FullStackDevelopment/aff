@@ -3,7 +3,9 @@ import { toDeliveryResponseDto } from '../../../src/modules/delivery/delivery.dt
 
 describe('toDeliveryResponseDto', () => {
   it('returns null when given null', () => {
-    expect(toDeliveryResponseDto(null)).toBeNull();
+    expect(
+      toDeliveryResponseDto(null, { pickupAddressText: undefined, pickupAddressLocation: undefined })
+    ).toBeNull();
   });
 
   it('maps a delivery document to the documented DeliveryDTO shape', () => {
@@ -18,13 +20,17 @@ describe('toDeliveryResponseDto', () => {
       courierLastLocation: { latitude: 21.0, longitude: 105.8, updatedAt: createdAt },
       createdAt,
     };
+    const pickupAddressLocation = { latitude: 10.8, longitude: 106.6, updatedAt: createdAt };
 
-    expect(toDeliveryResponseDto(delivery)).toEqual({
+    expect(
+      toDeliveryResponseDto(delivery, { pickupAddressText: '123 Main St', pickupAddressLocation })
+    ).toEqual({
       id: 'd1',
       orderId: 'o1',
       courierId: 'c1',
       stage: 'PICKED_UP',
-      pickupAddressText: undefined,
+      pickupAddressText: '123 Main St',
+      pickupAddressLocation,
       pickedUpAt: createdAt,
       deliveredAt: null,
       courierLastLocation: { latitude: 21.0, longitude: 105.8, updatedAt: createdAt },
@@ -45,12 +51,15 @@ describe('toDeliveryResponseDto', () => {
       createdAt,
     };
 
-    expect(toDeliveryResponseDto(delivery)).toEqual({
+    expect(
+      toDeliveryResponseDto(delivery, { pickupAddressText: undefined, pickupAddressLocation: undefined })
+    ).toEqual({
       id: 'd1',
       orderId: 'o1',
       courierId: null,
       stage: 'AWAITING_COURIER',
       pickupAddressText: undefined,
+      pickupAddressLocation: undefined,
       pickedUpAt: null,
       deliveredAt: null,
       courierLastLocation: null,

@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import { Building2, User, Mail, ArrowRight } from 'lucide-react';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { resolveProvince } from '@/shared/utils/resolveProvince';
-import { PasswordStrength } from '../components/PasswordStrength';
+import { validateTaxCode } from '@/shared/utils/validation';
+import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
 import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';
@@ -53,10 +54,22 @@ export function DonorRegisterPage() {
       password: f.password,
     }),
     registerFn: registerDonor,
-    extraValidation: (f) =>
-      !f.location || !f.address
-        ? { address: 'Please search and select a valid address from the list.' }
-        : {},
+    extraValidation: (f) => {
+      const nextErrors: Partial<Record<keyof FormState, string>> = {};
+
+      if (!f.location || !f.address) {
+        nextErrors.address = 'Please search and select a valid address from the list.';
+      }
+
+      if (f.taxCode) {
+        const taxCodeResult = validateTaxCode(f.taxCode);
+        if (!taxCodeResult.isValid) {
+          nextErrors.taxCode = taxCodeResult.errors[0];
+        }
+      }
+
+      return nextErrors;
+    },
   });
 
   const handleAddressSelect = ({ addressText, latitude, longitude, municipality, rawAddress }: LocationData) => {
@@ -75,9 +88,9 @@ export function DonorRegisterPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-[#FDF9F3] to-[#FFFDF8]">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#FBF9F8]">
       <div className="text-center mb-6 max-w-md">
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#996515] mb-1">
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#805300] mb-1">
           AFF Portal
         </h1>
         <div className="text-lg font-bold text-slate-800">
@@ -85,25 +98,13 @@ export function DonorRegisterPage() {
         </div>
       </div>
 
-      <section className="w-full max-w-[800px] bg-white border border-[#f4efe8] rounded-xl lg:rounded-2xl p-6 sm:p-8 lg:p-10 shadow-sm lg:shadow-xl">
+      <section className="w-full max-w-[800px] bg-white border border-[#E4E2E1] rounded-xl lg:rounded-2xl p-6 sm:p-8 lg:p-10 shadow-sm lg:shadow-xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Create your account</h2>
             <p className="text-sm text-slate-500 mt-1">
               Fields marked <span className="text-red-600 font-bold">*</span> are required.
             </p>
-          </div>
-          <div className="w-full sm:w-auto text-right">
-            <div className="flex justify-between sm:justify-end gap-4 text-xs text-slate-500 mb-1.5">
-              <span>Progress</span>
-              <span className="font-bold text-[#996515] transition-all duration-300">{progressPercent}%</span>
-            </div>
-            <div className="w-full sm:w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#F59E0B] transition-all duration-300 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
           </div>
         </div>
 
@@ -163,7 +164,7 @@ export function DonorRegisterPage() {
 
           {/* Section 2: Contact & Security */}
           <div>
-            <FormSectionHeader title="Contact & Security" theme="donor" />
+            <FormSectionHeader title="User Details" theme="donor" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <IconField
@@ -223,11 +224,11 @@ export function DonorRegisterPage() {
           <FormErrorAlert message={submitError} />
 
           {/* Footer Box & Submit */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#FDF9F3] p-4 sm:p-6 rounded-xl border border-[#f4efe8]">
+          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-[#FFF6E3] p-4 sm:p-6 rounded-xl border border-[#E4E2E1]">
             <div className="flex flex-col gap-1 text-sm text-slate-600">
               <p>
                 Already registered?{' '}
-                <Link to="/login" className="font-bold text-[#F59E0B] hover:text-[#D97706] hover:underline transition-colors duration-150">
+                <Link to="/login" className="font-bold text-[#805300] hover:text-[#694400] hover:underline transition-colors duration-150">
                   Log in to the portal
                 </Link>
               </p>
@@ -242,7 +243,7 @@ export function DonorRegisterPage() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full sm:w-auto h-12 px-6 bg-[#F59E0B] hover:bg-[#D97706] active:scale-[0.98] text-white font-bold rounded-lg text-base flex items-center justify-center gap-2 transition-all duration-200 ease-out hover:shadow-md shrink-0"
+              className="w-full sm:w-auto h-12 px-6 bg-[#805300] hover:bg-[#694400] active:scale-[0.98] text-white font-bold rounded-lg text-base flex items-center justify-center gap-2 transition-all duration-200 ease-out hover:shadow-md shrink-0"
             >
               <span>{isSubmitting ? 'Creating account…' : 'Complete Registration'}</span>
               <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />

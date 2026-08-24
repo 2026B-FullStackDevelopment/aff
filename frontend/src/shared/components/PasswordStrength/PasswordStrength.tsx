@@ -35,7 +35,7 @@ const toneBarStyles: Record<Tone, string> = {
 
 const variantCardStyles = {
   recipient: 'bg-[#f0f7f3] border-[#d1e2d8]',
-  donor: 'bg-[#FDF9F3] border-[#f4efe8]',
+  donor: 'bg-[#FFF6E3] border-[#E4E2E1]',
   admin: 'bg-[#f8fafc] border-[#d1d9e0]',
 };
 

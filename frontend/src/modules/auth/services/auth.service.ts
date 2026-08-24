@@ -5,14 +5,14 @@ import type { AuthSession, RegisterRecipientPayload, RegisterDonorPayload, Login
 
 export const authService = {
   registerRecipient: (payload: RegisterRecipientPayload) =>
-    httpClient.post<AuthSession>(API_ROUTES.auth.registerRecipient, payload),
+    httpClient.post<AuthSession>(API_ROUTES.auth.registerRecipient, payload, { skipAuthRedirect: true }),
 
   registerDonor: (payload: RegisterDonorPayload) =>
-    httpClient.post<AuthSession>(API_ROUTES.auth.registerDonor, payload),
+    httpClient.post<AuthSession>(API_ROUTES.auth.registerDonor, payload, { skipAuthRedirect: true }),
 
   login: (credentials: LoginPayload) =>
-    httpClient.post<AuthSession>(API_ROUTES.auth.login, credentials),
+    httpClient.post<AuthSession>(API_ROUTES.auth.login, credentials, { skipAuthRedirect: true }),
 
   logout: () =>
     httpClient.post<null>(API_ROUTES.auth.logout, null),
-};
+};

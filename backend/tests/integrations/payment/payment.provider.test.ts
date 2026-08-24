@@ -4,19 +4,28 @@ const {
   customersCreateMock,
   checkoutSessionsCreateMock,
   webhooksConstructEventMock,
+  refundsCreateMock,
   StripeCtorMock,
 } = vi.hoisted(() => {
   const customersCreateMock = vi.fn();
   const checkoutSessionsCreateMock = vi.fn();
   const webhooksConstructEventMock = vi.fn();
+  const refundsCreateMock = vi.fn();
   const StripeCtorMock = vi.fn(function StripeMock() {
     return {
       customers: { create: customersCreateMock },
       checkout: { sessions: { create: checkoutSessionsCreateMock } },
       webhooks: { constructEvent: webhooksConstructEventMock },
+      refunds: { create: refundsCreateMock },
     };
   });
-  return { customersCreateMock, checkoutSessionsCreateMock, webhooksConstructEventMock, StripeCtorMock };
+  return {
+    customersCreateMock,
+    checkoutSessionsCreateMock,
+    webhooksConstructEventMock,
+    refundsCreateMock,
+    StripeCtorMock,
+  };
 });
 
 vi.mock('stripe', () => ({ default: StripeCtorMock }));
@@ -29,6 +38,7 @@ import {
   createStripeCustomer,
   createCheckoutSession,
   createSubscriptionCheckoutSession,
+  createRefund,
   verifyWebhookSignature,
 } from '../../../src/integrations/payment/payment.provider.js';
 
@@ -37,6 +47,7 @@ describe('payment.provider', () => {
     customersCreateMock.mockReset();
     checkoutSessionsCreateMock.mockReset();
     webhooksConstructEventMock.mockReset();
+    refundsCreateMock.mockReset();
   });
 
   describe('createStripeCustomer', () => {
@@ -110,6 +121,17 @@ describe('payment.provider', () => {
         }),
       );
       expect(result).toEqual({ provider: 'stripe', sessionId: 'cs_456', checkoutUrl: 'https://checkout.stripe.com/cs_456' });
+    });
+  });
+
+  describe('createRefund', () => {
+    it('refunds the given payment intent and returns the refund id/status', async () => {
+      refundsCreateMock.mockResolvedValue({ id: 're_123', status: 'succeeded' });
+
+      const result = await createRefund({ paymentIntentId: 'pi_123' });
+
+      expect(refundsCreateMock).toHaveBeenCalledWith({ payment_intent: 'pi_123' });
+      expect(result).toEqual({ provider: 'stripe', refundId: 're_123', status: 'succeeded' });
     });
   });
 

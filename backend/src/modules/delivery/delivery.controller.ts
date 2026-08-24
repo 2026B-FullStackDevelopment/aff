@@ -8,6 +8,10 @@ async function listQueue(_req: Request, res: Response) {
   return notImplemented(res);
 }
 
+async function getActiveDelivery(_req: Request, res: Response) {
+  return notImplemented(res);
+}
+
 async function claimDelivery(_req: Request, res: Response) {
   return notImplemented(res);
 }
@@ -24,4 +28,4 @@ async function markDelivered(_req: Request, res: Response) {
   return notImplemented(res);
 }
 
-export { listQueue, claimDelivery, getDeliveryById, markPickedUp, markDelivered };
+export { listQueue, getActiveDelivery, claimDelivery, getDeliveryById, markPickedUp, markDelivered };

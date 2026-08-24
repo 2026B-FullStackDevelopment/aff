@@ -23,7 +23,7 @@ interface SelectFieldProps extends Omit<ComponentProps<'select'>, 'id' | 'name'>
 const themeFocusStyles: Record<ThemeRole, string> = {
   admin: 'focus-visible:border-[#5b7bc0] focus-visible:ring-[#5b7bc0]/15',
   recipient: 'focus-visible:border-[#3D6852] focus-visible:ring-[#3D6852]/15',
-  donor: 'focus-visible:border-[#996515] focus-visible:ring-[#996515]/15',
+  donor: 'focus-visible:border-[#805300] focus-visible:ring-[#805300]/15',
 };
 
 export function SelectField({
