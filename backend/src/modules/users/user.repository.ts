@@ -2,6 +2,10 @@
 import User, { type UserDocument, type Role } from './user.model.js';
 import type { Types } from 'mongoose';
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 interface CreateUserInput {
   username: string;
   email: string;
@@ -17,6 +21,21 @@ function createUser(data: CreateUserInput) {
 
 function findUserByEmail(email: string) {
   return User.findOne({ email }).lean<UserDocument>();
+}
+// limit to searching 10 recipients
+function searchActiveRecipientByEmail(email: string, limit = 10) {
+  // mongoDB .find() function returns an array, return empty and not null
+  return User.find({
+    role: 'RECIPIENT',
+    status: 'ACTIVE',
+    //regex MongoDB text matching. '^...' starts with the text
+    // option 'i' case sensitive
+    email: {$regex: `^${escapeRegExp(email)}`, $options: 'i'},
+  }).select({
+    _id: 1, username: 1, email: 1, // select the fields to include
+  })
+    .limit(limit) // limit by the limit parameter
+    .lean<UserDocument[]>(); // lean<generic>, ask to return plain JS oject
 }
 
 function findUserById(id: string | Types.ObjectId) {
@@ -70,6 +89,7 @@ function deleteUser(id: string | Types.ObjectId) {
 export {
   createUser,
   findUserByEmail,
+  searchActiveRecipientByEmail,
   findUserById,
   updateUser,
   updateLoginState,
