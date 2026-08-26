@@ -217,13 +217,11 @@ async function createListing(
   return { listing, donor };
 }
 
-async function getListingById(
-  id: string,
-): Promise<ListingDtoSource | null> {
+async function getListingById(id: string): Promise<ListingDtoSource> {
   const listing = await listingRepository.findListingById(id);
 
   if (!listing) {
-    return null;
+    throw createHttpError(404, 'Listing not found.');
   }
 
   return enrichListing(listing);
