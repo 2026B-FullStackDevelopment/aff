@@ -281,15 +281,17 @@ describe('listing.service', () => {
   });
 
   describe('getListingById', () => {
-    it('returns null without Donor lookups when the Listing does not exist', async () => {
+    it('throws a 404 without Donor lookups when the Listing does not exist', async () => {
       findListingByIdMock.mockResolvedValue(null);
 
-      const result = await getListingById('missing-listing');
+      await expect(getListingById('missing-listing')).rejects.toMatchObject({
+        message: 'Listing not found.',
+        statusCode: 404,
+      });
 
       expect(findListingByIdMock).toHaveBeenCalledWith('missing-listing');
       expect(getUserByIdMock).not.toHaveBeenCalled();
       expect(getDonorByUserIdMock).not.toHaveBeenCalled();
-      expect(result).toBeNull();
     });
 
     it('delegates to the repository and enriches the Listing with Donor data', async () => {

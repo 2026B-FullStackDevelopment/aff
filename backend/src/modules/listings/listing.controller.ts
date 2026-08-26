@@ -30,7 +30,8 @@ async function listAvailableListings(req: Request, res: Response, next: NextFunc
 
 async function getListingById(req: Request, res: Response, next: NextFunction) {
   try {
-    const listing = await listingService.getListingById(String(req.params.id));
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const listing = await listingService.getListingById(id);
     return ok(res, toListingDetailResponseDto(listing));
   } catch (error) {
     return next(error);
