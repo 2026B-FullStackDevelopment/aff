@@ -16,31 +16,15 @@ import { SwitchField } from '@/shared/components/SwitchField/SwitchField';
 import { TextareaField } from '@/shared/components/TextareaField/TextareaField';
 import { Toast } from '@/shared/components/Toast/Toast';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
-import { ListingImageUpload } from '../ListingImageUpload/ListingImageUpload';
-import { useCreateListing } from '../../hooks/useCreateListing';
+import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
+import { UNIT_OPTIONS } from '@/shared/constants/units';
+import { ListingImageUpload } from './ListingImageUpload';
+import { useCreateListing } from '../hooks/useCreateListing';
 
 interface CreateListingFormProps {
   cloneSource?: ListingDTO | null;
   onBack?: () => void;
 }
-
-const CATEGORY_OPTIONS = [
-  { label: 'Fruit', value: 'FRUIT' },
-  { label: 'Vegetable', value: 'VEGETABLE' },
-  { label: 'Meat', value: 'MEAT' },
-  { label: 'Cooked Dish', value: 'COOKED_DISH' },
-  { label: 'Baked Goods', value: 'BAKED_GOODS' },
-  { label: 'Drink', value: 'DRINK' },
-];
-
-const UNIT_OPTIONS = [
-  { label: 'Kilogram', value: 'KILOGRAM' },
-  { label: 'Gram', value: 'GRAM' },
-  { label: 'Liter', value: 'LITER' },
-  { label: 'Milliliter', value: 'MILLILITER' },
-  { label: 'Unit', value: 'UNIT' },
-  { label: 'Per Request', value: 'PER_REQUEST' },
-];
 
 function getSuccessTitle(
   submissionKind: ReturnType<

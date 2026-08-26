@@ -1,7 +1,7 @@
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { useCloneListing } from '../../hooks/useCloneListing';
-import { CreateListingForm } from '../CreateListingForm/CreateListingForm';
+import { useCloneListing } from '..//hooks/useCloneListing';
+import { CreateListingForm } from './CreateListingForm';
 
 interface CloneListingFormProps {
   listingId: string;

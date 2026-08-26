@@ -9,7 +9,7 @@ import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
-import { DonorAnalyticsDashboard } from '../components/DonorAnalyticsDashboard/DonorAnalyticsDashboard';
+import { DonorAnalyticsDashboard } from '../components/DonorAnalyticsDashboard';
 import { useDonorAnalytics } from '../hooks/useDonorAnalytics';
 
 export function DonorAnalyticsPage() {

@@ -9,7 +9,7 @@ import { Panel } from '@/shared/components/Panel/Panel';
 import type {
   DonorAnalyticsCategory,
   DonorAnalyticsSnapshot,
-} from '../../hooks/useDonorAnalytics';
+} from '../hooks/useDonorAnalytics';
 
 interface DonorAnalyticsDashboardProps {
   snapshot: DonorAnalyticsSnapshot;

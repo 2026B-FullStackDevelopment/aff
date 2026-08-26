@@ -10,7 +10,7 @@ import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import type {
     DonorListingStatusUpdate,
     ManagedListingDTO,
-} from '../../types';
+} from '../types';
 
 interface DonorListingCardProps {
     listing: ManagedListingDTO;

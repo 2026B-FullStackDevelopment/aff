@@ -11,9 +11,9 @@ import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkel
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { getStoredUser } from '@/services/authStorage';
-import { ListingOrderSummary } from '../components/ListingOrderSummary/ListingOrderSummary';
+import { ListingOrderSummary } from '../components/ListingOrderSummary';
 import { ListingOrdersTable } from '../components/ListingOrdersTable/ListingOrdersTable';
-import { ReservationListingPicker } from '../components/ReservationListingPicker/ReservationListingPicker';
+import { ReservationListingPicker } from '../components/ReservationListingPicker';
 import { useDonorListings } from '../hooks/useDonorListings';
 import { useListingOrders } from '../hooks/useListingOrders';
 import type { ManagedListingDTO } from '../types';

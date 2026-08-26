@@ -1,7 +1,7 @@
 import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
-import { ManualDonationForm } from '../components/ManualDonationForm/ManualDonationForm';
+import { ManualDonationForm } from '../components/ManualDonationForm';
 
 // Renders the Donor-initiated donation route.
 export function ManualDonationPage() {

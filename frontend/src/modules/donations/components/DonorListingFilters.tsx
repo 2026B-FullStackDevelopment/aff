@@ -4,11 +4,13 @@ import { IconField } from '@/shared/components/IconField/IconField';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
 import type { FoodCategory } from '@/types/api';
+import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
+import { ORDER_OPTIONS } from '@/shared/constants/sort';
 import type {
   ListingGroup,
   ListingSortField,
   SortDirection,
-} from '../../types';
+} from '../types';
 
 interface DonorListingFiltersProps {
   search: string;
@@ -34,15 +36,6 @@ interface DonorListingFiltersProps {
   ) => void;
 }
 
-const CATEGORY_OPTIONS = [
-  { label: 'Fruit', value: 'FRUIT' },
-  { label: 'Vegetable', value: 'VEGETABLE' },
-  { label: 'Meat', value: 'MEAT' },
-  { label: 'Cooked Dish', value: 'COOKED_DISH' },
-  { label: 'Baked Goods', value: 'BAKED_GOODS' },
-  { label: 'Drink', value: 'DRINK' },
-];
-
 const SORT_OPTIONS = [
   {
     label: 'Created date',
@@ -51,17 +44,6 @@ const SORT_OPTIONS = [
   {
     label: 'Revenue',
     value: 'revenue',
-  },
-];
-
-const ORDER_OPTIONS = [
-  {
-    label: 'Descending',
-    value: 'desc',
-  },
-  {
-    label: 'Ascending',
-    value: 'asc',
   },
 ];
 
@@ -122,7 +104,7 @@ export function DonorListingFilters({
       </div>
 
       <Panel contentClassName="p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-7">
           <div className="xl:col-span-2">
             <IconField
               id="listingSearch"
@@ -185,39 +167,37 @@ export function DonorListingFilters({
             className="h-11 border-[#C1C8C2] bg-[#FBF9F8]"
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2 xl:col-span-1 xl:grid-cols-1">
-            <SelectField
-              id="listingSort"
-              name="listingSort"
-              label="Sorted by"
-              options={SORT_OPTIONS}
-              value={sort}
-              onChange={(event) =>
-                onSortChange(
-                  event.target.value as
-                    ListingSortField,
-                )
-              }
-              theme="donor"
-              className="h-11 border-[#C1C8C2] bg-[#FBF9F8]"
-            />
+          <SelectField
+            id="listingSort"
+            name="listingSort"
+            label="Sorted by"
+            options={SORT_OPTIONS}
+            value={sort}
+            onChange={(event) =>
+              onSortChange(
+                event.target.value as
+                  ListingSortField,
+              )
+            }
+            theme="donor"
+            className="h-11 border-[#C1C8C2] bg-[#FBF9F8]"
+          />
 
-            <SelectField
-              id="listingSortDirection"
-              name="listingSortDirection"
-              label="Direction"
-              options={ORDER_OPTIONS}
-              value={order}
-              onChange={(event) =>
-                onOrderChange(
-                  event.target.value as
-                    SortDirection,
-                )
-              }
-              theme="donor"
-              className="h-11 border-[#C1C8C2] bg-[#FBF9F8]"
-            />
-          </div>
+          <SelectField
+            id="listingSortDirection"
+            name="listingSortDirection"
+            label="Direction"
+            options={ORDER_OPTIONS}
+            value={order}
+            onChange={(event) =>
+              onOrderChange(
+                event.target.value as
+                  SortDirection,
+              )
+            }
+            theme="donor"
+            className="h-11 border-[#C1C8C2] bg-[#FBF9F8]"
+          />
         </div>
 
         {dateError && (

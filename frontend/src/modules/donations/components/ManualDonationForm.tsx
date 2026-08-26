@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   PackageOpen,
   Scale,
+  TriangleAlert,
   X,
 } from 'lucide-react';
 import { AddressAutocomplete } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
@@ -24,17 +25,8 @@ import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
 import { Toast } from '@/shared/components/Toast/Toast';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
-import type { ListingUnit } from '@/types/api';
-import { useManualDonation } from '../../hooks/useManualDonation';
-
-const UNIT_LABELS: Record<ListingUnit, string> = {
-  KILOGRAM: 'kg',
-  GRAM: 'g',
-  LITER: 'L',
-  MILLILITER: 'mL',
-  UNIT: 'units',
-  PER_REQUEST: 'per request',
-};
+import { formatUnit } from '@/shared/constants/units';
+import { useManualDonation } from '../hooks/useManualDonation';
 
 const VND_FORMATTER =
   new Intl.NumberFormat('vi-VN', {
@@ -106,11 +98,16 @@ export function ManualDonationForm() {
         `${listing.name} — `
         + `${QUANTITY_FORMATTER.format(
           listing.quantityRemaining,
-        )} ${UNIT_LABELS[listing.unit]} remaining`,
+        )} ${formatUnit(listing.unit)} remaining`,
     }));
 
   const isFreeDonation =
     createdOrder?.paymentStatus === 'FREE';
+
+  const isOverRationLimit =
+    selectedListing !== null
+    && selectedListing.rationLimitPerPerson !== null
+    && parseFloat(form.quantity) > selectedListing.rationLimitPerPerson;
 
   const showRecipientDropdown =
     isRecipientFieldFocused
@@ -511,20 +508,42 @@ export function ManualDonationForm() {
                             selectedListing
                               .quantityRemaining,
                           )}{' '}
-                          {
-                            UNIT_LABELS[
-                              selectedListing.unit
-                            ]
-                          }
+                          {formatUnit(
+                            selectedListing.unit,
+                          )}
                         </dd>
                       </div>
 
-                      <div>
-                        <dt className="font-semibold text-[#6B7280]">
+                      <div
+                        className={
+                          isOverRationLimit
+                            ? 'rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 -mx-3 -my-2'
+                            : undefined
+                        }
+                      >
+                        <dt
+                          className={
+                            isOverRationLimit
+                              ? 'flex items-center gap-1 font-semibold text-amber-700'
+                              : 'font-semibold text-[#6B7280]'
+                          }
+                        >
+                          {isOverRationLimit && (
+                            <TriangleAlert
+                              className="size-3.5 shrink-0"
+                              aria-hidden="true"
+                            />
+                          )}
                           Ration limit
                         </dt>
 
-                        <dd className="mt-1 font-bold text-[#1B1C1C]">
+                        <dd
+                          className={
+                            isOverRationLimit
+                              ? 'mt-1 font-bold text-amber-800'
+                              : 'mt-1 font-bold text-[#1B1C1C]'
+                          }
+                        >
                           {selectedListing
                             .rationLimitPerPerson
                             === null
@@ -532,12 +551,16 @@ export function ManualDonationForm() {
                             : `${QUANTITY_FORMATTER.format(
                               selectedListing
                                 .rationLimitPerPerson,
-                            )} ${
-                              UNIT_LABELS[
-                                selectedListing.unit
-                              ]
-                            }`}
+                            )} ${formatUnit(
+                              selectedListing.unit,
+                            )}`}
                         </dd>
+
+                        {isOverRationLimit && (
+                          <p className="mt-1 text-xs font-medium text-amber-700">
+                            Quantity exceeds this limit
+                          </p>
+                        )}
                       </div>
 
                       <div>
