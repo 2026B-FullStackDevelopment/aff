@@ -3,7 +3,15 @@ import type { ClientSession } from 'mongoose';
 import type { DeliveryDocument } from './delivery.model.js';
 import * as deliveryRepository from './delivery.repository.js';
 import { orderInterface } from '../orders/order.interface.js';
+import { listingInterface } from '../listings/listing.interface.js';
 import type { MarkDeliveredPayload } from './delivery.schemas.js';
+import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
+
+interface MarkDeliveredResult {
+  delivery: DeliveryDocument;
+  pickupAddressText: string | undefined;
+  pickupAddressLocation: GeoLocation | undefined;
+}
 
 function createHttpError(statusCode: number, message: string): Error {
   const error: Error = new Error(message);
@@ -96,7 +104,7 @@ async function markDelivered(
   deliveryId: string,
   courierId: string,
   payload: MarkDeliveredPayload,
-): Promise<DeliveryDocument> {
+): Promise<MarkDeliveredResult> {
   return deliveryRepository.withTransaction(
     async (databaseSession) => {
       const delivery = await deliveryRepository.findDeliveryById(
@@ -174,7 +182,15 @@ async function markDelivered(
         );
       }
 
-      return updatedDelivery;
+      const listingSource = await listingInterface.getListingById(
+        String(order.listingId),
+      );
+
+      return {
+        delivery: updatedDelivery,
+        pickupAddressText: listingSource?.donor.addressText,
+        pickupAddressLocation: listingSource?.donor.location,
+      };
     },
   );
 }

@@ -39,18 +39,15 @@ async function markDelivered(req: Request, res: Response, next: NextFunction) {
     // payload is the validated data, sent by the client in req.body
     const payload = parseBody(markDeliveredSchema, req.body);
 
-    const delivery = await deliveryService.markDelivered(
-      id,
-      req.user!.id,
-      payload,
-    );
+    const { delivery, pickupAddressText, pickupAddressLocation } =
+      await deliveryService.markDelivered(id, req.user!.id, payload);
 
     // HTTP 200 ok
     return ok(
       res,
       toDeliveryResponseDto(delivery, {
-        pickupAddressText: undefined,
-        pickupAddressLocation: undefined,
+        pickupAddressText,
+        pickupAddressLocation,
       }),
     );
   } catch (error) {

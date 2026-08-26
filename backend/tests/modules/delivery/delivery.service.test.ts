@@ -10,6 +10,7 @@ const {
   markDeliveredIfPickedUpMock,
   findOrderByIdMock,
   markOrderDeliveredMock,
+  getListingByIdMock,
 } = vi.hoisted(() => ({
   findOrCreateForOrderMock: vi.fn(),
   findDeliveryByOrderIdMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   markDeliveredIfPickedUpMock: vi.fn(),
   findOrderByIdMock: vi.fn(),
   markOrderDeliveredMock: vi.fn(),
+  getListingByIdMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
@@ -37,6 +39,12 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
   orderInterface: {
     findOrderById: findOrderByIdMock,
     markOrderDelivered: markOrderDeliveredMock,
+  },
+}));
+
+vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
+  listingInterface: {
+    getListingById: getListingByIdMock,
   },
 }));
 
@@ -103,6 +111,7 @@ describe('delivery.service', () => {
       findDeliveryByIdMock.mockResolvedValue(delivery);
       findOrderByIdMock.mockResolvedValue({
         _id: 'o1',
+        listingId: 'l1',
         paymentMethod,
       });
       markDeliveredIfPickedUpMock.mockResolvedValue({
@@ -112,6 +121,13 @@ describe('delivery.service', () => {
       markOrderDeliveredMock.mockResolvedValue({
         _id: 'o1',
         orderStatus: 'DELIVERED',
+      });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
       });
     }
 
@@ -149,7 +165,13 @@ describe('delivery.service', () => {
         true,
         databaseSession,
       );
-      expect(result).toMatchObject({ stage: 'DELIVERED' });
+      expect(getListingByIdMock).toHaveBeenCalledWith('l1');
+      expect(result.delivery).toMatchObject({ stage: 'DELIVERED' });
+      expect(result.pickupAddressText).toBe('123 Main St');
+      expect(result.pickupAddressLocation).toMatchObject({
+        latitude: 10.8,
+        longitude: 106.6,
+      });
     });
   });
 });
