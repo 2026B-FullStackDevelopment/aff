@@ -20,7 +20,7 @@ interface FoodFilterProps {
 export function FoodFilter({ search, onSearchChange, isPanelOpen, onTogglePanel }: FoodFilterProps) {
   return (
     <div className="flex items-center gap-3">
-      <div className="max-w-md flex-1">
+      <div className="flex-1">
         <IconField
           id="food-search-input"
           name="search"

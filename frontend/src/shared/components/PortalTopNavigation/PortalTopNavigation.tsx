@@ -43,12 +43,12 @@ const VARIANT_STYLES: Record<
     iconButton: 'text-white/80 hover:bg-white/10 hover:text-white',
   },
   recipient: {
-    header: 'border-[#e9f5ee] bg-[#e9f5ee]',
-    brand: 'text-[#2E5A47]',
-    activeLink: 'bg-[#3D6852]/15 text-[#2E5A47]',
-    inactiveLink: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
+    header: 'border-[#e9f5ee] bg-[#3D6852]',
+    brand: 'text-[#e9f5ee]',
+    activeLink: 'bg-[#e9f5ee]/15 text-[#e9f5ee]',
+    inactiveLink: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]',
     avatar: 'bg-white text-[#2E5A47]',
-    iconButton: 'text-[#3D6852] hover:bg-[#3D6852]/10 hover:text-[#2E5A47]',
+    iconButton: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]',
   },
   admin: {
     header: 'border-violet-200 bg-white',

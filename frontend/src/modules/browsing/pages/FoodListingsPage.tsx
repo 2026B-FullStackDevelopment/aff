@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
 import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
