@@ -10,7 +10,7 @@ import mongoose, {
   type ClientSession,
   type PipelineStage,
 } from 'mongoose';
-import type { MineListingsQuery } from './listing.schemas.js';
+import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
 
 interface CreateListingInput {
   donorId: string | Types.ObjectId;
@@ -50,8 +50,82 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function findAvailableListings(filters: Record<string, unknown> = {}) {
-  return Listing.find({ ...filters, status: 'ACTIVE' }).lean<ListingDocument[]>();
+// paginated result returned to the Listings service for the public browse endpoint
+interface AvailableListingsRepositoryResult {
+  items: ListingDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+// internal shape returned by MongoDB for the public browse aggregation
+interface AvailableListingsAggregationResult {
+  items: ListingDocument[];
+  metadata: Array<{ total: number; }>;
+}
+
+/**
+ * Returns a page of publicly-browsable Listings (D1 scope: always
+ * `status: 'ACTIVE'`, no filters). D6's future pass extends the `$match`
+ * stage with search/city/category/price clauses and the `$sort` stage with
+ * price-sort branching, mirroring `findMyListingsWithStats`'s pattern.
+ */
+async function findAvailableListings(
+  query: ListingsQuery,
+): Promise<AvailableListingsRepositoryResult> {
+  const match: Record<string, unknown> = {
+    status: 'ACTIVE',
+  };
+
+  // _id provides stable ordering when two Listings share the same createdAt.
+  const sort: Record<string, 1 | -1> = {
+    createdAt: -1,
+    _id: 1,
+  };
+
+  const skip = (query.page - 1) * query.limit;
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: match,
+    },
+
+    // Sort before pagination so that the correct page is selected.
+    {
+      $sort: sort,
+    },
+
+    // Return the requested page and the total count in one database query.
+    {
+      $facet: {
+        items: [
+          {
+            $skip: skip,
+          },
+          {
+            $limit: query.limit,
+          },
+        ],
+        metadata: [
+          {
+            $count: 'total',
+          },
+        ],
+      },
+    },
+  ];
+
+  const [result] =
+    await Listing.aggregate<AvailableListingsAggregationResult>(
+      pipeline,
+    );
+
+  return {
+    items: result?.items ?? [],
+    page: query.page,
+    limit: query.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
 }
 
 async function findMyListingsWithStats(
