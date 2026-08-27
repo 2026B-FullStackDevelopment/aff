@@ -12,6 +12,7 @@ import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody 
 import {
   createListingSchema,
   mineListingsQuerySchema,
+  listingsQuerySchema,
   listingIdParamsSchema,
   updateListingStatusSchema,
   listingOrdersQuerySchema,
@@ -21,8 +22,16 @@ import { toOrderResponseDto } from '../orders/order.dto.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {
   try {
-    const listings = await listingService.listAvailableListings(req.query);
-    return ok(res, listings.map(toListingResponseDto));
+    const query = parseBody(listingsQuerySchema, req.query);
+    const result = await listingService.listAvailableListings(query);
+
+    return paginated(
+      res,
+      result.items.map(toListingResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
   } catch (error) {
     return next(error);
   }
