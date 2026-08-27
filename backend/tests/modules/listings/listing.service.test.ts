@@ -131,37 +131,54 @@ describe('listing.service', () => {
         city: 'Hanoi',
       };
 
-      findAvailableListingsMock.mockResolvedValue([listing]);
+      findAvailableListingsMock.mockResolvedValue({
+        items: [listing],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
       prepareDonorMocks();
 
-      const result = await listAvailableListings({ category: 'FRUIT' });
+      const query = { page: 1, limit: 20 };
+      const result = await listAvailableListings(query);
 
-      expect(findAvailableListingsMock).toHaveBeenCalledWith({ category: 'FRUIT' });
+      expect(findAvailableListingsMock).toHaveBeenCalledWith(query);
       expect(getUserByIdMock).toHaveBeenCalledWith('d1');
       expect(getDonorByUserIdMock).toHaveBeenCalledWith('d1');
-      expect(result).toEqual([
-        {
-          listing,
-          donor: {
-            id: 'd1',
-            companyName: 'Fresh Bakery',
-            city: 'Hanoi',
-            addressText: '123 Example Street, Hanoi',
-            location,
+      expect(result).toEqual({
+        items: [
+          {
+            listing,
+            donor: {
+              id: 'd1',
+              companyName: 'Fresh Bakery',
+              city: 'Hanoi',
+              addressText: '123 Example Street, Hanoi',
+              location,
+            },
           },
-        },
-      ]);
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
     });
 
-    it('returns an empty array without performing Donor lookups', async () => {
-      findAvailableListingsMock.mockResolvedValue([]);
+    it('returns an empty page without performing Donor lookups', async () => {
+      findAvailableListingsMock.mockResolvedValue({
+        items: [],
+        page: 1,
+        limit: 20,
+        total: 0,
+      });
 
-      const result = await listAvailableListings();
+      const query = { page: 1, limit: 20 };
+      const result = await listAvailableListings(query);
 
-      expect(findAvailableListingsMock).toHaveBeenCalledWith({});
+      expect(findAvailableListingsMock).toHaveBeenCalledWith(query);
       expect(getUserByIdMock).not.toHaveBeenCalled();
       expect(getDonorByUserIdMock).not.toHaveBeenCalled();
-      expect(result).toEqual([]);
+      expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
     });
   });
 

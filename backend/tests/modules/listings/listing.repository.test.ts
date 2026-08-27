@@ -53,11 +53,38 @@ describe('listing.repository', () => {
     leanMock.mockResolvedValue([{ _id: 'l1' }]);
   });
 
-  it('findAvailableListings filters by status ACTIVE and merges extra filters', async () => {
-    await findAvailableListings({ category: 'FRUIT' });
+  it('findAvailableListings returns only ACTIVE Listings with pagination', async () => {
+    aggregateMock.mockResolvedValue([
+      {
+        items: [{ _id: 'l1', status: 'ACTIVE' }],
+        metadata: [{ total: 3 }],
+      },
+    ]);
 
-    expect(findMock).toHaveBeenCalledWith({ category: 'FRUIT', status: 'ACTIVE' });
-    expect(leanMock).toHaveBeenCalled();
+    const result = await findAvailableListings({ page: 2, limit: 10 });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline).toEqual(expect.any(Array));
+    expect(pipeline[0].$match).toEqual({ status: 'ACTIVE' });
+    expect(pipeline).toContainEqual({
+      $sort: { createdAt: -1, _id: 1 },
+    });
+    expect(JSON.stringify(pipeline)).toContain('"$skip":10');
+    expect(JSON.stringify(pipeline)).toContain('"$limit":10');
+    expect(result).toEqual({
+      items: [{ _id: 'l1', status: 'ACTIVE' }],
+      page: 2,
+      limit: 10,
+      total: 3,
+    });
+  });
+
+  it('findAvailableListings returns an empty page when the aggregation returns no results', async () => {
+    aggregateMock.mockResolvedValue([]);
+
+    const result = await findAvailableListings({ page: 1, limit: 20 });
+
+    expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
   });
 
   it('createListing calls Listing.create with the given data', async () => {

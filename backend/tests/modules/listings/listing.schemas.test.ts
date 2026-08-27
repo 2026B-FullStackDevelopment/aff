@@ -6,6 +6,7 @@ import {
   listingIdParamsSchema,
   listingOrdersQuerySchema,
   listingPriceSchema,
+  listingsQuerySchema,
   measurementUnitSchema,
   mineListingsQuerySchema,
   paginationQuerySchema,
@@ -272,6 +273,38 @@ describe('listing.schemas', () => {
       expect(
         mineListingsQuerySchema.safeParse({ status: 'ACTIVE', donorId: 'someone-else' }).success,
       ).toBe(false);
+    });
+  });
+
+  describe('listingsQuerySchema', () => {
+    it('applies the documented pagination defaults', () => {
+      expect(listingsQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
+    });
+
+    it('coerces string query parameters to numbers', () => {
+      expect(listingsQuerySchema.parse({ page: '2', limit: '50' })).toEqual({
+        page: 2,
+        limit: 50,
+      });
+    });
+
+    it.each(['rank', 'lat', 'lng', 'status', 'search', 'city', 'category'])(
+      'rejects an unknown query parameter (%s) — D6 fields are deferred, not part of this schema yet',
+      (key) => {
+        expect(
+          listingsQuerySchema.safeParse({ [key]: 'anything' }).success,
+        ).toBe(false);
+      },
+    );
+
+    it.each([
+      { page: '0' },
+      { page: '-1' },
+      { page: '1.5' },
+      { limit: '0' },
+      { limit: '101' },
+    ])('rejects invalid pagination %o', (query) => {
+      expect(listingsQuerySchema.safeParse(query).success).toBe(false);
     });
   });
 
