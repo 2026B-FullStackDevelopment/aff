@@ -9,19 +9,10 @@ import { Apple, Beef, Calendar, Droplet, Leaf, Package, UtensilsCrossed, Wheat }
 import { Button } from '@/shared/components/Button/Button';
 import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantityStepper';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
-import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
-import { UNIT_OPTIONS } from '@/shared/constants/units';
+import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, shortCityLabel } from '@/shared/utils/listingFormatting';
 import { cn } from '@/shared/utils';
 import { useFoodCard } from '../hooks/useFoodCard';
 import type { ListingSummary } from '../hooks/useFoodListings';
-
-const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
-  CATEGORY_OPTIONS.map((option) => [option.value, option.label]),
-);
-
-const UNIT_LABELS: Record<string, string> = Object.fromEntries(
-  UNIT_OPTIONS.map((option) => [option.value, option.label]),
-);
 
 const CATEGORY_VISUALS: Record<string, { icon: LucideIcon; gradient: string }> = {
   FRUIT: { icon: Apple, gradient: 'from-rose-100 to-orange-100' },
@@ -31,25 +22,6 @@ const CATEGORY_VISUALS: Record<string, { icon: LucideIcon; gradient: string }> =
   BAKED_GOODS: { icon: Wheat, gradient: 'from-amber-100 to-amber-200' },
   DRINK: { icon: Droplet, gradient: 'from-yellow-100 to-amber-200' },
 };
-
-// Placeholder until the shared province-shortening util (see
-// AddressAutocomplete.tsx's `resolveProvince`) exposes a short display
-// label too — this just strips the "Thành phố "/"Tỉnh " prefix for the pill.
-function shortCityLabel(city: string): string {
-  return city.replace(/^(Thành phố|Tỉnh)\s+/i, '');
-}
-
-function formatPrice(price: number): string {
-  if (price === 0) return 'Free';
-  return `${price.toLocaleString('en-US')} VND`;
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}/${date.getFullYear()}`;
-}
 
 interface FoodCardProps {
   listing: ListingSummary;

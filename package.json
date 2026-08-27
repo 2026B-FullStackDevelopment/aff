@@ -20,6 +20,11 @@
   },
   "dependencies": {
     "country-state-city": "^3.2.1",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^5.0.0",
     "socket": "^1.1.158"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22"
   }
 }

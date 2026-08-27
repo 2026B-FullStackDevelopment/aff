@@ -46,9 +46,9 @@ const VARIANT_STYLES: Record<
     header: 'border-[#e9f5ee] bg-[#3D6852]',
     brand: 'text-[#e9f5ee]',
     activeLink: 'bg-[#e9f5ee]/15 text-[#e9f5ee]',
-    inactiveLink: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]',
+    inactiveLink: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]/75',
     avatar: 'bg-white text-[#2E5A47]',
-    iconButton: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]',
+    iconButton: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]/75',
   },
   admin: {
     header: 'border-violet-200 bg-white',

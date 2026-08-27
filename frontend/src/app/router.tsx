@@ -12,6 +12,7 @@ import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
 import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
+import { ListingDetailPage } from '@/modules/browsing/pages/ListingDetailPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
 import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
@@ -84,6 +85,11 @@ export function AppRouter() {
               <FoodListingsPage />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="/marketplace/:id"
+          element={<ListingDetailPage />}
         />
 
         <Route

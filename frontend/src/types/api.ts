@@ -163,6 +163,15 @@ export interface ListingDTO {
   createdAt: string;
 }
 
+export interface ListingDetailDTO extends Omit<ListingDTO, 'donor'> {
+  donor: {
+    id: string;
+    companyName: string;
+    addressText: string;
+    location: GeoLocation;
+  };
+}
+
 // --- Orders ---
 
 export type OrderIntakePath =

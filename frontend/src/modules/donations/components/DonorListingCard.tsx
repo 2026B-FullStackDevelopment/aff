@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice } from '@/shared/utils/listingFormatting';
 import type {
     DonorListingStatusUpdate,
     ManagedListingDTO,
@@ -30,32 +31,6 @@ interface ListingFieldProps {
     value: string;
 }
 
-const UNIT_LABELS: Record<
-    ManagedListingDTO['unit'],
-    string
-> = {
-    KILOGRAM: 'kg',
-    GRAM: 'g',
-    LITER: 'L',
-    MILLILITER: 'mL',
-    UNIT: 'units',
-    PER_REQUEST: 'Per request',
-};
-
-function formatCategory(
-    category: ManagedListingDTO['category'],
-): string {
-    return category
-        .toLowerCase()
-        .split('_')
-        .map(
-            (word) =>
-                word.charAt(0).toUpperCase()
-                + word.slice(1),
-        )
-        .join(' ');
-}
-
 function formatQuantity(
     quantity: number,
     unit: ManagedListingDTO['unit'],
@@ -64,28 +39,7 @@ function formatQuantity(
         return 'Not tracked';
     }
 
-    return `${quantity.toLocaleString()} ${UNIT_LABELS[unit]}`;
-}
-
-function formatPrice(price: number): string {
-    if (price === 0) {
-        return 'Free';
-    }
-
-    return `${price.toLocaleString('en-US')} VND`;
-}
-
-function formatDate(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return 'Unknown';
-    }
-
-    return new Intl.DateTimeFormat('en-GB', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date);
+    return `${quantity.toLocaleString()} ${UNIT_LABELS[unit] ?? ''}`;
 }
 
 function getStatusMessage(
@@ -120,6 +74,7 @@ function ListingField({
     );
 }
 
+// Distinct from formatPrice: revenue of 0 means "0 VND earned", not "Free".
 function formatRevenue(revenue: number): string {
     return `${revenue.toLocaleString('en-US')} VND`;
 }
@@ -164,13 +119,13 @@ export function DonorListingCard({
                     value={
                         listing.unit === 'PER_REQUEST'
                             ? 'Per Request'
-                            : UNIT_LABELS[listing.unit]
+                            : UNIT_LABELS[listing.unit] ?? listing.unit
                     }
                 />
 
                 <ListingField
                     label="Food category"
-                    value={formatCategory(listing.category)}
+                    value={CATEGORY_LABELS[listing.category] ?? listing.category}
                 />
 
                 <ListingField
@@ -246,7 +201,7 @@ export function DonorListingCard({
                     </p>
 
                     <p className="mt-1 text-xs text-[#6B7280]">
-                        Created {formatDate(listing.createdAt)}
+                        Created {formatDate(listing.createdAt, { withTime: true })}
                     </p>
                 </div>
 
