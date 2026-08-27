@@ -174,6 +174,19 @@ const mineListingsQuerySchema = paginationQuerySchema
 type MineListingsQuery = z.infer<typeof mineListingsQuerySchema>;
 
 /**
+ * Validates `GET /listings` query parameters — the public active-listings
+ * browse endpoint (D1 scope: pagination only, no filters). `.strict()`
+ * rejects unknown params, including a client-supplied `status` (always
+ * hard-coded `ACTIVE` server-side) and Epic F proximity-ranking fields such
+ * as `rank`/`lat`/`lng`. D6's search/filter/sort fields (`search`, `city`,
+ * `category`, `priceMin`, `priceMax`, `sort`, `order`) extend this same
+ * schema in a later pass — see `D6-search-filter-sort-listings.md`.
+ */
+const listingsQuerySchema = paginationQuerySchema.strict();
+
+type ListingsQuery = z.infer<typeof listingsQuerySchema>;
+
+/**
  * Validates `:id` for Listing routes such as:
  *
  * - POST /listings/:id/clone
@@ -248,10 +261,11 @@ export {
   createListingSchema,
   paginationQuerySchema,
   mineListingsQuerySchema,
+  listingsQuerySchema,
   listingIdParamsSchema,
   updateListingStatusSchema,
   donorInitiatedDonationSchema,
   listingOrdersQuerySchema,
 };
 
-export type { MineListingsQuery, ListingOrdersQuery };
+export type { MineListingsQuery, ListingsQuery, ListingOrdersQuery };
