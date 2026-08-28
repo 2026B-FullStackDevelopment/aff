@@ -9,8 +9,8 @@ import { Panel } from '@/shared/components/Panel/Panel';
 import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
 import { ORDER_OPTIONS } from '@/shared/constants/sort';
 import { cn } from '@/shared/utils';
-import { useFoodFilter } from '../hooks/useFoodFilter';
-import type { ListingCategory, ListingFilters } from '../hooks/useFoodListings';
+import { ListingFilters, useFoodFilter } from '../hooks/useFoodFilter';
+import { FoodCategory } from '@/types/api';
 
 const VISIBLE_CITY_COUNT = 4;
 
@@ -82,8 +82,8 @@ export function FoodFilterPanel({ filters, onFiltersChange, onClose, cities }: F
                 name="categories"
                 label={option.label}
                 theme="recipient"
-                checked={filters.categories.includes(option.value as ListingCategory)}
-                onChange={() => toggleCategory(option.value as ListingCategory)}
+                checked={filters.categories.includes(option.value as FoodCategory)}
+                onChange={() => toggleCategory(option.value as FoodCategory)}
               />
             ))}
           </div>
