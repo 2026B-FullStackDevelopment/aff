@@ -65,10 +65,9 @@ interface AvailableListingsAggregationResult {
 }
 
 /**
- * Returns a page of publicly-browsable Listings (D1 scope: always
- * `status: 'ACTIVE'`, no filters). D6's future pass extends the `$match`
- * stage with search/city/category/price clauses and the `$sort` stage with
- * price-sort branching, mirroring `findMyListingsWithStats`'s pattern.
+ * Returns a page of publicly-browsable Listings, always scoped to
+ * `status: 'ACTIVE'`. Supports D6's optional search/city/category/price
+ * filters and price sort, mirroring `findMyListingsWithStats`'s pattern.
  */
 async function findAvailableListings(
   query: ListingsQuery,
@@ -77,9 +76,54 @@ async function findAvailableListings(
     status: 'ACTIVE',
   };
 
-  // _id provides stable ordering when two Listings share the same createdAt.
+  // Add a case-insensitive partial-name search when supplied.
+  if (query.search) {
+    match.name = {
+      $regex: escapeRegExp(query.search),
+      $options: 'i',
+    };
+  }
+
+  // City is an exact match — it's copied from the Donor's fixed-dropdown
+  // profile city at listing-creation time, not free text.
+  if (query.city) {
+    match.city = query.city;
+  }
+
+  // Add an exact category filter when supplied.
+  if (query.category) {
+    match.category = query.category;
+  }
+
+  // Build the price-range filter.
+  if (query.priceMin !== undefined || query.priceMax !== undefined) {
+    const price: {
+      $gte?: number;
+      $lte?: number;
+    } = {};
+
+    if (query.priceMin !== undefined) {
+      price.$gte = query.priceMin;
+    }
+
+    if (query.priceMax !== undefined) {
+      price.$lte = query.priceMax;
+    }
+
+    match.price = price;
+  }
+
+  // `order` only takes effect when a sortable field is actually requested —
+  // a stray `order` with no `sort` must not flip the default browse away
+  // from `createdAt desc`.
+  const sortField = query.sort === 'price' ? 'price' : 'createdAt';
+  const sortDirection: 1 | -1 =
+    query.sort === 'price' && query.order === 'asc' ? 1 : -1;
+
+  // _id provides stable ordering when two Listings share the same sort
+  // field value.
   const sort: Record<string, 1 | -1> = {
-    createdAt: -1,
+    [sortField]: sortDirection,
     _id: 1,
   };
 
