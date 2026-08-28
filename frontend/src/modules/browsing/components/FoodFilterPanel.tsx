@@ -18,12 +18,12 @@ interface FoodFilterPanelProps {
   filters: ListingFilters;
   onFiltersChange: (patch: Partial<ListingFilters>) => void;
   onClose: () => void;
-  /** Cities in priority order — cities with active listings first, per the original mock. */
+  /** Cities in display order. */
   cities: string[];
 }
 
 export function FoodFilterPanel({ filters, onFiltersChange, onClose, cities }: FoodFilterPanelProps) {
-  const { selectCity, toggleCategory, setPriceMin, setPriceMax, setSortOrder } = useFoodFilter(
+  const { selectCity, selectCategory, setPriceMin, setPriceMax, setSortOrder } = useFoodFilter(
     filters,
     onFiltersChange,
   );
@@ -34,7 +34,8 @@ export function FoodFilterPanel({ filters, onFiltersChange, onClose, cities }: F
 
   return (
     <Panel
-      className="h-fit w-72 shrink-0"
+      className="h-fit w-72 shrink-0 lg:sticky lg:top-6"
+      contentClassName="max-h-[70vh] overflow-y-auto lg:max-h-[calc(100vh-6rem)]"
       title="Filter"
       actions={
         <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close filters">
@@ -73,17 +74,17 @@ export function FoodFilterPanel({ filters, onFiltersChange, onClose, cities }: F
         </div>
 
         <div>
-          <FormSectionHeader title="Food Categories" theme="recipient" />
+          <FormSectionHeader title="Food Category" theme="recipient" />
           <div className="flex flex-col gap-2">
             {CATEGORY_OPTIONS.map((option) => (
               <CheckboxField
                 key={option.value}
                 id={`category-${option.value}`}
-                name="categories"
+                name="category"
                 label={option.label}
                 theme="recipient"
-                checked={filters.categories.includes(option.value as FoodCategory)}
-                onChange={() => toggleCategory(option.value as FoodCategory)}
+                checked={filters.category === (option.value as FoodCategory)}
+                onChange={() => selectCategory(option.value as FoodCategory)}
               />
             ))}
           </div>

@@ -3,15 +3,23 @@
 // lives directly in FoodFilter.tsx since the search box moved out of the
 // panel and into the toolbar next to the "Filters" toggle — see
 // FoodListingsPage.tsx for how the two are composed.
-import type { FoodCategory } from "@/types/api";
+//
+// City, category, and sort are all single-select against the backend's
+// listingsQuerySchema (category is a scalar enum, not an array; sort/order
+// are both optional with no "unsorted" enum value). Each behaves like a
+// toggle: selecting the currently-active value clears it back to null,
+// selecting a different value switches directly to it. This is
+// intentionally reused as CheckboxField styling rather than introducing a
+// RadioField component — see project deviations notes.
+import type { FoodCategory } from '@/types/api';
 
 export interface ListingFilters {
   search: string;
   city: string | null;
-  categories: FoodCategory[];
+  category: FoodCategory | null;
   priceMin: string;
   priceMax: string;
-  sortOrder: 'asc' | 'desc';
+  sortOrder: 'asc' | 'desc' | null;
   page: number;
   limit: number;
 }
@@ -19,10 +27,10 @@ export interface ListingFilters {
 export const DEFAULT_FILTERS: ListingFilters = {
   search: '',
   city: null,
-  categories: [],
+  category: null,
   priceMin: '',
   priceMax: '',
-  sortOrder: 'asc',
+  sortOrder: null,
   page: 1,
   limit: 6,
 };
@@ -32,12 +40,8 @@ export function useFoodFilter(filters: ListingFilters, onChange: (patch: Partial
     onChange({ city: filters.city === city ? null : city });
   }
 
-  function toggleCategory(category: FoodCategory) {
-    const next = filters.categories.includes(category)
-      ? filters.categories.filter((c) => c !== category)
-      : [...filters.categories, category];
-
-    onChange({ categories: next });
+  function selectCategory(category: FoodCategory) {
+    onChange({ category: filters.category === category ? null : category });
   }
 
   function setPriceMin(priceMin: string) {
@@ -49,12 +53,18 @@ export function useFoodFilter(filters: ListingFilters, onChange: (patch: Partial
   }
 
   function setSortOrder(sortOrder: 'asc' | 'desc') {
-    onChange({ sortOrder });
+    onChange({ sortOrder: filters.sortOrder === sortOrder ? null : sortOrder });
   }
 
   function clearAll() {
-    onChange({ city: null, categories: [], priceMin: '', priceMax: '', sortOrder: 'asc' });
+    onChange({
+      city: null,
+      category: null,
+      priceMin: '',
+      priceMax: '',
+      sortOrder: null,
+    });
   }
 
-  return { selectCity, toggleCategory, setPriceMin, setPriceMax, setSortOrder, clearAll };
+  return { selectCity, selectCategory, setPriceMin, setPriceMax, setSortOrder, clearAll };
 }
