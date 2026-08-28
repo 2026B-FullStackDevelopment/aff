@@ -87,6 +87,81 @@ describe('listing.repository', () => {
     expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
   });
 
+  it('findAvailableListings composes search/city/category/price filters into $match, always scoped to ACTIVE', async () => {
+    aggregateMock.mockResolvedValue([
+      { items: [{ _id: 'l1', status: 'ACTIVE' }], metadata: [{ total: 1 }] },
+    ]);
+
+    await findAvailableListings({
+      page: 1,
+      limit: 20,
+      search: 'bread',
+      city: 'Thành phố Hà Nội',
+      category: 'BAKED_GOODS',
+      priceMin: 1000,
+      priceMax: 5000,
+    });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0].$match).toEqual({
+      status: 'ACTIVE',
+      name: { $regex: 'bread', $options: 'i' },
+      city: 'Thành phố Hà Nội',
+      category: 'BAKED_GOODS',
+      price: { $gte: 1000, $lte: 5000 },
+    });
+  });
+
+  it('findAvailableListings only applies the price bound(s) actually supplied', async () => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [{ total: 0 }] }]);
+
+    await findAvailableListings({ page: 1, limit: 20, priceMin: 1000 });
+
+    let pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0].$match.price).toEqual({ $gte: 1000 });
+
+    aggregateMock.mockClear();
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [{ total: 0 }] }]);
+
+    await findAvailableListings({ page: 1, limit: 20, priceMax: 5000 });
+
+    pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0].$match.price).toEqual({ $lte: 5000 });
+  });
+
+  it('findAvailableListings escapes regex special characters in search', async () => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [{ total: 0 }] }]);
+
+    await findAvailableListings({ page: 1, limit: 20, search: 'bread (fresh)' });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0].$match.name).toEqual({
+      $regex: 'bread \\(fresh\\)',
+      $options: 'i',
+    });
+  });
+
+  it.each([
+    ['asc', 1],
+    ['desc', -1],
+  ] as const)('findAvailableListings sorts by price %s when sort=price', async (order, direction) => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [{ total: 0 }] }]);
+
+    await findAvailableListings({ page: 1, limit: 20, sort: 'price', order });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline).toContainEqual({ $sort: { price: direction, _id: 1 } });
+  });
+
+  it('findAvailableListings ignores a stray order with no sort and keeps the default createdAt desc', async () => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [{ total: 0 }] }]);
+
+    await findAvailableListings({ page: 1, limit: 20, order: 'asc' });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline).toContainEqual({ $sort: { createdAt: -1, _id: 1 } });
+  });
+
   it('createListing calls Listing.create with the given data', async () => {
     createMock.mockResolvedValue({ _id: 'l1' });
 
