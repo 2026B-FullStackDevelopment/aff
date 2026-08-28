@@ -1,5 +1,5 @@
 import { Toast } from '@/shared/components/Toast/Toast';
-import { useSoldOutNotifications } from '../../hooks/useSoldOutNotifications';
+import { useSoldOutNotifications } from '../hooks/useSoldOutNotifications';
 
 // Displays live C9 alerts without creating a persisted notification inbox.
 export function DonorSoldOutAlerts() {

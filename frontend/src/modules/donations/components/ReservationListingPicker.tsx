@@ -15,7 +15,7 @@ import { cn } from '@/shared/utils';
 import type {
   ListingGroup,
   ManagedListingDTO,
-} from '../../types';
+} from '../types';
 
 interface ReservationListingPickerProps {
   listings: ManagedListingDTO[];

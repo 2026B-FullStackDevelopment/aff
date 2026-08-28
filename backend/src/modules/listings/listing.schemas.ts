@@ -174,6 +174,65 @@ const mineListingsQuerySchema = paginationQuerySchema
 type MineListingsQuery = z.infer<typeof mineListingsQuerySchema>;
 
 /**
+ * Validates `GET /listings` query parameters — the public active-listings
+ * browse endpoint. `.strict()` rejects unknown params, including a
+ * client-supplied `status` (always hard-coded `ACTIVE` server-side) and
+ * Epic F proximity-ranking fields such as `rank`/`lat`/`lng`. D6 adds
+ * `search`/`city`/`category`/`priceMin`/`priceMax`/`sort`/`order` on top of
+ * D1's base pagination fields.
+ */
+const listingsQuerySchema = paginationQuerySchema
+  .extend({
+    search: z
+      .string({ message: 'Search must be text.' })
+      .trim()
+      .optional(),
+
+    city: z
+      .string({ message: 'City must be text.' })
+      .trim()
+      .optional(),
+
+    category: foodCategorySchema.optional(),
+
+    priceMin: z.coerce
+      .number({ message: 'Minimum price must be a number.' })
+      .nonnegative({ message: 'Minimum price cannot be negative.' })
+      .optional(),
+
+    priceMax: z.coerce
+      .number({ message: 'Maximum price must be a number.' })
+      .nonnegative({ message: 'Maximum price cannot be negative.' })
+      .optional(),
+
+    sort: z.enum(['price'], {
+      message: 'Sort must be price.',
+    }).optional(),
+
+    order: z.enum(['asc', 'desc'], {
+      message: 'Order must be asc or desc.',
+    }).optional(),
+  })
+  .strict()
+  .superRefine((query, context) => {
+    // If both price bounds are present, the minimum cannot exceed the
+    // maximum.
+    if (
+      query.priceMin !== undefined &&
+      query.priceMax !== undefined &&
+      query.priceMin > query.priceMax
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['priceMin'],
+        message: 'Minimum price cannot be greater than maximum price.',
+      });
+    }
+  });
+
+type ListingsQuery = z.infer<typeof listingsQuerySchema>;
+
+/**
  * Validates `:id` for Listing routes such as:
  *
  * - POST /listings/:id/clone
@@ -248,10 +307,11 @@ export {
   createListingSchema,
   paginationQuerySchema,
   mineListingsQuerySchema,
+  listingsQuerySchema,
   listingIdParamsSchema,
   updateListingStatusSchema,
   donorInitiatedDonationSchema,
   listingOrdersQuerySchema,
 };
 
-export type { MineListingsQuery, ListingOrdersQuery };
+export type { MineListingsQuery, ListingsQuery, ListingOrdersQuery };

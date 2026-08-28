@@ -190,19 +190,21 @@
         "tags": ["Donor Listings"],
         "operationId": "getListingDetail",
         "summary": "Get listing detail",
-        "description": "Public endpoint used to populate a Duplicate form and to render PER_REQUEST pickup details. The detail DTO replaces donor.city with donor.addressText and donor.location. Current implementation returns HTTP 200 with data: null when no listing has the supplied valid ObjectId; it does not currently return the 404 described in docs/api_design.md.",
+        "description": "Public endpoint used to populate a Duplicate form, render PER_REQUEST pickup details, and back the Recipient browse page's card-to-detail link (D8). The detail DTO replaces donor.city with donor.addressText and donor.location. Returns 404 when no listing exists for the supplied valid ObjectId.",
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
         ],
         "responses": {
           "200": {
-            "description": "Listing detail, or null when no listing exists for the ID",
+            "description": "Listing detail",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NullableListingDetailResponse" }
+                "schema": { "$ref": "#/components/schemas/ListingDetailResponse" }
               }
             }
-          }
+          },
+          "400": { "$ref": "#/components/responses/InvalidListingId" },
+          "404": { "$ref": "#/components/responses/ListingNotFound" }
         }
       }
     },
@@ -595,15 +597,12 @@
           "data": { "$ref": "#/components/schemas/Listing" }
         }
       },
-      "NullableListingDetailResponse": {
+      "ListingDetailResponse": {
         "type": "object",
         "additionalProperties": false,
         "required": ["data"],
         "properties": {
-          "data": {
-            "allOf": [{ "$ref": "#/components/schemas/ListingDetail" }],
-            "nullable": true
-          }
+          "data": { "$ref": "#/components/schemas/ListingDetail" }
         }
       },
       "MyListingsResponse": {

@@ -5,8 +5,8 @@ import {
 import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
-import { CloneListingForm } from '../components/CloneListingForm/CloneListingForm';
-import { CreateListingForm } from '../components/CreateListingForm/CreateListingForm';
+import { CloneListingForm } from '../components/CloneListingForm';
+import { CreateListingForm } from '../components/CreateListingForm';
 
 // Renders new-listing and C2 duplicate-review modes.
 export function FoodListingCreationPage() {

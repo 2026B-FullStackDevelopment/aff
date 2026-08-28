@@ -131,37 +131,54 @@ describe('listing.service', () => {
         city: 'Hanoi',
       };
 
-      findAvailableListingsMock.mockResolvedValue([listing]);
+      findAvailableListingsMock.mockResolvedValue({
+        items: [listing],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
       prepareDonorMocks();
 
-      const result = await listAvailableListings({ category: 'FRUIT' });
+      const query = { page: 1, limit: 20 };
+      const result = await listAvailableListings(query);
 
-      expect(findAvailableListingsMock).toHaveBeenCalledWith({ category: 'FRUIT' });
+      expect(findAvailableListingsMock).toHaveBeenCalledWith(query);
       expect(getUserByIdMock).toHaveBeenCalledWith('d1');
       expect(getDonorByUserIdMock).toHaveBeenCalledWith('d1');
-      expect(result).toEqual([
-        {
-          listing,
-          donor: {
-            id: 'd1',
-            companyName: 'Fresh Bakery',
-            city: 'Hanoi',
-            addressText: '123 Example Street, Hanoi',
-            location,
+      expect(result).toEqual({
+        items: [
+          {
+            listing,
+            donor: {
+              id: 'd1',
+              companyName: 'Fresh Bakery',
+              city: 'Hanoi',
+              addressText: '123 Example Street, Hanoi',
+              location,
+            },
           },
-        },
-      ]);
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
     });
 
-    it('returns an empty array without performing Donor lookups', async () => {
-      findAvailableListingsMock.mockResolvedValue([]);
+    it('returns an empty page without performing Donor lookups', async () => {
+      findAvailableListingsMock.mockResolvedValue({
+        items: [],
+        page: 1,
+        limit: 20,
+        total: 0,
+      });
 
-      const result = await listAvailableListings();
+      const query = { page: 1, limit: 20 };
+      const result = await listAvailableListings(query);
 
-      expect(findAvailableListingsMock).toHaveBeenCalledWith({});
+      expect(findAvailableListingsMock).toHaveBeenCalledWith(query);
       expect(getUserByIdMock).not.toHaveBeenCalled();
       expect(getDonorByUserIdMock).not.toHaveBeenCalled();
-      expect(result).toEqual([]);
+      expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
     });
   });
 
@@ -281,15 +298,17 @@ describe('listing.service', () => {
   });
 
   describe('getListingById', () => {
-    it('returns null without Donor lookups when the Listing does not exist', async () => {
+    it('throws a 404 without Donor lookups when the Listing does not exist', async () => {
       findListingByIdMock.mockResolvedValue(null);
 
-      const result = await getListingById('missing-listing');
+      await expect(getListingById('missing-listing')).rejects.toMatchObject({
+        message: 'Listing not found.',
+        statusCode: 404,
+      });
 
       expect(findListingByIdMock).toHaveBeenCalledWith('missing-listing');
       expect(getUserByIdMock).not.toHaveBeenCalled();
       expect(getDonorByUserIdMock).not.toHaveBeenCalled();
-      expect(result).toBeNull();
     });
 
     it('delegates to the repository and enriches the Listing with Donor data', async () => {

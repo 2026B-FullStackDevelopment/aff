@@ -6,6 +6,7 @@ import {
   listingIdParamsSchema,
   listingOrdersQuerySchema,
   listingPriceSchema,
+  listingsQuerySchema,
   measurementUnitSchema,
   mineListingsQuerySchema,
   paginationQuerySchema,
@@ -272,6 +273,97 @@ describe('listing.schemas', () => {
       expect(
         mineListingsQuerySchema.safeParse({ status: 'ACTIVE', donorId: 'someone-else' }).success,
       ).toBe(false);
+    });
+  });
+
+  describe('listingsQuerySchema', () => {
+    it('applies the documented pagination defaults', () => {
+      expect(listingsQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
+    });
+
+    it('coerces string query parameters to numbers', () => {
+      expect(listingsQuerySchema.parse({ page: '2', limit: '50' })).toEqual({
+        page: 2,
+        limit: 50,
+      });
+    });
+
+    it.each(['rank', 'lat', 'lng', 'status'])(
+      'rejects an unknown query parameter (%s) — status is always server-controlled, and rank/lat/lng are Epic F fields',
+      (key) => {
+        expect(
+          listingsQuerySchema.safeParse({ [key]: 'anything' }).success,
+        ).toBe(false);
+      },
+    );
+
+    it.each([
+      { page: '0' },
+      { page: '-1' },
+      { page: '1.5' },
+      { limit: '0' },
+      { limit: '101' },
+    ])('rejects invalid pagination %o', (query) => {
+      expect(listingsQuerySchema.safeParse(query).success).toBe(false);
+    });
+
+    it('accepts all supported D6 filter/sort fields together', () => {
+      const parsed = listingsQuerySchema.parse({
+        search: '  bread  ',
+        city: '  Thành phố Hà Nội  ',
+        category: 'BAKED_GOODS',
+        priceMin: '1000',
+        priceMax: '5000',
+        sort: 'price',
+        order: 'asc',
+      });
+
+      expect(parsed).toEqual({
+        search: 'bread',
+        city: 'Thành phố Hà Nội',
+        category: 'BAKED_GOODS',
+        priceMin: 1000,
+        priceMax: 5000,
+        sort: 'price',
+        order: 'asc',
+        page: 1,
+        limit: 20,
+      });
+    });
+
+    it('accepts a query with only some filters supplied', () => {
+      expect(listingsQuerySchema.safeParse({ search: 'bread' }).success).toBe(true);
+      expect(listingsQuerySchema.safeParse({ city: 'Thành phố Hà Nội' }).success).toBe(true);
+      expect(listingsQuerySchema.safeParse({ priceMin: '1000' }).success).toBe(true);
+    });
+
+    it('rejects an invalid category', () => {
+      expect(listingsQuerySchema.safeParse({ category: 'SEAFOOD' }).success).toBe(false);
+    });
+
+    it('rejects an unsupported sort field', () => {
+      expect(listingsQuerySchema.safeParse({ sort: 'createdAt' }).success).toBe(false);
+    });
+
+    it('rejects an unsupported order value', () => {
+      expect(listingsQuerySchema.safeParse({ order: 'newest' }).success).toBe(false);
+    });
+
+    it.each([-1, -100])('rejects a negative priceMin/priceMax %s', (price) => {
+      expect(listingsQuerySchema.safeParse({ priceMin: price }).success).toBe(false);
+      expect(listingsQuerySchema.safeParse({ priceMax: price }).success).toBe(false);
+    });
+
+    it('rejects a priceMin greater than priceMax', () => {
+      expect(
+        listingsQuerySchema.safeParse({ priceMin: 5000, priceMax: 1000 }).success,
+      ).toBe(false);
+    });
+
+    it('accepts priceMin equal to priceMax', () => {
+      expect(
+        listingsQuerySchema.safeParse({ priceMin: 2000, priceMax: 2000 }).success,
+      ).toBe(true);
     });
   });
 

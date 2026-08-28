@@ -6,11 +6,13 @@ import { useProfile } from '../hooks/useProfile';
 import { useProfileEditForm } from '../hooks/useProfileEditForm';
 import { ProfileView } from '../components/ProfileView';
 import { ProfileEditForm } from '../components/ProfileEditForm';
+import { ProfileSkeleton } from '../components/ProfileSkeleton';
 import { Button } from '@/shared/components/Button/Button';
 import RecipientTopNavigation from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
 import DonorTopNavigation from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
 import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
+import { getStoredUser } from '@/services/authStorage';
 import { cn } from '@/shared/utils';
 import type { ThemeRole } from '@/shared/components/AvatarUpload/AvatarUpload';
 
@@ -21,9 +23,21 @@ export function ProfilePage() {
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
-  const isDonor = profile?.role === 'DONOR';
-  const isPremium = profile?.role === 'RECIPIENT' && profile.tier === 'PREMIUM';
+  const cachedUser = getStoredUser();
+
+  const isDonor = (profile ? profile.role : cachedUser?.role) === 'DONOR';
+
+  const isPremium = profile
+    ? profile.role === 'RECIPIENT' && profile.tier === 'PREMIUM'
+    : Boolean(cachedUser && cachedUser.role === 'RECIPIENT' && cachedUser.tier === 'PREMIUM');
+
   const theme: ThemeRole = isDonor ? 'donor' : 'recipient';
+
+  // Avatar to show in the nav before `profile` has loaded. Once loaded,
+  // the edit-mode preview (avatarUpload.previewUrl) takes over below —
+  // this is only the pre-fetch / not-editing-yet fallback.
+  const cachedAvatarUrl = getAvatarDisplayUrl(profile?.avatarUrl ?? cachedUser?.avatarUrl ?? null);
+  const cachedUsername = profile?.username ?? cachedUser?.username;
 
   const {
     form,
@@ -57,13 +71,33 @@ export function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FBF9F8]">
-        <header className="h-16 border-b bg-white" />
-        <main className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
-          <div className="animate-pulse space-y-8">
-            <div className="h-8 w-48 rounded bg-slate-200" />
-            <div className="h-64 rounded-xl border border-slate-200 bg-white" />
+      <div className={cn('min-h-screen', isDonor ? 'bg-[#FBF9F8]' : 'bg-gradient-to-b from-[#f5faf7] to-[#e9f5ee]')}>
+        {isDonor ? (
+          <DonorTopNavigation
+            avatarUrl={cachedAvatarUrl}
+            avatarAlt={cachedUsername}
+            onNotificationsClick={() => {}}
+          />
+        ) : (
+          <RecipientTopNavigation
+            avatarUrl={cachedAvatarUrl}
+            avatarAlt={cachedUsername}
+            onNotificationsClick={() => {}}
+            isPremium={isPremium}
+          />
+        )}
+
+        <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+          {/* Static copy, not data-dependent — render it immediately
+              rather than skeletonizing text that never changes. */}
+          <div>
+            <h1 className="text-3xl font-bold text-[#1B1C1C]">Profile Management</h1>
+            <p className="text-slate-600 mt-1">
+              Update your details and manage how you appear in the AFF community.
+            </p>
           </div>
+
+          <ProfileSkeleton isDonor={isDonor} />
         </main>
       </div>
     );
@@ -71,9 +105,22 @@ export function ProfilePage() {
 
   if (loadError || !profile) {
     return (
-      <div className="min-h-screen bg-[#FBF9F8]">
-        <header className="h-16 border-b bg-white" />
-        <main className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+      <div className={cn('min-h-screen', isDonor ? 'bg-[#FBF9F8]' : 'bg-gradient-to-b from-[#f5faf7] to-[#e9f5ee]')}>
+        {isDonor ? (
+          <DonorTopNavigation
+            avatarUrl={cachedAvatarUrl}
+            avatarAlt={cachedUsername}
+            onNotificationsClick={() => {}}
+          />
+        ) : (
+          <RecipientTopNavigation
+            avatarUrl={cachedAvatarUrl}
+            avatarAlt={cachedUsername}
+            onNotificationsClick={() => {}}
+            isPremium={isPremium}
+          />
+        )}
+        <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
           <FormErrorAlert message={loadError || 'Profile data is unavailable.'} />
         </main>
       </div>
@@ -196,8 +243,8 @@ export function ProfilePage() {
                   disabled={isSubmitting || avatarUpload.isUploading}
                   className={cn(
                     'font-bold min-w-36 h-10',
-                    isDonor 
-                      ? 'bg-[#805300] hover:bg-[#694400] text-white' 
+                    isDonor
+                      ? 'bg-[#805300] hover:bg-[#694400] text-white'
                       : 'bg-[#3D6852] hover:bg-[#2E5A47] text-white'
                   )}
                 >

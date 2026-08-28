@@ -12,6 +12,7 @@ import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
 import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
+import { ListingDetailPage } from '@/modules/browsing/pages/ListingDetailPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
 import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
@@ -20,7 +21,7 @@ import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPag
 import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
-import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts/DonorSoldOutAlerts';
+import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
 
 export function AppRouter() {
@@ -84,6 +85,11 @@ export function AppRouter() {
               <FoodListingsPage />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="/marketplace/:id"
+          element={<ListingDetailPage />}
         />
 
         <Route

@@ -22,6 +22,7 @@ import type {
 
 import type {
   MineListingsQuery,
+  ListingsQuery,
   ListingOrdersQuery,
 } from './listing.schemas.js';
 
@@ -52,6 +53,14 @@ interface UpdateListingStatusServiceResult {
 
 interface ListingOrdersServiceResult {
   items: ListingOrderDtoSource[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+// Paginated result from the public active-listings browse endpoint
+interface AvailableListingsServiceResult {
+  items: ListingDtoSource[];
   page: number;
   limit: number;
   total: number;
@@ -187,10 +196,16 @@ async function listMyListings(
 }
 
 async function listAvailableListings(
-  filters: Record<string, unknown> = {},
-): Promise<ListingDtoSource[]> {
-  const listings = await listingRepository.findAvailableListings(filters);
-  return Promise.all(listings.map(enrichListing));
+  query: ListingsQuery,
+): Promise<AvailableListingsServiceResult> {
+  const result = await listingRepository.findAvailableListings(query);
+
+  return {
+    items: await Promise.all(result.items.map(enrichListing)),
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+  };
 }
 
 async function createListing(
@@ -217,13 +232,11 @@ async function createListing(
   return { listing, donor };
 }
 
-async function getListingById(
-  id: string,
-): Promise<ListingDtoSource | null> {
+async function getListingById(id: string): Promise<ListingDtoSource> {
   const listing = await listingRepository.findListingById(id);
 
   if (!listing) {
-    return null;
+    throw createHttpError(404, 'Listing not found.');
   }
 
   return enrichListing(listing);

@@ -16,7 +16,8 @@ export const API_ROUTES = {
     uploadUrl: '/media/upload-url',
   },
   listings: {
-    create: '/listings',
+    create: '/listings',          // POST — donor creates a listing
+    available: '/listings',       // GET  — public browse
     mine: '/listings/mine',
     detail: (listingId: string) =>
       `/listings/${listingId}`,

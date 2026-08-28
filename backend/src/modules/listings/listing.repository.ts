@@ -10,7 +10,7 @@ import mongoose, {
   type ClientSession,
   type PipelineStage,
 } from 'mongoose';
-import type { MineListingsQuery } from './listing.schemas.js';
+import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
 
 interface CreateListingInput {
   donorId: string | Types.ObjectId;
@@ -50,8 +50,126 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function findAvailableListings(filters: Record<string, unknown> = {}) {
-  return Listing.find({ ...filters, status: 'ACTIVE' }).lean<ListingDocument[]>();
+// paginated result returned to the Listings service for the public browse endpoint
+interface AvailableListingsRepositoryResult {
+  items: ListingDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+// internal shape returned by MongoDB for the public browse aggregation
+interface AvailableListingsAggregationResult {
+  items: ListingDocument[];
+  metadata: Array<{ total: number; }>;
+}
+
+/**
+ * Returns a page of publicly-browsable Listings, always scoped to
+ * `status: 'ACTIVE'`. Supports D6's optional search/city/category/price
+ * filters and price sort, mirroring `findMyListingsWithStats`'s pattern.
+ */
+async function findAvailableListings(
+  query: ListingsQuery,
+): Promise<AvailableListingsRepositoryResult> {
+  const match: Record<string, unknown> = {
+    status: 'ACTIVE',
+  };
+
+  // Add a case-insensitive partial-name search when supplied.
+  if (query.search) {
+    match.name = {
+      $regex: escapeRegExp(query.search),
+      $options: 'i',
+    };
+  }
+
+  // City is an exact match — it's copied from the Donor's fixed-dropdown
+  // profile city at listing-creation time, not free text.
+  if (query.city) {
+    match.city = query.city;
+  }
+
+  // Add an exact category filter when supplied.
+  if (query.category) {
+    match.category = query.category;
+  }
+
+  // Build the price-range filter.
+  if (query.priceMin !== undefined || query.priceMax !== undefined) {
+    const price: {
+      $gte?: number;
+      $lte?: number;
+    } = {};
+
+    if (query.priceMin !== undefined) {
+      price.$gte = query.priceMin;
+    }
+
+    if (query.priceMax !== undefined) {
+      price.$lte = query.priceMax;
+    }
+
+    match.price = price;
+  }
+
+  // `order` only takes effect when a sortable field is actually requested —
+  // a stray `order` with no `sort` must not flip the default browse away
+  // from `createdAt desc`.
+  const sortField = query.sort === 'price' ? 'price' : 'createdAt';
+  const sortDirection: 1 | -1 =
+    query.sort === 'price' && query.order === 'asc' ? 1 : -1;
+
+  // _id provides stable ordering when two Listings share the same sort
+  // field value.
+  const sort: Record<string, 1 | -1> = {
+    [sortField]: sortDirection,
+    _id: 1,
+  };
+
+  const skip = (query.page - 1) * query.limit;
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: match,
+    },
+
+    // Sort before pagination so that the correct page is selected.
+    {
+      $sort: sort,
+    },
+
+    // Return the requested page and the total count in one database query.
+    {
+      $facet: {
+        items: [
+          {
+            $skip: skip,
+          },
+          {
+            $limit: query.limit,
+          },
+        ],
+        metadata: [
+          {
+            $count: 'total',
+          },
+        ],
+      },
+    },
+  ];
+
+  const [result] =
+    await Listing.aggregate<AvailableListingsAggregationResult>(
+      pipeline,
+    );
+
+  return {
+    items: result?.items ?? [],
+    page: query.page,
+    limit: query.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
 }
 
 async function findMyListingsWithStats(
