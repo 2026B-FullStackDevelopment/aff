@@ -272,7 +272,7 @@ describe('listing.repository', () => {
           },
         },
       ]),
-      { new: true, session: undefined },
+      { new: true, session: undefined, updatePipeline: true },
     );
 
     const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];
@@ -304,7 +304,7 @@ describe('listing.repository', () => {
           },
         },
       ]),
-      { new: true, session: undefined },
+      { new: true, session: undefined, updatePipeline: true },
     );
 
     const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];

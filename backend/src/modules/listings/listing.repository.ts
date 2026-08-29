@@ -448,7 +448,11 @@ function decrementStockAtomically(
         },
       },
     ],
-    { new: true, session },
+    // Mongoose 9 requires this explicit opt-in before it will accept an
+    // array (aggregation pipeline) as an update document — otherwise it
+    // throws "Cannot pass an array to query updates unless the
+    // `updatePipeline` option is set" instead of running the update.
+    { new: true, session, updatePipeline: true },
   ).lean<ListingDocument>();
 }
 
@@ -497,7 +501,8 @@ function decrementStockForReserveAtomically(
         },
       },
     ],
-    { new: true, session },
+    // See the matching comment in `decrementStockAtomically` above.
+    { new: true, session, updatePipeline: true },
   ).lean<ListingDocument>();
 }
 
