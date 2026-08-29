@@ -1,5 +1,6 @@
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import type { ListingUnit } from '@/types/api';
+import { ListingDetailField } from '../ListingDetailField';
 import type { ListingOrderDTO } from '../../types';
 import {
   formatOrderAmount,
@@ -27,17 +28,11 @@ function PaymentSummary({
         {formatOrderAmount(order)}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge
-          status={order.paymentStatus}
-        />
-
-        {paymentMethod && (
-          <span className="text-xs text-[#6B7280]">
-            {paymentMethod}
-          </span>
-        )}
-      </div>
+      {paymentMethod && (
+        <span className="text-xs text-[#6B7280]">
+          {paymentMethod}
+        </span>
+      )}
     </div>
   );
 }
@@ -156,59 +151,39 @@ export function ListingOrderMobileCard({
       </header>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-[#E4E2E1] pt-4">
-        <div>
-          <div>
-            <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-              Order type
-            </dt>
+        <div className="space-y-4">
+          <ListingDetailField
+            label="Order type"
+            value={<OrderTypeBadge order={order} />}
+          />
 
-            <dd className="mt-1">
-              <OrderTypeBadge order={order} />
-            </dd>
-          </div>
-          <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-            Created
-          </dt>
-
-          <dd className="mt-1 text-sm text-[#414844]">
-            {formatOrderDate(
+          <ListingDetailField
+            label="Created"
+            value={formatOrderDate(
               order.createdAt,
             )}
-          </dd>
+            valueClassName="text-[#414844] font-normal"
+          />
         </div>
 
-        <div>
-          <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-            Quantity
-          </dt>
+        <ListingDetailField
+          label="Quantity"
+          value={formatOrderQuantity(
+            order.quantity,
+            unit,
+          )}
+          valueClassName="text-[#414844]"
+        />
 
-          <dd className="mt-1 text-sm font-semibold text-[#414844]">
-            {formatOrderQuantity(
-              order.quantity,
-              unit,
-            )}
-          </dd>
-        </div>
+        <ListingDetailField
+          label="Payment"
+          value={<PaymentSummary order={order} />}
+        />
 
-        <div>
-          <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-            Payment
-          </dt>
-
-          <dd className="mt-1">
-            <PaymentSummary order={order} />
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-            Delivery
-          </dt>
-
-          <dd className="mt-1">
-            <DeliveryStatus order={order} />
-          </dd>
-        </div>
+        <ListingDetailField
+          label="Delivery"
+          value={<DeliveryStatus order={order} />}
+        />
       </dl>
 
       <section className="mt-4 border-t border-[#E4E2E1] pt-4">

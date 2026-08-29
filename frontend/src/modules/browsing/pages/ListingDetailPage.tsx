@@ -10,7 +10,7 @@ import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantitySte
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, shortCityLabel } from '@/shared/utils/listingFormatting';
 import { getStoredUser } from '@/services/authStorage';
 import type { ListingDetailDTO } from '@/types/api';
-import { ListingDetailHeader } from '../../../shared/components/ListingDetailHeader/ListingDetailHeader';
+import { NavigationHeader } from '../../../shared/components/NavigationHeader/NavigationHeader';
 import { useListingDetail } from '../hooks/useListingDetail';
 import { useReserveListing } from '../hooks/useReserveListing';
 
@@ -20,7 +20,7 @@ export function ListingDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <ListingDetailHeader />
+      <NavigationHeader />
 
       <div className="mx-auto max-w-5xl px-6 py-6">
         {isLoading && <LoadingSkeleton count={1} />}
@@ -72,7 +72,8 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
         </div>
 
         {listing.description && (
-          <Panel contentClassName="p-5">
+          <Panel contentClassName="p-5" >
+            <h3 className="text-lg font-bold tracking-tight text-[#1B1C1C] pb-3">Description</h3>
             <p className="text-sm leading-6 text-[#414844]">{listing.description}</p>
           </Panel>
         )}

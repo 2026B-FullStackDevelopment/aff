@@ -10,6 +10,7 @@ import type {
   ListingUnit,
 } from '@/types/api';
 import {
+  ACCEPTED_IMAGE_TYPES,
   mediaService,
   uploadFileToSignedUrl,
 } from '@/shared/services/media.service';
@@ -49,12 +50,6 @@ export type ListingSubmissionKind =
   | 'CREATED'
   | 'CLONED'
   | 'EDITED_COPY';
-
-const ACCEPTED_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-];
 
 function getInitialForm(
   source?: ListingDTO | null,

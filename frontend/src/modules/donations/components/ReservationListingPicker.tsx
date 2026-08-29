@@ -12,6 +12,7 @@ import { Pagination } from '@/shared/components/Pagination/Pagination';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import { cn } from '@/shared/utils';
+import { UNIT_LABELS, formatCategory } from '@/shared/utils/listingFormatting';
 import type {
   ListingGroup,
   ManagedListingDTO,
@@ -32,32 +33,6 @@ interface ReservationListingPickerProps {
   onPageChange: (page: number) => void;
   onSelect: (listing: ManagedListingDTO) => void;
   onRetry: () => void;
-}
-
-const UNIT_LABELS: Record<
-  ManagedListingDTO['unit'],
-  string
-> = {
-  KILOGRAM: 'Kilogram',
-  GRAM: 'Gram',
-  LITER: 'Liter',
-  MILLILITER: 'Milliliter',
-  UNIT: 'Unit',
-  PER_REQUEST: 'Per Request',
-};
-
-function formatCategory(
-  category: ManagedListingDTO['category'],
-): string {
-  return category
-    .toLowerCase()
-    .split('_')
-    .map(
-      (word) =>
-        word.charAt(0).toUpperCase()
-        + word.slice(1),
-    )
-    .join(' ');
 }
 
 function ListingChoice({

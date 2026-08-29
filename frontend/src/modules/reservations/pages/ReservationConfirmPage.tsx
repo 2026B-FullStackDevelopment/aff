@@ -6,7 +6,7 @@ import { DonorLocationMap } from '@/shared/components/DonorLocationMap/DonorLoca
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { ListingDetailHeader } from '@/shared/components/ListingDetailHeader/ListingDetailHeader';
+import { NavigationHeader } from '@/shared/components/NavigationHeader/NavigationHeader';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
@@ -44,7 +44,7 @@ export function ReservationConfirmPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <ListingDetailHeader
+      <NavigationHeader
         backTo={id ? `/marketplace/${id}` : '/marketplace'}
         backLabel="Back to Listing"
       />

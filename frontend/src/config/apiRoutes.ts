@@ -45,7 +45,8 @@ export const API_ROUTES = {
     create: '/reservations',
   },
   subscriptions: {
-    premium: '/subscriptions/premium',
+    me: '/subscriptions/me',
+    checkoutSession: '/subscriptions/checkout-session',
   },
   admin: {
     dashboard: '/admin/dashboard',

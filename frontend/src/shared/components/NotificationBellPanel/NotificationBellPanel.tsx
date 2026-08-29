@@ -23,9 +23,31 @@ export function NotificationBellPanel({ open, onClose, children }: NotificationB
     if (!open) return;
 
     function handleClickOutside(event: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        onClose();
+      if (!panelRef.current) return;
+
+      // Ignore clicks for panel instances that are hidden in the DOM (e.g. responsive desktop/mobile duplicates)
+      if (
+        panelRef.current.offsetParent === null &&
+        panelRef.current.getClientRects().length === 0
+      ) {
+        return;
       }
+
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      // Ignore clicks inside the panel itself
+      if (panelRef.current.contains(target)) {
+        return;
+      }
+
+      // Ignore clicks on the trigger / container so the bell button's onClick toggles cleanly
+      const container = panelRef.current.closest('.relative');
+      if (container && container.contains(target)) {
+        return;
+      }
+
+      onClose();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
