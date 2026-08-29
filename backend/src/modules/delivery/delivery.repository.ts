@@ -1,6 +1,30 @@
 // Contains Delivery database operations so services do not call Mongoose directly.
-import Delivery, { type DeliveryDocument } from './delivery.model.js';
-import mongoose, { type ClientSession, type Types } from 'mongoose';
+import Delivery, { type DeliveryDocument, type DeliveryStage } from './delivery.model.js';
+import mongoose, {
+  type ClientSession,
+  type PipelineStage,
+  type Types,
+} from 'mongoose';
+
+/** Filter and pagination for the Admin's read-only Delivery table (E11). */
+interface AdminDeliveryFilter {
+  page: number;
+  limit: number;
+  stage?: DeliveryStage;
+}
+
+/** One page of Deliveries plus the total matching the same filter. */
+interface AdminDeliveryPage {
+  items: DeliveryDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface AdminDeliveryAggregationResult {
+  items: DeliveryDocument[];
+  metadata: Array<{ total: number }>;
+}
 
 function findDeliveryById(
   deliveryId: string | Types.ObjectId,
@@ -138,6 +162,47 @@ function markDeliveredIfPickedUp(
   ).lean<DeliveryDocument>();
 }
 
+/**
+ * Reads one page of Deliveries for the Admin oversight table. Returns only
+ * Delivery-owned fields — the Courier's name and the Order's recipient are
+ * hydrated by the caller through their own modules' interfaces, so this
+ * module never reads another module's collection.
+ */
+async function listForAdmin(filter: AdminDeliveryFilter): Promise<AdminDeliveryPage> {
+  const match: Record<string, unknown> = {};
+
+  if (filter.stage) {
+    match.stage = filter.stage;
+  }
+
+  const skip = (filter.page - 1) * filter.limit;
+
+  const pipeline: PipelineStage[] = [
+    { $match: match },
+
+    // Newest first: an oversight table is read for current activity, not
+    // history. `_id` breaks ties so paging stays stable.
+    { $sort: { createdAt: -1, _id: -1 } },
+
+    // One round trip for both the page and the total behind it.
+    {
+      $facet: {
+        items: [{ $skip: skip }, { $limit: filter.limit }],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ];
+
+  const [result] = await Delivery.aggregate<AdminDeliveryAggregationResult>(pipeline);
+
+  return {
+    items: result?.items ?? [],
+    page: filter.page,
+    limit: filter.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 /** Runs related Delivery-domain writes in one MongoDB transaction. */
 async function withTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
@@ -165,5 +230,7 @@ export {
   cancelAwaitingDeliveriesByOrderIds,
   cancelAwaitingDeliveryForOrder,
   markDeliveredIfPickedUp,
+  listForAdmin,
   withTransaction,
 };
+export type { AdminDeliveryFilter, AdminDeliveryPage };

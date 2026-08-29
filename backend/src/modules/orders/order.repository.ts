@@ -245,6 +245,22 @@ async function hasNonCancelledOrderForListing(
   return Boolean(result);
 }
 
+/**
+ * Loads a set of Orders by id, projecting only what a caller joining against
+ * Orders needs. Used by the Admin Delivery table (E11) so hydrating a page of
+ * Deliveries costs one query rather than one per row.
+ */
+async function findOrdersByIds(
+  orderIds: string[],
+): Promise<Array<{ _id: Types.ObjectId; recipientId: Types.ObjectId }>> {
+  if (orderIds.length === 0) return [];
+
+  return Order.find(
+    { _id: { $in: orderIds } },
+    { _id: 1, recipientId: 1 },
+  ).lean<Array<{ _id: Types.ObjectId; recipientId: Types.ObjectId }>>();
+}
+
 async function cancelOrdersByIds(
   orderIds: string[],
   cancelledByUserId: string | Types.ObjectId,
@@ -529,6 +545,7 @@ async function findOrdersForRecipient(
 }
 
 export {
+  findOrdersByIds,
   findOrderById,
   findOrderByIdAndRecipient,
   createOrder,

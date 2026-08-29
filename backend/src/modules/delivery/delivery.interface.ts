@@ -9,6 +9,7 @@ const deliveryInterface = {
   findByOrderId: deliveryService.findByOrderId,
   cancelAwaitingDeliveryForOrder:
     deliveryService.cancelAwaitingDeliveryForOrder,
+  listForAdmin: deliveryService.listForAdmin,
 };
 
 export { deliveryInterface };

@@ -287,6 +287,17 @@ async function markOrderPaid(
   return orderRepository.markOrderPaid(orderId, session);
 }
 
+/**
+ * Loads a set of Orders by id for a caller joining against Orders — currently
+ * the Admin Delivery table (E11). Exposed through `order.interface` so other
+ * modules never read the `ORDER` collection directly.
+ */
+async function findOrdersByIds(orderIds: string[]) {
+  if (orderIds.length === 0) return [];
+
+  return orderRepository.findOrdersByIds(orderIds);
+}
+
 async function markOrderDelivered(
   orderId: string,
   courierId: string,
@@ -440,6 +451,7 @@ export {
   createOrder,
   markOrderPaid,
   markOrderDelivered,
+  findOrdersByIds,
   choosePaymentMethod,
   createCheckoutSession,
   cancelOrdersByIds,

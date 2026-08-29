@@ -40,6 +40,7 @@ import {
   markOrderRefunded,
   setFeedback,
   findOrdersForRecipient,
+  findOrdersByIds,
 } from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
@@ -96,6 +97,27 @@ describe('order.repository', () => {
       deliveryLocation,
     });
     expect(result).toEqual({ _id: 'o1' });
+  });
+
+  describe('findOrdersByIds', () => {
+    it('loads every requested Order in one query, projecting only the recipient', async () => {
+      leanMock.mockResolvedValue([{ _id: 'o1', recipientId: 'r1' }]);
+
+      const result = await findOrdersByIds(['o1', 'o2']);
+
+      expect(findMock).toHaveBeenCalledWith(
+        { _id: { $in: ['o1', 'o2'] } },
+        { _id: 1, recipientId: 1 },
+      );
+      expect(result).toEqual([{ _id: 'o1', recipientId: 'r1' }]);
+    });
+
+    it('skips the database entirely when asked for nothing', async () => {
+      const result = await findOrdersByIds([]);
+
+      expect(findMock).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
   });
 
   describe('hasNonCancelledOrderForListing', () => {

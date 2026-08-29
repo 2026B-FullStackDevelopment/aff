@@ -4,6 +4,10 @@ import type { DeliveryDocument } from './delivery.model.js';
 import * as deliveryRepository from './delivery.repository.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
+import type {
+  AdminDeliveryFilter,
+  AdminDeliveryPage,
+} from './delivery.repository.js';
 import type { MarkDeliveredPayload } from './delivery.schemas.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
@@ -93,6 +97,16 @@ async function cancelAwaitingDeliveryForOrder(
     cancelledAt,
     session,
   );
+}
+
+/**
+ * Reads one page of every Delivery for the Admin oversight table (E11).
+ * Read-only by design: the Admin module has no way to assign, reassign, or
+ * force-claim a Delivery, and this module exposes no operation that would
+ * let it (`docs/api_design.md` §11).
+ */
+async function listForAdmin(filter: AdminDeliveryFilter): Promise<AdminDeliveryPage> {
+  return deliveryRepository.listForAdmin(filter);
 }
 
 /**
@@ -201,5 +215,6 @@ export {
   cancelAwaitingDeliveriesByOrderIds,
   findByOrderId,
   cancelAwaitingDeliveryForOrder,
+  listForAdmin,
   markDelivered,
 };

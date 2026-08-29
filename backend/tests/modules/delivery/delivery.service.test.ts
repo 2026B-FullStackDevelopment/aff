@@ -8,6 +8,7 @@ const {
   withTransactionMock,
   findDeliveryByIdMock,
   markDeliveredIfPickedUpMock,
+  listForAdminMock,
   findOrderByIdMock,
   markOrderDeliveredMock,
   getListingByIdMock,
@@ -19,6 +20,7 @@ const {
   withTransactionMock: vi.fn(),
   findDeliveryByIdMock: vi.fn(),
   markDeliveredIfPickedUpMock: vi.fn(),
+  listForAdminMock: vi.fn(),
   findOrderByIdMock: vi.fn(),
   markOrderDeliveredMock: vi.fn(),
   getListingByIdMock: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
   withTransaction: withTransactionMock,
   findDeliveryById: findDeliveryByIdMock,
   markDeliveredIfPickedUp: markDeliveredIfPickedUpMock,
+  listForAdmin: listForAdminMock,
 }));
 
 vi.mock('../../../src/modules/orders/order.interface.js', () => ({
@@ -51,6 +54,7 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 import {
   createForOrder,
   markDelivered,
+  listForAdmin,
 } from '../../../src/modules/delivery/delivery.service.js';
 
 describe('delivery.service', () => {
@@ -172,6 +176,26 @@ describe('delivery.service', () => {
         latitude: 10.8,
         longitude: 106.6,
       });
+    });
+  });
+
+  describe('listForAdmin', () => {
+    it('hands the Admin filter straight to the repository', async () => {
+      const page = { items: [{ _id: 'd1' }], page: 2, limit: 5, total: 9 };
+      listForAdminMock.mockResolvedValue(page);
+
+      const result = await listForAdmin({
+        page: 2,
+        limit: 5,
+        stage: 'ASSIGNED',
+      });
+
+      expect(listForAdminMock).toHaveBeenCalledWith({
+        page: 2,
+        limit: 5,
+        stage: 'ASSIGNED',
+      });
+      expect(result).toBe(page);
     });
   });
 });
