@@ -2,6 +2,7 @@
 // Zod is a typescript library to validate data while app running
 
 import { z } from 'zod';
+import { locationSchema } from '../../shared/validation/common-fields.schemas.js';
 // Runtime values allowed by the LISTING measurement-unit enum.
 const measurementUnitSchema = z.enum(
   [
@@ -297,6 +298,28 @@ const listingOrdersQuerySchema = paginationQuerySchema.strict();
 
 type ListingOrdersQuery = z.infer<typeof listingOrdersQuerySchema>;
 
+/**
+ * Validates `POST /listings/:id/reserve`.
+ *
+ * No price-based refinement here (e.g. requiring `paymentMethod` when the
+ * listing is priced) — that needs the listing's `price`, which this schema
+ * has no way to see. That check lives in `listingService.reserveListing`.
+ */
+const reserveListingSchema = z
+  .object({
+    quantity: positiveQuantitySchema,
+
+    deliveryAddressText: z
+      .string({ message: 'Delivery address is required.' })
+      .trim()
+      .min(1, { message: 'Delivery address is required.' }),
+
+    deliveryLocation: locationSchema,
+
+    paymentMethod: paymentMethodSchema.optional(),
+  })
+  .strict();
+
 export {
   measurementUnitSchema,
   foodCategorySchema,
@@ -312,6 +335,7 @@ export {
   updateListingStatusSchema,
   donorInitiatedDonationSchema,
   listingOrdersQuerySchema,
+  reserveListingSchema,
 };
 
 export type { MineListingsQuery, ListingsQuery, ListingOrdersQuery };
