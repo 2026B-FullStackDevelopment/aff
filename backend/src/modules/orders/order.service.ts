@@ -45,6 +45,18 @@ async function findNonCancelledOrderIdsByListing(
   return orderRepository.findNonCancelledOrderIdsByListing(listingId, session);
 }
 
+async function hasNonCancelledOrderForListing(
+  listingId: string,
+  recipientId: string,
+  session?: ClientSession,
+): Promise<boolean> {
+  return orderRepository.hasNonCancelledOrderForListing(
+    listingId,
+    recipientId,
+    session,
+  );
+}
+
 async function createOrder(
   data: CreateOrderInput,
   session?: ClientSession,
@@ -203,6 +215,7 @@ export {
   findOrderById,
   verifyOrderOwnership,
   findNonCancelledOrderIdsByListing,
+  hasNonCancelledOrderForListing,
   createOrder,
   markOrderPaid,
   markOrderDelivered,

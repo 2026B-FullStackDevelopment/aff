@@ -189,6 +189,25 @@ async function findNonCancelledOrderIdsByListing(
   return orders.map((order) => String(order._id));
 }
 
+/**
+ * Whether this Recipient already has a non-cancelled Order against this
+ * Listing — used to enforce "one reservation per listing per Recipient".
+ */
+async function hasNonCancelledOrderForListing(
+  listingId: string | Types.ObjectId,
+  recipientId: string | Types.ObjectId,
+  session?: ClientSession,
+): Promise<boolean> {
+  const query = Order.exists({
+    listingId,
+    recipientId,
+    orderStatus: { $ne: 'CANCELLED' },
+  });
+
+  const result = await (session ? query.session(session) : query);
+  return Boolean(result);
+}
+
 async function cancelOrdersByIds(
   orderIds: string[],
   cancelledByUserId: string | Types.ObjectId,
@@ -281,6 +300,7 @@ export {
   markOrderDelivered,
   setPaymentMethodIfUnset,
   findNonCancelledOrderIdsByListing,
+  hasNonCancelledOrderForListing,
   cancelOrdersByIds,
   findOrdersForListing,
 };
