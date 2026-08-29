@@ -3,13 +3,14 @@
   "info": {
     "title": "AFF Listings Browse API",
     "version": "0.1.0",
-    "description": "The public, unauthenticated Recipient browse endpoint (Epic D — D1 base pagination, D6 search/filter/sort). Reflects backend/src/modules/listings/listing.controller.ts::listAvailableListings as implemented. Listing detail (GET /listings/{id}) and every Donor-owned listings-management endpoint are documented in donor_openai.json, not here, to avoid documenting the same path in two files."
+    "description": "The public, unauthenticated Recipient browse endpoint (Epic D — D1 base pagination, D6 search/filter/sort), plus the authenticated Recipient reservation action (D2). Reflects backend/src/modules/listings/listing.controller.ts::listAvailableListings and ::reserveListing as implemented. Listing detail (GET /listings/{id}) and every Donor-owned listings-management endpoint are documented in donor_openai.json, not here, to avoid documenting the same path in two files."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
   ],
   "tags": [
-    { "name": "Listings Browse", "description": "Search, filter, sort, and paginate publicly-active listings" }
+    { "name": "Listings Browse", "description": "Search, filter, sort, and paginate publicly-active listings" },
+    { "name": "Recipient Reservations", "description": "Reserve an active listing and choose how to pay (D2)" }
   ],
   "paths": {
     "/listings": {
@@ -83,10 +84,80 @@
           "400": { "$ref": "#/components/responses/ValidationError" }
         }
       }
+    },
+    "/listings/{id}/reserve": {
+      "post": {
+        "tags": ["Recipient Reservations"],
+        "operationId": "reserveListing",
+        "summary": "Reserve an active listing",
+        "description": "Creates a Reservation Order for the authenticated Recipient and atomically decrements stock. paymentMethod is required when the listing's price is greater than 0, and must be omitted for a free listing. A free listing returns paymentStatus FREE and orderStatus PREPARING and enters the Courier queue immediately. A cash reservation also returns orderStatus PREPARING despite paymentStatus PAYMENT_PENDING — cash orders join the queue immediately and are settled on delivery, they don't wait for payment to be collected. A Stripe reservation returns orderStatus PENDING_PAYMENT and paymentStatus PAYMENT_PENDING; no Delivery is created until POST /orders/{id}/checkout-session is completed and the Stripe webhook confirms payment. Only one non-cancelled Order per Recipient per listing is allowed. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out (see donor_openai.json's x-socket-io section).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ListingId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReserveListingRequest" },
+              "examples": {
+                "free": {
+                  "value": {
+                    "quantity": 2,
+                    "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                    "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009 }
+                  }
+                },
+                "stripe": {
+                  "value": {
+                    "quantity": 1,
+                    "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                    "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009 },
+                    "paymentMethod": "STRIPE"
+                  }
+                },
+                "cash": {
+                  "value": {
+                    "quantity": 1,
+                    "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                    "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009 },
+                    "paymentMethod": "CASH"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reservation Order created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OrderResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ReserveValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "422": { "$ref": "#/components/responses/ReservationNotProcessable" }
+        }
+      }
     }
   },
   "components": {
     "parameters": {
+      "ListingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Listing MongoDB ObjectId",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        },
+        "example": "507f1f77bcf86cd799439011"
+      },
       "Page": {
         "name": "page",
         "in": "query",
@@ -137,6 +208,106 @@
           "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
           "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
           "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "GeoLocationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["latitude", "longitude"],
+        "properties": {
+          "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+        }
+      },
+      "ReserveListingRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["quantity", "deliveryAddressText", "deliveryLocation"],
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "deliveryAddressText": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocationInput" },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["STRIPE", "CASH"],
+            "description": "Required when the listing's price is greater than 0; omit entirely for a free listing."
+          }
+        }
+      },
+      "Feedback": {
+        "type": "object",
+        "required": ["comment", "createdAt"],
+        "properties": {
+          "comment": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderListingSummary": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "description": "Omitted by the reserveListing mapper" },
+          "imageUrl": { "type": "string", "format": "uri", "description": "Omitted by the reserveListing mapper" },
+          "unit": {
+            "allOf": [{ "$ref": "#/components/schemas/MeasurementUnit" }],
+            "description": "Omitted by the reserveListing mapper"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "recipientId": { "type": "string" },
+          "listing": { "$ref": "#/components/schemas/OrderListingSummary" },
+          "intakePath": {
+            "type": "string",
+            "enum": ["RESERVATION", "DONOR_INITIATED"]
+          },
+          "quantity": { "type": "number" },
+          "amount": {
+            "type": "number",
+            "description": "listing.price multiplied by quantity"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["STRIPE", "CASH"],
+            "description": "Omitted for a free (FREE paymentStatus) reservation"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": ["FREE", "PAYMENT_PENDING", "PAID", "REFUND_PENDING", "REFUNDED"]
+          },
+          "orderStatus": {
+            "type": "string",
+            "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"],
+            "description": "PREPARING for free/cash reservations, PENDING_PAYMENT for Stripe until checkout completes"
+          },
+          "deliveryAddressText": { "type": "string" },
+          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "cancelledByUserId": { "type": "string", "nullable": true },
+          "feedback": {
+            "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Order" }
         }
       },
       "ListingDonorSummary": {
@@ -202,6 +373,55 @@
             "examples": {
               "unknownField": { "value": { "message": "Unrecognized key: status" } },
               "priceRange": { "value": { "message": "Minimum price cannot be greater than maximum price." } }
+            }
+          }
+        }
+      },
+      "ReserveValidationError": {
+        "description": "Request body validation failed, or paymentMethod is required because the listing is priced",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missingPaymentMethod": { "value": { "message": "A payment method is required for a priced listing." } },
+              "invalidQuantity": { "value": { "message": "Quantity must be a number." } },
+              "missingAddress": { "value": { "message": "Delivery address is required." } }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Authentication is required." } },
+              "invalid": { "value": { "message": "Your session is invalid or has expired." } }
+            }
+          }
+        }
+      },
+      "RecipientRoleRequired": {
+        "description": "The authenticated account is not a Recipient",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "ReservationNotProcessable": {
+        "description": "The listing was not found or is not eligible to reserve, the Recipient already has a non-cancelled Order on it, or the requested quantity exceeds a ration/stock constraint",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "notEligible": { "value": { "message": "This listing is not available to reserve." } },
+              "duplicateOrder": { "value": { "message": "You already have an order for this listing." } },
+              "rationLimit": { "value": { "message": "Quantity exceeds the ration limit." } },
+              "remainingStock": { "value": { "message": "Quantity exceeds the remaining stock." } },
+              "concurrentStock": { "value": { "message": "The requested stock is no longer available." } }
             }
           }
         }
