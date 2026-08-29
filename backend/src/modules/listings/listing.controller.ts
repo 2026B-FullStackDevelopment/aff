@@ -7,7 +7,7 @@ import {
   toListingWithStatsResponseDto,
   toListingOrderResponseDto,
 } from './listing.dto.js';
-import { created, ok, paginated, notImplemented } from '../../shared/http/response.js';
+import { created, ok, paginated } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
 import {
   createListingSchema,
@@ -16,7 +16,8 @@ import {
   listingIdParamsSchema,
   updateListingStatusSchema,
   listingOrdersQuerySchema,
-  donorInitiatedDonationSchema
+  donorInitiatedDonationSchema,
+  reserveListingSchema
 } from './listing.schemas.js';
 import { toOrderResponseDto } from '../orders/order.dto.js';
 
@@ -156,8 +157,15 @@ async function createDonorInitiatedDonation( req: Request, res: Response, next: 
   }
 }
 
-async function reserveListing(_req: Request, res: Response) {
-  return notImplemented(res);
+async function reserveListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(listingIdParamsSchema, req.params);
+    const payload = parseBody(reserveListingSchema, req.body);
+    const order = await listingService.reserveListing(id, req.user!.id, payload);
+    return created(res, toOrderResponseDto(order));
+  } catch (error) {
+    return next(error);
+  }
 }
 
 export {
