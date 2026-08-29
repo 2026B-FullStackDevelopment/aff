@@ -6,12 +6,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // findOneMock represents Order.findOne().
 // createMock represents Order.create().
 // leanMock represents the .lean() method returned
-const { findMock, findOneMock, createMock, leanMock } = vi.hoisted(() => {
+const { findMock, findOneMock, createMock, existsMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findMock: vi.fn(() => ({ lean: leanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
+    existsMock: vi.fn(),
     leanMock,
   };
 });
@@ -21,17 +22,24 @@ vi.mock('../../../src/modules/orders/order.model.js', () => ({
     find: findMock,
     findOne: findOneMock,
     create: createMock,
+    exists: existsMock,
   },
 }));
 
 // Import the repository functions
-import { findOrdersByRecipient, findOrderByIdAndRecipient, createOrder } from '../../../src/modules/orders/order.repository.js';
+import {
+  findOrdersByRecipient,
+  findOrderByIdAndRecipient,
+  createOrder,
+  hasNonCancelledOrderForListing,
+} from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
   beforeEach(() => {
     findMock.mockClear();
     findOneMock.mockClear();
     createMock.mockClear();
+    existsMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue([{ _id: 'o1' }]);
   });
@@ -86,5 +94,28 @@ describe('order.repository', () => {
       deliveryLocation,
     });
     expect(result).toEqual({ _id: 'o1' });
+  });
+
+  describe('hasNonCancelledOrderForListing', () => {
+    it('returns true when a non-cancelled order exists for this listing and recipient', async () => {
+      existsMock.mockResolvedValue({ _id: 'o1' });
+
+      const result = await hasNonCancelledOrderForListing('l1', 'r1');
+
+      expect(existsMock).toHaveBeenCalledWith({
+        listingId: 'l1',
+        recipientId: 'r1',
+        orderStatus: { $ne: 'CANCELLED' },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no matching order exists', async () => {
+      existsMock.mockResolvedValue(null);
+
+      const result = await hasNonCancelledOrderForListing('l1', 'r1');
+
+      expect(result).toBe(false);
+    });
   });
 });

@@ -39,6 +39,7 @@ import {
   updateListing,
   findMyListingsWithStats,
   decrementStockAtomically,
+  decrementStockForReserveAtomically,
 } from '../../../src/modules/listings/listing.repository.js';
 
 describe('listing.repository', () => {
@@ -258,6 +259,38 @@ describe('listing.repository', () => {
       {
         _id: 'l1',
         donorId: 'd1',
+        status: 'ACTIVE',
+        unit: { $ne: 'PER_REQUEST' },
+        quantityRemaining: { $gte: 2 },
+      },
+      expect.arrayContaining([
+        {
+          $set: {
+            quantityRemaining: {
+              $subtract: ['$quantityRemaining', 2],
+            },
+          },
+        },
+      ]),
+      { new: true, session: undefined },
+    );
+
+    const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];
+    expect(JSON.stringify(updatePipeline)).toContain('SOLD_OUT');
+  });
+
+  it('guards the reserve-scoped stock decrement without a donorId filter and marks the exact-zero result SOLD_OUT', async () => {
+    leanMock.mockResolvedValue({
+      _id: 'l1',
+      quantityRemaining: 0,
+      status: 'SOLD_OUT',
+    });
+
+    await decrementStockForReserveAtomically('l1', 2);
+
+    expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+      {
+        _id: 'l1',
         status: 'ACTIVE',
         unit: { $ne: 'PER_REQUEST' },
         quantityRemaining: { $gte: 2 },

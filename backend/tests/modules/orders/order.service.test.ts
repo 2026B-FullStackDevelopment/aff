@@ -1,24 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { findOrdersByRecipientMock, findOrderByIdAndRecipientMock, } = vi.hoisted(() => ({
+const {
+  findOrdersByRecipientMock,
+  findOrderByIdAndRecipientMock,
+  hasNonCancelledOrderForListingMock,
+} = vi.hoisted(() => ({
   findOrdersByRecipientMock: vi.fn(),
-   findOrderByIdAndRecipientMock: vi.fn(),
+  findOrderByIdAndRecipientMock: vi.fn(),
+  hasNonCancelledOrderForListingMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/orders/order.repository.js', () => ({
   findOrdersByRecipient: findOrdersByRecipientMock,
   findOrderByIdAndRecipient: findOrderByIdAndRecipientMock,
+  hasNonCancelledOrderForListing: hasNonCancelledOrderForListingMock,
 }));
 
-import { listOrdersForRecipient, verifyOrderOwnership } from '../../../src/modules/orders/order.service.js';
+import {
+  listOrdersForRecipient,
+  verifyOrderOwnership,
+  hasNonCancelledOrderForListing,
+} from '../../../src/modules/orders/order.service.js';
 
 // Group all tests related to order.service
 describe('order.service', () => {
-  
+
   // beforeEach runs before every it() test
   beforeEach(() => {
     findOrdersByRecipientMock.mockClear();
     findOrderByIdAndRecipientMock.mockClear();
+    hasNonCancelledOrderForListingMock.mockClear();
   });
 
   describe('listOrdersForRecipient', () => {
@@ -85,6 +96,29 @@ describe('order.service', () => {
 
       expect(result).toBe(false);
       expect(findOrderByIdAndRecipientMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hasNonCancelledOrderForListing', () => {
+    it('delegates to the repository, scoped to the listing and recipient', async () => {
+      hasNonCancelledOrderForListingMock.mockResolvedValue(true);
+
+      const result = await hasNonCancelledOrderForListing('l1', 'r1');
+
+      expect(hasNonCancelledOrderForListingMock).toHaveBeenCalledWith(
+        'l1',
+        'r1',
+        undefined,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when the repository finds no matching order', async () => {
+      hasNonCancelledOrderForListingMock.mockResolvedValue(false);
+
+      const result = await hasNonCancelledOrderForListing('l1', 'r1');
+
+      expect(result).toBe(false);
     });
   });
 
