@@ -452,6 +452,55 @@ function decrementStockAtomically(
   ).lean<ListingDocument>();
 }
 
+/**
+ * Same atomic guard/decrement as `decrementStockAtomically`, but without the
+ * `donorId` filter — a Recipient reserving a listing doesn't own it.
+ */
+function decrementStockForReserveAtomically(
+  listingId: string | Types.ObjectId,
+  quantity: number,
+  session?: ClientSession,
+) {
+  const soldOutAt = new Date();
+
+  return Listing.findOneAndUpdate(
+    {
+      _id: listingId,
+      status: 'ACTIVE',
+      unit: { $ne: 'PER_REQUEST' },
+      quantityRemaining: { $gte: quantity },
+    },
+    [
+      {
+        $set: {
+          quantityRemaining: {
+            $subtract: ['$quantityRemaining', quantity],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              'SOLD_OUT',
+              '$status',
+            ],
+          },
+          closedAt: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              soldOutAt,
+              '$closedAt',
+            ],
+          },
+        },
+      },
+    ],
+    { new: true, session },
+  ).lean<ListingDocument>();
+}
+
 async function withTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
@@ -478,5 +527,6 @@ export {
   updateListing,
   updateListingStatusIfCurrent,
   decrementStockAtomically,
+  decrementStockForReserveAtomically,
   withTransaction,
 };
