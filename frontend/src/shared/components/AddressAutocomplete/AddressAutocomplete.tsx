@@ -10,14 +10,16 @@ import {
   LocateFixed,
   MapPin,
 } from 'lucide-react';
+
 import { Button } from '@/shared/components/Button/Button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+
 import { useNominatimSearch } from '@/shared/hooks/useNominatimSearch';
-import {
-  nominatimService,
-  type NominatimPlace,
-} from '@/shared/services/nominatim.service';
+import { useCurrentLocation } from '@/shared/hooks/useCurrentLocation';
+
+import type { NominatimPlace } from '@/shared/services/nominatim.service';
+
 import { cn } from '@/shared/utils';
 import { resolveProvince } from '@/shared/utils/resolveProvince';
 
@@ -29,6 +31,8 @@ export interface LocationData {
   rawAddress?: Record<string, string>;
 }
 
+export type ThemeRole = 'admin' | 'recipient' | 'donor';
+
 interface AddressAutocompleteProps {
   value: string;
   onSelect: (data: LocationData) => void;
@@ -38,7 +42,44 @@ interface AddressAutocompleteProps {
   label?: string;
   placeholder?: string;
   required?: boolean;
+  theme?: ThemeRole;
+  className?: string;
 }
+
+const themeFocusStyles: Record<
+  ThemeRole,
+  {
+    input: string;
+    icon: string;
+    button: string;
+    suggestionActive: string;
+  }
+> = {
+  admin: {
+    input:
+      'focus-visible:border-[#5b7bc0] focus-visible:ring-[#5b7bc0]/15',
+    icon: 'group-focus-within/field:text-[#5b7bc0]',
+    button:
+      'border-slate-200 text-[#5b7bc0] hover:border-[#5b7bc0] hover:bg-[#5b7bc0]/10 focus-visible:ring-[#5b7bc0]/30',
+    suggestionActive: 'bg-[#5b7bc0]/10 text-[#5b7bc0] font-medium',
+  },
+  recipient: {
+    input:
+      'focus-visible:border-[#3D6852] focus-visible:ring-[#3D6852]/15',
+    icon: 'group-focus-within/field:text-[#3D6852]',
+    button:
+      'border-slate-200 text-[#3D6852] hover:border-[#3D6852] hover:bg-[#3D6852]/10 focus-visible:ring-[#3D6852]/30',
+    suggestionActive: 'bg-[#3D6852]/10 text-[#3D6852] font-medium',
+  },
+  donor: {
+    input:
+      'focus-visible:border-[#805300] focus-visible:ring-[#805300]/15',
+    icon: 'group-focus-within/field:text-[#805300]',
+    button:
+      'border-slate-200 text-[#805300] hover:border-[#805300] hover:bg-[#805300]/10 focus-visible:ring-[#805300]/30',
+    suggestionActive: 'bg-[#805300]/10 text-[#805300] font-medium',
+  },
+};
 
 export function AddressAutocomplete({
   value,
@@ -49,29 +90,42 @@ export function AddressAutocomplete({
   label = 'Address',
   placeholder = 'Start typing a street address...',
   required = true,
+  theme = 'admin',
+  className,
 }: AddressAutocompleteProps) {
+  const currentTheme =
+    themeFocusStyles[theme] || themeFocusStyles.admin;
   const generatedId = useId();
   const inputId =
     customId ?? `address-input-${generatedId}`;
   const listboxId =
     `address-listbox-${generatedId}`;
-  const errorId = error
+
+  const formErrorId = error
     ? `${inputId}-error`
     : undefined;
 
+  const searchErrorId =
+    `${inputId}-search-error`;
+
+  const locationErrorId =
+    `${inputId}-location-error`;
+
   const [input, setInput] =
     useState(value);
+
   const [showDropdown, setShowDropdown] =
     useState(false);
+
   const [focusedIndex, setFocusedIndex] =
     useState(-1);
-  const [isGpsLoading, setIsGpsLoading] =
-    useState(false);
 
   const containerRef =
     useRef<HTMLDivElement>(null);
+
   const skipNextSearchRef =
     useRef(true);
+
   const previousValueRef =
     useRef(value);
 
@@ -79,6 +133,7 @@ export function AddressAutocomplete({
     setQuery,
     results: suggestions,
     isLoading: isSearchLoading,
+    error: searchError,
     clear,
   } = useNominatimSearch({
     countrycodes: 'vn',
@@ -86,26 +141,35 @@ export function AddressAutocomplete({
     minQueryLength: 3,
   });
 
+  const {
+    getCurrentLocation,
+    isLoading: isGpsLoading,
+    error: locationError,
+    clearError: clearLocationError,
+  } = useCurrentLocation();
+
   const isLoading =
     isSearchLoading || isGpsLoading;
 
+  // Synchronise local input state when the controlled value changes externally.
   useEffect(() => {
-  if (
-    previousValueRef.current === value
-  ) {
-    return;
-  }
+    if (
+      previousValueRef.current === value
+    ) {
+      return;
+    }
 
-  previousValueRef.current = value;
+    previousValueRef.current = value;
 
-  if (value === input) {
-    return;
-  }
+    if (value === input) {
+      return;
+    }
 
-  skipNextSearchRef.current = true;
-  setInput(value);
-}, [input, value]);
+    skipNextSearchRef.current = true;
+    setInput(value);
+  }, [input, value]);
 
+  // Close the suggestion dropdown when clicking outside the component.
   useEffect(() => {
     function handleClickOutside(
       event: MouseEvent,
@@ -134,6 +198,7 @@ export function AddressAutocomplete({
     };
   }, []);
 
+  // Trigger the Nominatim search when the user changes the input.
   useEffect(() => {
     if (skipNextSearchRef.current) {
       skipNextSearchRef.current = false;
@@ -152,21 +217,24 @@ export function AddressAutocomplete({
     setFocusedIndex(-1);
   }, [clear, input, setQuery]);
 
-  function handleSelect(
-    item: NominatimPlace,
+  function applyLocation(
+    addressText: string,
+    latitude: number,
+    longitude: number,
+    rawAddress?: Record<string, string>,
   ) {
-    const latitude = Number(item.lat);
-    const longitude = Number(item.lon);
-    const rawAddress = item.address;
-
     skipNextSearchRef.current = true;
-    setInput(item.display_name);
+
+    setInput(addressText);
+
     clear();
+    clearLocationError();
+
     setShowDropdown(false);
     setFocusedIndex(-1);
 
     onSelect({
-      addressText: item.display_name,
+      addressText,
       latitude,
       longitude,
       municipality: resolveProvince(
@@ -178,12 +246,29 @@ export function AddressAutocomplete({
     });
   }
 
+  function handleSelect(
+    item: NominatimPlace,
+  ) {
+    const latitude = Number(item.lat);
+    const longitude = Number(item.lon);
+
+    applyLocation(
+      item.display_name,
+      latitude,
+      longitude,
+      item.address,
+    );
+  }
+
   function handleInputChange(
     nextValue: string,
   ) {
+    clearLocationError();
+
     setInput(nextValue);
     setShowDropdown(true);
     setFocusedIndex(-1);
+
     onInputChange?.(nextValue);
   }
 
@@ -236,69 +321,19 @@ export function AddressAutocomplete({
     }
   }
 
-  function handleUseCurrentLocation() {
-    if (!navigator.geolocation) {
-      window.alert(
-        'Geolocation is not supported by this browser.',
-      );
+  async function handleUseCurrentLocation() {
+    const location =
+      await getCurrentLocation();
+
+    if (!location) {
       return;
     }
 
-    setIsGpsLoading(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const {
-          latitude,
-          longitude,
-        } = position.coords;
-
-        try {
-          const place =
-            await nominatimService.reverseGeocode(
-              latitude,
-              longitude,
-            );
-
-          if (!place) {
-            window.alert(
-              'AFF could not resolve your current address.',
-            );
-            return;
-          }
-
-          skipNextSearchRef.current = true;
-          setInput(place.display_name);
-          clear();
-          setShowDropdown(false);
-          setFocusedIndex(-1);
-
-          onSelect({
-            addressText: place.display_name,
-            latitude,
-            longitude,
-            municipality: resolveProvince(
-              place.address,
-              latitude,
-              longitude,
-            ),
-            rawAddress: place.address,
-          });
-        } catch {
-          window.alert(
-            'AFF could not retrieve your current address.',
-          );
-        } finally {
-          setIsGpsLoading(false);
-        }
-      },
-      () => {
-        setIsGpsLoading(false);
-
-        window.alert(
-          'Unable to retrieve your location. Check your browser permissions and try again.',
-        );
-      },
+    applyLocation(
+      location.addressText,
+      location.latitude,
+      location.longitude,
+      location.rawAddress,
     );
   }
 
@@ -321,9 +356,12 @@ export function AddressAutocomplete({
       </Label>
 
       <div className="flex items-center gap-2">
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1 group/field">
           <MapPin
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+            className={cn(
+              "pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-colors duration-200 ease-out",
+              currentTheme.icon,
+            )}
             aria-hidden="true"
           />
 
@@ -339,8 +377,24 @@ export function AddressAutocomplete({
                 ? `${inputId}-option-${focusedIndex}`
                 : undefined
             }
-            aria-invalid={Boolean(error)}
-            aria-describedby={errorId}
+            aria-invalid={Boolean(
+              error
+              || searchError
+              || locationError,
+            )}
+            aria-describedby={
+              [
+                formErrorId,
+                searchError
+                  ? searchErrorId
+                  : undefined,
+                locationError
+                  ? locationErrorId
+                  : undefined,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
             aria-busy={isLoading}
             required={required}
             value={input}
@@ -357,7 +411,11 @@ export function AddressAutocomplete({
             }}
             placeholder={placeholder}
             autoComplete="street-address"
-            className="h-12 border-[#C1C8C2] bg-[#FBF9F8] pl-10 pr-3 text-sm text-[#1B1C1C] transition-all duration-200 focus-visible:border-[#805300] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[#805300]/15 focus-visible:ring-offset-0"
+            className={cn(
+              "h-11 rounded-lg border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 placeholder:text-gray-400 transition-all duration-200 ease-out focus-visible:ring-4 focus-visible:ring-offset-0",
+              currentTheme.input,
+              className,
+            )}
           />
         </div>
 
@@ -368,7 +426,10 @@ export function AddressAutocomplete({
           disabled={isGpsLoading}
           aria-label="Use current location"
           title="Use current location"
-          className="h-12 shrink-0 border-[#C1C8C2] bg-white px-3 text-[#805300] hover:border-[#805300] hover:bg-[#FFF6E3]"
+          className={cn(
+            "h-11 shrink-0 rounded-lg border bg-white px-3 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0",
+            currentTheme.button,
+          )}
         >
           {isGpsLoading ? (
             <LoaderCircle
@@ -391,7 +452,7 @@ export function AddressAutocomplete({
       {isSearchLoading && (
         <p
           role="status"
-          className="text-xs text-[#6B7280]"
+          className="text-xs text-slate-400"
         >
           Searching locations…
         </p>
@@ -402,7 +463,7 @@ export function AddressAutocomplete({
           id={listboxId}
           role="listbox"
           aria-label="Address suggestions"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#E4E2E1] bg-white py-1 shadow-xl"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
           {suggestions.length > 0 ? (
             suggestions.map(
@@ -419,10 +480,10 @@ export function AddressAutocomplete({
                     handleSelect(item);
                   }}
                   className={cn(
-                    'cursor-pointer border-b border-[#F1EFED] px-4 py-3 text-sm leading-5 text-[#414844] transition-colors last:border-b-0',
+                    'cursor-pointer border-b border-slate-100 px-4 py-2.5 text-sm leading-5 text-slate-700 transition-colors last:border-b-0',
                     focusedIndex === index
-                      ? 'bg-[#FFF6E3] text-[#5B3A00]'
-                      : 'hover:bg-[#FBF9F8]',
+                      ? currentTheme.suggestionActive
+                      : 'hover:bg-slate-50',
                   )}
                 >
                   {item.display_name}
@@ -432,7 +493,7 @@ export function AddressAutocomplete({
           ) : (
             <li
               role="status"
-              className="px-4 py-3 text-center text-sm text-[#6B7280]"
+              className="px-4 py-3 text-center text-sm text-slate-500"
             >
               No matching addresses found.
             </li>
@@ -440,9 +501,30 @@ export function AddressAutocomplete({
         </ul>
       )}
 
+      {searchError && (
+        <p
+          id={searchErrorId}
+          role="alert"
+          className="text-xs font-semibold text-red-600"
+        >
+          Location search is currently unavailable.
+          Please try again later.
+        </p>
+      )}
+
+      {locationError && (
+        <p
+          id={locationErrorId}
+          role="alert"
+          className="text-xs font-semibold text-red-600"
+        >
+          {locationError}
+        </p>
+      )}
+
       {error && (
         <p
-          id={errorId}
+          id={formErrorId}
           className="text-xs font-semibold text-red-600"
         >
           {error}

@@ -220,6 +220,18 @@ export interface OrderDTO {
   createdAt: string;
 }
 
+export interface ReserveListingPayload {
+  quantity: number;
+  deliveryAddressText: string;
+  deliveryLocation: { latitude: number; longitude: number };
+  /** Required when listing.price > 0; must be omitted for a free listing. */
+  paymentMethod?: PaymentMethod;
+}
+
+export interface CheckoutSessionResponseDto {
+  checkoutUrl: string;
+}
+
 // --- Delivery ---
 
 export type DeliveryStage =

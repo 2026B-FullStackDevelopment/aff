@@ -1,8 +1,12 @@
 ﻿import { Award } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   PortalTopNavigation,
   type PortalNavItem,
 } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
+import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
+import { PremiumUpsellPanel } from '@/modules/notifications/components/PremiumUpsellPanel';
+import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';
 
 const RECIPIENT_NAV_ITEMS: readonly PortalNavItem[] = [
   {
@@ -23,7 +27,7 @@ interface RecipientTopNavigationProps {
     avatarUrl?: string | null;
     avatarAlt?: string;
     hasUnreadNotifications?: boolean;
-    onNotificationsClick: () => void;
+    onNotificationsClick?: () => void;
     isPremium?: boolean;
 }
 
@@ -34,6 +38,9 @@ export function RecipientTopNavigation({
     onNotificationsClick,
     isPremium = false,
 }: RecipientTopNavigationProps) {
+  const navigate = useNavigate();
+  const { isOpen, toggle, close } = useNotificationBell(onNotificationsClick);
+
   return (
     <PortalTopNavigation
       variant="recipient"
@@ -43,7 +50,29 @@ export function RecipientTopNavigation({
       avatarUrl={avatarUrl}
       avatarAlt={avatarAlt}
       hasUnreadNotification={hasUnreadNotifications}
-      onNotificationsClick={onNotificationsClick}
+      onNotificationsClick={toggle}
+      isNotificationPanelOpen={isOpen}
+      notificationPanel={
+        <NotificationBellPanel open={isOpen} onClose={close}>
+          {isPremium ? (
+            // TODO (SRS 5.3.2): render the live, in-session notification
+            // history here — latest first, each item navigating to its
+            // listing on click — once the notification:premium_match
+            // socket listener exists. No GET /notifications endpoint
+            // exists per api_design.md §13, so this must be a
+            // session-scoped store fed by the socket event, not a fetch.
+            null
+          ) : (
+            <PremiumUpsellPanel
+              onClose={close}
+              onUpgrade={() => {
+                close();
+                navigate('/subscription');
+              }}
+            />
+          )}
+        </NotificationBellPanel>
+      }
       profileTo="/profile"
       extraRightActions={
         isPremium ? (

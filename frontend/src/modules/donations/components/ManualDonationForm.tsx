@@ -617,6 +617,7 @@ export function ManualDonationForm() {
                 fieldErrors
                   .deliveryAddressText
               }
+              theme="donor"
             />
 
             <p className="mt-2 text-xs leading-5 text-[#6B7280]">

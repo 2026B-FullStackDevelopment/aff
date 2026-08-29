@@ -192,6 +192,7 @@ export function ProfileEditForm({
               value={form.addressText}
               onSelect={handleAddressSelect}
               error={errors.addressText}
+              theme={theme}
             />
           </div>
         )}

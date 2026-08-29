@@ -145,6 +145,7 @@ export function DonorRegisterPage() {
                 value={form.address}
                 onSelect={handleAddressSelect}
                 error={errors.address}
+                theme="donor"
               />
 
               <SelectField
