@@ -90,12 +90,11 @@ export function useReservationCheckout(
         }
 
         // Stripe Checkout is a hosted page — full redirect, not a router nav.
-        // NOTE: the checkout session's success_url is built server-side
-        // (see the (not-yet-reviewed) orders controller/service that calls
-        // payment_provider.ts#createCheckoutSession). For the Recipient to
-        // land on /orders/:id after paying, that success_url needs to point
-        // at `${FRONTEND_URL}/orders/${order.id}` — routing-only change
-        // here can't cover that half of the flow.
+        // order.service.ts#createCheckoutSession already sets success_url to
+        // `${FRONTEND_URL}/orders/${order.id}?payment=success`, so the
+        // Recipient lands back on this order's tracking page after paying.
+        // Confirmation itself arrives async via the payment:success socket
+        // event (see useOrderPaymentNotifications), not from this redirect.
         window.location.href = checkoutResponse.data.checkoutUrl;
         return;
       }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from '@/shared/components/ui/sonner';
 import { reservationService } from '../services/reservation.service';
+import { useOrderPaymentNotifications } from './useOrderPaymentNotifications';
 import type { OrderDTO } from '@/types/api';
 
 export function useOrderTracking(orderId: string | undefined) {
@@ -52,6 +53,8 @@ export function useOrderTracking(orderId: string | undefined) {
   }, [orderId, reloadToken]);
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+
+  useOrderPaymentNotifications(orderId, reload);
 
   const paymentWasCancelled = searchParams.get('payment') === 'cancelled';
 
