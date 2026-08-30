@@ -18,6 +18,7 @@ vi.mock('../../../src/modules/orders/order.repository.js', () => ({
 
 import {
   listOrdersForRecipient,
+  getOrderForRecipient,
   verifyOrderOwnership,
   hasNonCancelledOrderForListing,
 } from '../../../src/modules/orders/order.service.js';
@@ -95,6 +96,49 @@ describe('order.service', () => {
       );
 
       expect(result).toBe(false);
+      expect(findOrderByIdAndRecipientMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getOrderForRecipient', () => {
+    const orderId = '507f1f77bcf86cd799439011';
+    const ownerId = '507f191e810c19729de860ea';
+    const differentRecipientId = '507f191e810c19729de860eb';
+
+    it('returns the order when the recipient owns it', async () => {
+      const order = { _id: orderId, recipientId: ownerId };
+      findOrderByIdAndRecipientMock.mockResolvedValue(order);
+
+      const result = await getOrderForRecipient(orderId, ownerId);
+
+      expect(result).toEqual(order);
+      expect(findOrderByIdAndRecipientMock).toHaveBeenCalledWith(
+        orderId,
+        ownerId,
+      );
+    });
+
+    it('throws a 404 when the order belongs to another recipient', async () => {
+      findOrderByIdAndRecipientMock.mockResolvedValue(null);
+
+      await expect(
+        getOrderForRecipient(orderId, differentRecipientId),
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('throws a 404 when the order does not exist', async () => {
+      findOrderByIdAndRecipientMock.mockResolvedValue(null);
+
+      await expect(getOrderForRecipient(orderId, ownerId)).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it('throws a 404 for an invalid order ID without calling the repository', async () => {
+      await expect(
+        getOrderForRecipient('invalid-order-id', ownerId),
+      ).rejects.toMatchObject({ statusCode: 404 });
+
       expect(findOrderByIdAndRecipientMock).not.toHaveBeenCalled();
     });
   });

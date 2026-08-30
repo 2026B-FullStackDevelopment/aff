@@ -26,6 +26,31 @@ async function findOrderById(
   return orderRepository.findOrderById(orderId, session);
 }
 
+/**
+ * Fetches a single Order for its owning Recipient. Never distinguishes a
+ * nonexistent order from one owned by someone else — both are `404` — so
+ * this endpoint can't be used to probe for another Recipient's order ids.
+ */
+async function getOrderForRecipient(
+  orderId: string,
+  recipientId: string,
+) {
+  if (!isValidObjectId(orderId)) {
+    throw createHttpError(404, 'Order not found.');
+  }
+
+  const order = await orderRepository.findOrderByIdAndRecipient(
+    orderId,
+    recipientId,
+  );
+
+  if (!order) {
+    throw createHttpError(404, 'Order not found.');
+  }
+
+  return order;
+}
+
 // Check whether the order belongs to the recipient
 async function verifyOrderOwnership(
   orderId: string,
@@ -214,6 +239,7 @@ async function listOrdersForListing(
 export {
   listOrdersForRecipient,
   findOrderById,
+  getOrderForRecipient,
   verifyOrderOwnership,
   findNonCancelledOrderIdsByListing,
   hasNonCancelledOrderForListing,

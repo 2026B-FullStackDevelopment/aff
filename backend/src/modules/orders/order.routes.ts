@@ -8,6 +8,7 @@ import { requireRole } from '../../middleware/role.middleware.js';
 const router = express.Router();
 
 router.get('/mine', requireAuth, requireRole('RECIPIENT'), orderController.listMyOrders);
+router.get('/:id', requireAuth, requireRole('RECIPIENT'), orderController.getOrder);
 router.delete('/:id', requireAuth, requireRole('RECIPIENT'), orderController.cancelOrder);
 router.post('/:id/feedback', requireAuth, requireRole('RECIPIENT'), orderController.submitFeedback);
 router.post(
