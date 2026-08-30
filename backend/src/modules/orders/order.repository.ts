@@ -49,6 +49,14 @@ interface ListingOrdersAggregationResult {
   metadata: Array<{ total: number }>;
 }
 
+interface OrderJoinSummary {
+  _id: Types.ObjectId;
+  recipientId: Types.ObjectId;
+  quantity: number;
+  deliveryAddressText: string;
+  listingId: Types.ObjectId;
+}
+
 interface RecipientOrderListingSummary {
   id: string;
   name: string;
@@ -247,18 +255,22 @@ async function hasNonCancelledOrderForListing(
 
 /**
  * Loads a set of Orders by id, projecting only what a caller joining against
- * Orders needs. Used by the Admin Delivery table (E11) so hydrating a page of
- * Deliveries costs one query rather than one per row.
+ * Orders needs: the Admin Delivery table (E11) uses `recipientId`, and the
+ * Courier queue (E2) uses `quantity`, `deliveryAddressText` and `listingId`.
  */
-async function findOrdersByIds(
-  orderIds: string[],
-): Promise<Array<{ _id: Types.ObjectId; recipientId: Types.ObjectId }>> {
+async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> {
   if (orderIds.length === 0) return [];
 
   return Order.find(
     { _id: { $in: orderIds } },
-    { _id: 1, recipientId: 1 },
-  ).lean<Array<{ _id: Types.ObjectId; recipientId: Types.ObjectId }>>();
+    {
+      _id: 1,
+      recipientId: 1,
+      quantity: 1,
+      deliveryAddressText: 1,
+      listingId: 1,
+    },
+  ).lean<OrderJoinSummary[]>();
 }
 
 async function cancelOrdersByIds(
@@ -565,6 +577,7 @@ export {
 
 export type {
   CreateOrderInput,
+  OrderJoinSummary,
   ListingOrderRepositoryItem,
   ListingOrdersRepositoryResult,
   RecipientOrderRepositoryItem,

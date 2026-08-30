@@ -209,6 +209,17 @@ async function findCourierProfilesByUserIds(userIds: string[]) {
 }
 
 /**
+ * Loads a set of Donor profiles by user id, for a caller joining against
+ * Donors — currently the Courier queue (E2), which needs each Donor's
+ * company name.
+ */
+async function findDonorsByUserIds(userIds: string[]) {
+  if (userIds.length === 0) return [];
+
+  return donorRepository.findDonorsByUserIds(userIds);
+}
+
+/**
  * Reads one page of Courier accounts for the Admin roster (E11), pairing each
  * `USER` with its `COURIER` profile in a single follow-up query rather than
  * one per row. An account whose profile row is missing is still listed, with
@@ -356,6 +367,7 @@ export {
   createCourierAccount,
   listCouriers,
   findCourierProfilesByUserIds,
+  findDonorsByUserIds,
   getDonorByUserId,
   findRecipientByUserId,
   searchRecipientsByEmail,

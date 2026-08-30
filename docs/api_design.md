@@ -470,7 +470,7 @@ Response: `200` (always, once the event is durably processed or recognized as a 
 **Auth:** `COURIER`
 
 Query params: pagination (default sort is fixed — oldest-first, not client-selectable).
-Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by the underlying `ORDER.createdAt` ascending, each entry including `order: { id, quantity, deliveryAddressText }` and `donor: { companyName }`.
+Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note — each entry including `order: { id, quantity, deliveryAddressText }` and `donor: { companyName }`.
 
 ### `GET /deliveries/active` — *(new)*
 **Auth:** `COURIER`

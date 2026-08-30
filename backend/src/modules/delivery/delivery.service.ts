@@ -6,15 +6,40 @@ import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
 import type {
   AdminDeliveryFilter,
-  AdminDeliveryPage,
+  DeliveryPage,
 } from './delivery.repository.js';
-import type { MarkDeliveredPayload } from './delivery.schemas.js';
+import type {
+  MarkDeliveredPayload,
+  DeliveryQueueQuery,
+} from './delivery.schemas.js';
+import { toQueueDeliveryResponseDto } from './delivery.dto.js';
+import type { QueueDeliveryResponseDto } from './delivery.dto.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
-interface MarkDeliveredResult {
+/** A Delivery plus its resolved pickup address (E5). */
+interface DeliveryWithPickupAddress {
   delivery: DeliveryDocument;
   pickupAddressText: string | undefined;
   pickupAddressLocation: GeoLocation | undefined;
+}
+
+/** One page of hydrated queue rows. */
+interface QueueDeliveryPage {
+  items: QueueDeliveryResponseDto[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+/** Collects the distinct, defined ids in `values`, preserving first-seen order. */
+function distinctIds(values: Array<unknown>): string[] {
+  const ids = new Set<string>();
+
+  for (const value of values) {
+    if (value) ids.add(String(value));
+  }
+
+  return [...ids];
 }
 
 function createHttpError(statusCode: number, message: string): Error {
@@ -100,13 +125,155 @@ async function cancelAwaitingDeliveryForOrder(
 }
 
 /**
+ * Reads one page of the shared Courier queue (E2), hydrated with the Order
+ * and Donor fields a Courier needs to decide whether to claim.
+ *
+ * Hydration is two bulk calls through other modules' interfaces rather than a
+ * lookup per row, so a page costs a constant number of queries regardless of
+ * its size — resolving each row individually would cost three queries each.
+ * The calls are sequential rather than parallel because the Listing ids come
+ * from the Orders.
+ */
+async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> {
+  const page = await deliveryRepository.findQueue(query);
+
+  if (page.items.length === 0) {
+    return { ...page, items: [] };
+  }
+
+  const orders = await orderInterface.findOrdersByIds(
+    distinctIds(page.items.map((delivery) => delivery.orderId)),
+  );
+
+  const orderById = new Map(orders.map((order) => [String(order._id), order]));
+
+  const donorSummaries = await listingInterface.findDonorSummariesByListingIds(
+    distinctIds(orders.map((order) => order.listingId)),
+  );
+
+  const companyNameByListingId = new Map(
+    donorSummaries.map((summary) => [summary.listingId, summary.companyName]),
+  );
+
+  return {
+    ...page,
+    items: page.items.map((delivery) => {
+      const order = orderById.get(String(delivery.orderId));
+
+      return toQueueDeliveryResponseDto(delivery, {
+        order: order
+          ? {
+              quantity: order.quantity,
+              deliveryAddressText: order.deliveryAddressText,
+            }
+          : null,
+        companyName: order
+          ? companyNameByListingId.get(String(order.listingId)) ?? null
+          : null,
+      });
+    }),
+  };
+}
+
+/**
  * Reads one page of every Delivery for the Admin oversight table (E11).
  * Read-only by design: the Admin module has no way to assign, reassign, or
  * force-claim a Delivery, and this module exposes no operation that would
  * let it (`docs/api_design.md` §11).
  */
-async function listForAdmin(filter: AdminDeliveryFilter): Promise<AdminDeliveryPage> {
+async function listForAdmin(filter: AdminDeliveryFilter): Promise<DeliveryPage> {
   return deliveryRepository.listForAdmin(filter);
+}
+
+/**
+ * Resolves a Delivery's pickup address from its Order's Listing (E5).
+ *
+ * Both fields are denormalised from the Donor at read time. A Listing that
+ * cannot be loaded yields `undefined` for both rather than failing the
+ * request — the Courier still gets their Delivery, just without a map pin.
+ */
+async function resolvePickupAddress(listingId: string): Promise<{
+  pickupAddressText: string | undefined;
+  pickupAddressLocation: GeoLocation | undefined;
+}> {
+  const listingSource = await listingInterface.getListingById(listingId);
+
+  return {
+    pickupAddressText: listingSource?.donor.addressText,
+    pickupAddressLocation: listingSource?.donor.location,
+  };
+}
+
+/** Loads a Delivery's Order and resolves its pickup address in one step. */
+async function withPickupAddress(
+  delivery: DeliveryDocument,
+): Promise<DeliveryWithPickupAddress> {
+  const order = await orderInterface.findOrderById(String(delivery.orderId));
+
+  if (!order) {
+    return {
+      delivery,
+      pickupAddressText: undefined,
+      pickupAddressLocation: undefined,
+    };
+  }
+
+  return { delivery, ...(await resolvePickupAddress(String(order.listingId))) };
+}
+
+/**
+ * Claims an unclaimed Delivery for a Courier (E3/E4/E5).
+ *
+ * Both 409s are distinct on purpose: the client shows "someone beat you to it"
+ * and "finish your current job first" differently, and conflating a garbage id
+ * with a lost race would make a real bug look routine.
+ */
+async function claimDelivery(
+  deliveryId: string,
+  courierId: string,
+): Promise<DeliveryWithPickupAddress> {
+  let claimed: DeliveryDocument | null;
+
+  try {
+    claimed = await deliveryRepository.claimIfAvailable(deliveryId, courierId);
+  } catch (error) {
+    // The only unique index this write can violate is the partial one on
+    // courierId — claim never touches orderId — so 11000 means exactly one
+    // thing here.
+    if (isDuplicateKeyError(error)) {
+      throw createHttpError(409, 'You already have an active Delivery.');
+    }
+
+    throw error;
+  }
+
+  if (!claimed) {
+    // Only on the failure path: decide whether the stage moved or the id is
+    // simply wrong.
+    const existing = await deliveryRepository.findDeliveryById(deliveryId);
+
+    throw existing
+      ? createHttpError(409, 'This Delivery has already been claimed.')
+      : createHttpError(404, 'Delivery not found.');
+  }
+
+  return withPickupAddress(claimed);
+}
+
+/**
+ * Returns the Courier's one in-flight Delivery (E4). A 404 is the documented
+ * signal for the client to fall through to the queue, not an error condition.
+ */
+async function getActiveDelivery(
+  courierId: string,
+): Promise<DeliveryWithPickupAddress> {
+  const active = await deliveryRepository.findActiveByCourier(courierId);
+
+  if (!active) {
+    throw createHttpError(404, 'You have no active Delivery.');
+  }
+
+  return withPickupAddress(active);
 }
 
 /**
@@ -118,7 +285,7 @@ async function markDelivered(
   deliveryId: string,
   courierId: string,
   payload: MarkDeliveredPayload,
-): Promise<MarkDeliveredResult> {
+): Promise<DeliveryWithPickupAddress> {
   return deliveryRepository.withTransaction(
     async (databaseSession) => {
       const delivery = await deliveryRepository.findDeliveryById(
@@ -196,14 +363,9 @@ async function markDelivered(
         );
       }
 
-      const listingSource = await listingInterface.getListingById(
-        String(order.listingId),
-      );
-
       return {
         delivery: updatedDelivery,
-        pickupAddressText: listingSource?.donor.addressText,
-        pickupAddressLocation: listingSource?.donor.location,
+        ...(await resolvePickupAddress(String(order.listingId))),
       };
     },
   );
@@ -216,5 +378,9 @@ export {
   findByOrderId,
   cancelAwaitingDeliveryForOrder,
   listForAdmin,
+  listQueue,
+  claimDelivery,
+  getActiveDelivery,
   markDelivered,
 };
+export type { QueueDeliveryPage };

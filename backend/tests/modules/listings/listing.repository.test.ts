@@ -41,6 +41,7 @@ import {
   decrementStockAtomically,
   decrementStockForReserveAtomically,
   restoreStockAtomically,
+  findListingsByIds,
 } from '../../../src/modules/listings/listing.repository.js';
 
 describe('listing.repository', () => {
@@ -365,6 +366,27 @@ describe('listing.repository', () => {
 
       const filter = findOneAndUpdateMock.mock.calls[0]?.[0];
       expect(filter).toEqual({ _id: 'l1' });
+    });
+  });
+
+  describe('findListingsByIds', () => {
+    it('loads the requested Listings in one query, projecting only the donor', async () => {
+      leanMock.mockResolvedValue([{ _id: 'l1', donorId: 'd1' }]);
+
+      const result = await findListingsByIds(['l1', 'l2']);
+
+      expect(findMock).toHaveBeenCalledWith(
+        { _id: { $in: ['l1', 'l2'] } },
+        { _id: 1, donorId: 1 },
+      );
+      expect(result).toEqual([{ _id: 'l1', donorId: 'd1' }]);
+    });
+
+    it('skips the database entirely when asked for nothing', async () => {
+      const result = await findListingsByIds([]);
+
+      expect(findMock).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
     });
   });
 });

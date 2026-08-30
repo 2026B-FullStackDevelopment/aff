@@ -7,6 +7,7 @@ const {
   deleteUserMock,
   createCourierMock,
   findCouriersByUserIdsMock,
+  findDonorsByUserIdsMock,
   hashPasswordMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   deleteUserMock: vi.fn(),
   createCourierMock: vi.fn(),
   findCouriersByUserIdsMock: vi.fn(),
+  findDonorsByUserIdsMock: vi.fn(),
   hashPasswordMock: vi.fn(),
 }));
 
@@ -31,7 +33,9 @@ vi.mock('../../../src/modules/users/courier.repository.js', () => ({
 }));
 
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({}));
-vi.mock('../../../src/modules/users/donor.repository.js', () => ({}));
+vi.mock('../../../src/modules/users/donor.repository.js', () => ({
+  findDonorsByUserIds: findDonorsByUserIdsMock,
+}));
 vi.mock('../../../src/shared/security/password.js', () => ({
   hashPassword: hashPasswordMock,
 }));
@@ -43,6 +47,7 @@ import {
   createCourierAccount,
   listCouriers,
   findCourierProfilesByUserIds,
+  findDonorsByUserIds,
 } from '../../../src/modules/users/user.service.js';
 
 describe('user.service — Courier accounts', () => {
@@ -180,6 +185,25 @@ describe('user.service — Courier accounts', () => {
       const result = await findCourierProfilesByUserIds([]);
 
       expect(findCouriersByUserIdsMock).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findDonorsByUserIds', () => {
+    it('loads the requested Donor profiles in one query', async () => {
+      const donors = [{ userId: 'd1', companyName: 'Fresh Foods' }];
+      findDonorsByUserIdsMock.mockResolvedValue(donors);
+
+      const result = await findDonorsByUserIds(['d1']);
+
+      expect(findDonorsByUserIdsMock).toHaveBeenCalledWith(['d1']);
+      expect(result).toBe(donors);
+    });
+
+    it('skips the database entirely when asked for nothing', async () => {
+      const result = await findDonorsByUserIds([]);
+
+      expect(findDonorsByUserIdsMock).not.toHaveBeenCalled();
       expect(result).toEqual([]);
     });
   });

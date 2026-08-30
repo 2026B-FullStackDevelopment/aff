@@ -31,6 +31,9 @@ import {
   findDeliveryByOrderId,
   cancelAwaitingDeliveryForOrder,
   listForAdmin,
+  findQueue,
+  claimIfAvailable,
+  findActiveByCourier,
 } from '../../../src/modules/delivery/delivery.repository.js';
 
 describe('delivery.repository', () => {
@@ -110,6 +113,9 @@ function matchStageOf(pipeline: PipelineStage[]): Record<string, unknown> {
 describe('delivery.repository.listForAdmin', () => {
   beforeEach(() => {
     aggregateMock.mockReset();
+    findOneAndUpdateMock.mockClear();
+    findOneMock.mockClear();
+    leanMock.mockReset();
     aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
   });
 
@@ -170,5 +176,83 @@ describe('delivery.repository.listForAdmin', () => {
     };
 
     expect(sort.$sort).toEqual({ createdAt: -1, _id: -1 });
+  });
+
+  describe('findQueue', () => {
+    it('returns only unclaimed Deliveries', async () => {
+      await findQueue({ page: 1, limit: 20 });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(matchStageOf(pipeline)).toEqual({ stage: 'AWAITING_COURIER' });
+    });
+
+    it('sorts oldest first, with a stable tiebreak', async () => {
+      await findQueue({ page: 1, limit: 20 });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      const sort = pipeline.find((entry) => '$sort' in entry) as {
+        $sort: Record<string, 1 | -1>;
+      };
+
+      expect(sort.$sort).toEqual({ createdAt: 1, _id: 1 });
+    });
+
+    it('returns the requested page alongside the total count', async () => {
+      const delivery = { _id: 'd1', stage: 'AWAITING_COURIER' };
+      aggregateMock.mockResolvedValue([
+        { items: [delivery], metadata: [{ total: 4 }] },
+      ]);
+
+      const result = await findQueue({ page: 2, limit: 5 });
+
+      expect(result).toEqual({
+        items: [delivery],
+        page: 2,
+        limit: 5,
+        total: 4,
+      });
+    });
+
+    it('reports an empty queue as a zero total', async () => {
+      const result = await findQueue({ page: 1, limit: 20 });
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+  });
+
+  describe('claimIfAvailable', () => {
+    it('claims only a Delivery still awaiting a Courier, in one write', async () => {
+      leanMock.mockResolvedValue({ _id: 'd1', stage: 'ASSIGNED' });
+
+      const result = await claimIfAvailable('d1', 'c1');
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        { _id: 'd1', stage: 'AWAITING_COURIER' },
+        { $set: { stage: 'ASSIGNED', courierId: 'c1' } },
+        { new: true, runValidators: true },
+      );
+      expect(result).toEqual({ _id: 'd1', stage: 'ASSIGNED' });
+    });
+
+    it('resolves null when the Delivery is no longer awaiting a Courier', async () => {
+      leanMock.mockResolvedValue(null);
+
+      expect(await claimIfAvailable('d1', 'c1')).toBeNull();
+    });
+  });
+
+  describe('findActiveByCourier', () => {
+    it('matches the Courier in-flight Delivery at either stage', async () => {
+      leanMock.mockResolvedValue({ _id: 'd1', stage: 'PICKED_UP' });
+
+      const result = await findActiveByCourier('c1');
+
+      expect(findOneMock).toHaveBeenCalledWith({
+        courierId: 'c1',
+        stage: { $in: ['ASSIGNED', 'PICKED_UP'] },
+      });
+      expect(result).toEqual({ _id: 'd1', stage: 'PICKED_UP' });
+    });
   });
 });

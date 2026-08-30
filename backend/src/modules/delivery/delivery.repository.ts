@@ -14,16 +14,22 @@ interface AdminDeliveryFilter {
 }
 
 /** One page of Deliveries plus the total matching the same filter. */
-interface AdminDeliveryPage {
+interface DeliveryPage {
   items: DeliveryDocument[];
   page: number;
   limit: number;
   total: number;
 }
 
-interface AdminDeliveryAggregationResult {
+interface DeliveryAggregationResult {
   items: DeliveryDocument[];
   metadata: Array<{ total: number }>;
+}
+
+/** Pagination for the shared Courier queue (E2). */
+interface QueueFilter {
+  page: number;
+  limit: number;
 }
 
 function findDeliveryById(
@@ -168,7 +174,7 @@ function markDeliveredIfPickedUp(
  * hydrated by the caller through their own modules' interfaces, so this
  * module never reads another module's collection.
  */
-async function listForAdmin(filter: AdminDeliveryFilter): Promise<AdminDeliveryPage> {
+async function listForAdmin(filter: AdminDeliveryFilter): Promise<DeliveryPage> {
   const match: Record<string, unknown> = {};
 
   if (filter.stage) {
@@ -193,7 +199,81 @@ async function listForAdmin(filter: AdminDeliveryFilter): Promise<AdminDeliveryP
     },
   ];
 
-  const [result] = await Delivery.aggregate<AdminDeliveryAggregationResult>(pipeline);
+  const [result] = await Delivery.aggregate<DeliveryAggregationResult>(pipeline);
+
+  return {
+    items: result?.items ?? [],
+    page: filter.page,
+    limit: filter.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
+/**
+ * Atomically claims a Delivery for a Courier (E3).
+ *
+ * One conditional write, never a read-then-write. The `stage` filter closes
+ * the double-claim race and, by the same mechanism, D4's cancellation cutoff:
+ * if a Recipient cancelled at the same instant, the stage moved and this claim
+ * loses. The unique partial index on `courierId` closes the second race — a
+ * Courier who already holds an ASSIGNED/PICKED_UP Delivery gets a
+ * duplicate-key error instead of a second job.
+ *
+ * @returns The claimed Delivery, or `null` if it was no longer available.
+ * @throws A MongoDB duplicate-key error (11000) if this Courier already has an
+ *   active Delivery. The service translates it into a 409.
+ */
+function claimIfAvailable(
+  deliveryId: string | Types.ObjectId,
+  courierId: string | Types.ObjectId,
+) {
+  return Delivery.findOneAndUpdate(
+    { _id: deliveryId, stage: 'AWAITING_COURIER' },
+    { $set: { stage: 'ASSIGNED', courierId } },
+    { new: true, runValidators: true },
+  ).lean<DeliveryDocument>();
+}
+
+/**
+ * Finds the Courier's one in-flight Delivery (E4). Uses the same predicate as
+ * the unique partial index that enforces the rule, so the definition of
+ * "active" cannot drift between the constraint and the query.
+ */
+function findActiveByCourier(courierId: string | Types.ObjectId) {
+  return Delivery.findOne({
+    courierId,
+    stage: { $in: ['ASSIGNED', 'PICKED_UP'] },
+  }).lean<DeliveryDocument>();
+}
+
+/**
+ * Reads one page of the shared, oldest-first Courier queue.
+ *
+ * Ordering is by `DELIVERY.createdAt` — the moment the Order became
+ * claimable — not `ORDER.createdAt`. See D1 in
+ * docs/superpowers/specs/2026-08-30-courier-core-backend-design.md.
+ * The sort is fixed here rather than accepted from the client so no Courier
+ * can work the queue out of turn.
+ */
+async function findQueue(filter: QueueFilter): Promise<DeliveryPage> {
+  const skip = (filter.page - 1) * filter.limit;
+
+  const pipeline: PipelineStage[] = [
+    { $match: { stage: 'AWAITING_COURIER' } },
+
+    // `_id` breaks ties so paging stays stable when two Deliveries share a
+    // millisecond.
+    { $sort: { createdAt: 1, _id: 1 } },
+
+    {
+      $facet: {
+        items: [{ $skip: skip }, { $limit: filter.limit }],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ];
+
+  const [result] = await Delivery.aggregate<DeliveryAggregationResult>(pipeline);
 
   return {
     items: result?.items ?? [],
@@ -231,6 +311,9 @@ export {
   cancelAwaitingDeliveryForOrder,
   markDeliveredIfPickedUp,
   listForAdmin,
+  findQueue,
+  claimIfAvailable,
+  findActiveByCourier,
   withTransaction,
 };
-export type { AdminDeliveryFilter, AdminDeliveryPage };
+export type { AdminDeliveryFilter, DeliveryPage, QueueFilter };

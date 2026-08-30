@@ -58,6 +58,20 @@ interface AdminDeliveryRelations {
   order: AdminDeliveryOrderSummary | null;
 }
 
+interface AdminDeliveriesResponseDto {
+  items: AdminDeliveryResponseDto[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface AdminListingsResponseDto {
+  items: ListingResponseDto[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 /**
  * Maps a Courier's `USER` row plus its `COURIER` profile to the Admin roster
  * shape. Reuses `toUserResponseDto` so Couriers carry exactly the same
@@ -103,20 +117,6 @@ function toAdminDeliveryResponseDto(
       recipientId: relations.order ? String(relations.order.recipientId) : null,
     },
   };
-}
-
-interface AdminDeliveriesResponseDto {
-  items: AdminDeliveryResponseDto[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AdminListingsResponseDto {
-  items: ListingResponseDto[];
-  page: number;
-  limit: number;
-  total: number;
 }
 
 export { toCourierResponseDto, toAdminDeliveryResponseDto };

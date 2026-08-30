@@ -67,6 +67,12 @@ interface AvailableListingsServiceResult {
   total: number;
 }
 
+/** One Listing's Donor company name, for callers joining against Listings. */
+interface ListingDonorSummaryByListing {
+  listingId: string;
+  companyName: string;
+}
+
 type RequestedListingStatus = UpdateListingStatusRequestDto['status'];
 
 function createHttpError(statusCode: number, message: string): Error {
@@ -250,6 +256,41 @@ async function restoreStock(
   session?: ClientSession,
 ) {
   return listingRepository.restoreStockAtomically(listingId, quantity, session);
+}
+
+/**
+ * Resolves the Donor company name for a set of Listings in two queries rather
+ * than one per Listing. The Listing -> Donor join stays inside this module,
+ * which owns that relationship: callers pass Listing ids and receive company
+ * names, never learning that Donor profiles are a separate collection.
+ *
+ * A Listing whose Donor profile cannot be loaded is omitted from the result
+ * rather than returned with a blank name — the caller decides how to render a
+ * Listing it asked about but did not get back.
+ */
+async function findDonorSummariesByListingIds(
+  listingIds: string[],
+): Promise<ListingDonorSummaryByListing[]> {
+  if (listingIds.length === 0) return [];
+
+  const listings = await listingRepository.findListingsByIds(listingIds);
+
+  if (listings.length === 0) return [];
+
+  const donorIds = [...new Set(listings.map((listing) => String(listing.donorId)))];
+  const donors = await userInterface.findDonorsByUserIds(donorIds);
+
+  const companyNameByDonorId = new Map(
+    donors.map((donor) => [String(donor.userId), donor.companyName]),
+  );
+
+  return listings.flatMap((listing) => {
+    const companyName = companyNameByDonorId.get(String(listing.donorId));
+
+    return companyName === undefined
+      ? []
+      : [{ listingId: String(listing._id), companyName }];
+  });
 }
 
 async function cloneListing(
@@ -651,9 +692,11 @@ export {
   createListing,
   getListingById,
   restoreStock,
+  findDonorSummariesByListingIds,
   cloneListing,
   updateListingStatus,
   listListingOrders,
   createDonorInitiatedDonation,
   reserveListing,
 };
+export type { ListingDonorSummaryByListing };

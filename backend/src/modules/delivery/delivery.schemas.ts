@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paginationQuerySchema } from '../../shared/validation/common-fields.schemas.js';
 
 /** Validates the Delivery id used by `PATCH /deliveries/:id/deliver`. */
 const deliveryIdParamsSchema = z
@@ -19,7 +20,15 @@ const markDeliveredSchema = z
   })
   .strict();
 
-type MarkDeliveredPayload = z.infer<typeof markDeliveredSchema>;
+/**
+ * Validates `GET /deliveries/queue`. Pagination only — no sort or order
+ * parameter is accepted, because the oldest-first ordering is fixed
+ * server-side so no Courier can cherry-pick out of turn (E2).
+ */
+const deliveryQueueQuerySchema = paginationQuerySchema.strict();
 
-export { deliveryIdParamsSchema, markDeliveredSchema };
-export type { MarkDeliveredPayload };
+type MarkDeliveredPayload = z.infer<typeof markDeliveredSchema>;
+type DeliveryQueueQuery = z.infer<typeof deliveryQueueQuerySchema>;
+
+export { deliveryIdParamsSchema, markDeliveredSchema, deliveryQueueQuerySchema };
+export type { MarkDeliveredPayload, DeliveryQueueQuery };

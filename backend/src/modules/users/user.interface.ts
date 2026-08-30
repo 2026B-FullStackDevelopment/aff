@@ -14,6 +14,7 @@ const userInterface = {
   createCourierAccount: userService.createCourierAccount,
   listCouriers: userService.listCouriers,
   findCourierProfilesByUserIds: userService.findCourierProfilesByUserIds,
+  findDonorsByUserIds: userService.findDonorsByUserIds,
   getDonorByUserId: userService.getDonorByUserId,
   findRecipientByUserId: userService.findRecipientByUserId,
   setRecipientStripeCustomerId: userService.setRecipientStripeCustomerId,

@@ -107,7 +107,13 @@ describe('order.repository', () => {
 
       expect(findMock).toHaveBeenCalledWith(
         { _id: { $in: ['o1', 'o2'] } },
-        { _id: 1, recipientId: 1 },
+        {
+          _id: 1,
+          recipientId: 1,
+          quantity: 1,
+          deliveryAddressText: 1,
+          listingId: 1,
+        },
       );
       expect(result).toEqual([{ _id: 'o1', recipientId: 'r1' }]);
     });

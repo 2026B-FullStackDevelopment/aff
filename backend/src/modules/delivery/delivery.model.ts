@@ -41,5 +41,22 @@ const deliverySchema = new Schema<DeliveryDocument>(
 // guard for DeliveryService.createForOrder.
 deliverySchema.index({ orderId: 1 }, { unique: true });
 
+// Queue read path (E2): AWAITING_COURIER rows, oldest first.
+deliverySchema.index({ stage: 1, createdAt: 1 });
+
+// One active Delivery per Courier (E3/E4), enforced by the database rather
+// than by application logic. A Courier holds at most one row in ASSIGNED or
+// PICKED_UP; completing or cancelling moves the row out of this partial
+// filter and releases the slot automatically, so nothing needs unsetting.
+//
+// Requires MongoDB >= 6.1 — partialFilterExpression did not accept $in before.
+deliverySchema.index(
+  { courierId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { stage: { $in: ['ASSIGNED', 'PICKED_UP'] } },
+  },
+);
+
 export default mongoose.model<DeliveryDocument>('Delivery', deliverySchema);
 export type { DeliveryStage, DeliveryDocument };

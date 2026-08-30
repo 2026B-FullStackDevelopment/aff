@@ -9,7 +9,12 @@ const {
   findDeliveryByIdMock,
   markDeliveredIfPickedUpMock,
   listForAdminMock,
+  findQueueMock,
+  claimIfAvailableMock,
+  findActiveByCourierMock,
   findOrderByIdMock,
+  findOrdersByIdsMock,
+  findDonorSummariesByListingIdsMock,
   markOrderDeliveredMock,
   getListingByIdMock,
 } = vi.hoisted(() => ({
@@ -21,7 +26,12 @@ const {
   findDeliveryByIdMock: vi.fn(),
   markDeliveredIfPickedUpMock: vi.fn(),
   listForAdminMock: vi.fn(),
+  findQueueMock: vi.fn(),
+  claimIfAvailableMock: vi.fn(),
+  findActiveByCourierMock: vi.fn(),
   findOrderByIdMock: vi.fn(),
+  findOrdersByIdsMock: vi.fn(),
+  findDonorSummariesByListingIdsMock: vi.fn(),
   markOrderDeliveredMock: vi.fn(),
   getListingByIdMock: vi.fn(),
 }));
@@ -36,11 +46,15 @@ vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
   findDeliveryById: findDeliveryByIdMock,
   markDeliveredIfPickedUp: markDeliveredIfPickedUpMock,
   listForAdmin: listForAdminMock,
+  findQueue: findQueueMock,
+  claimIfAvailable: claimIfAvailableMock,
+  findActiveByCourier: findActiveByCourierMock,
 }));
 
 vi.mock('../../../src/modules/orders/order.interface.js', () => ({
   orderInterface: {
     findOrderById: findOrderByIdMock,
+    findOrdersByIds: findOrdersByIdsMock,
     markOrderDelivered: markOrderDeliveredMock,
   },
 }));
@@ -48,6 +62,7 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
 vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
   listingInterface: {
     getListingById: getListingByIdMock,
+    findDonorSummariesByListingIds: findDonorSummariesByListingIdsMock,
   },
 }));
 
@@ -55,6 +70,9 @@ import {
   createForOrder,
   markDelivered,
   listForAdmin,
+  listQueue,
+  claimDelivery,
+  getActiveDelivery,
 } from '../../../src/modules/delivery/delivery.service.js';
 
 describe('delivery.service', () => {
@@ -196,6 +214,159 @@ describe('delivery.service', () => {
         stage: 'ASSIGNED',
       });
       expect(result).toBe(page);
+    });
+  });
+
+  describe('listQueue', () => {
+    const first = { _id: 'd1', orderId: 'o1', stage: 'AWAITING_COURIER', createdAt: new Date() };
+    const second = { _id: 'd2', orderId: 'o2', stage: 'AWAITING_COURIER', createdAt: new Date() };
+
+    it('hydrates each row with its Order and its Donor company name', async () => {
+      findQueueMock.mockResolvedValue({
+        items: [first, second],
+        page: 1,
+        limit: 20,
+        total: 2,
+      });
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi', listingId: 'l1' },
+        { _id: 'o2', quantity: 1, deliveryAddressText: '9 Tran Phu', listingId: 'l1' },
+      ]);
+      findDonorSummariesByListingIdsMock.mockResolvedValue([
+        { listingId: 'l1', companyName: 'Fresh Foods' },
+      ]);
+
+      const result = await listQueue({ page: 1, limit: 20 });
+
+      expect(findOrdersByIdsMock).toHaveBeenCalledWith(['o1', 'o2']);
+      expect(findDonorSummariesByListingIdsMock).toHaveBeenCalledWith(['l1']);
+      expect(result.items[0]).toMatchObject({
+        id: 'd1',
+        order: { id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi' },
+        donor: { companyName: 'Fresh Foods' },
+      });
+      expect(result.total).toBe(2);
+    });
+
+    it('still lists a row whose Order could not be loaded', async () => {
+      findQueueMock.mockResolvedValue({
+        items: [first],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
+      findOrdersByIdsMock.mockResolvedValue([]);
+      findDonorSummariesByListingIdsMock.mockResolvedValue([]);
+
+      const result = await listQueue({ page: 1, limit: 20 });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        order: { id: 'o1', quantity: null },
+        donor: { companyName: null },
+      });
+    });
+
+    it('skips both hydration queries when the queue is empty', async () => {
+      findQueueMock.mockResolvedValue({ items: [], page: 3, limit: 20, total: 0 });
+
+      const result = await listQueue({ page: 3, limit: 20 });
+
+      expect(findOrdersByIdsMock).not.toHaveBeenCalled();
+      expect(findDonorSummariesByListingIdsMock).not.toHaveBeenCalled();
+      expect(result.items).toEqual([]);
+    });
+  });
+
+  describe('claimDelivery', () => {
+    function prepareClaimable() {
+      claimIfAvailableMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'ASSIGNED',
+        createdAt: new Date(),
+      });
+      findOrderByIdMock.mockResolvedValue({ _id: 'o1', listingId: 'l1' });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
+      });
+    }
+
+    it('returns the claimed Delivery with the pickup address resolved', async () => {
+      prepareClaimable();
+
+      const result = await claimDelivery('d1', 'c1');
+
+      expect(claimIfAvailableMock).toHaveBeenCalledWith('d1', 'c1');
+      expect(result.delivery).toMatchObject({ stage: 'ASSIGNED' });
+      expect(result.pickupAddressText).toBe('123 Main St');
+      expect(result.pickupAddressLocation).toMatchObject({ latitude: 10.8 });
+    });
+
+    it('reports 409 when another Courier claimed it first', async () => {
+      claimIfAvailableMock.mockResolvedValue(null);
+      findDeliveryByIdMock.mockResolvedValue({ _id: 'd1', stage: 'ASSIGNED' });
+
+      await expect(claimDelivery('d1', 'c1')).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'This Delivery has already been claimed.',
+      });
+    });
+
+    it('reports 404 when the Delivery does not exist at all', async () => {
+      claimIfAvailableMock.mockResolvedValue(null);
+      findDeliveryByIdMock.mockResolvedValue(null);
+
+      await expect(claimDelivery('d1', 'c1')).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it('reports 409 when this Courier already has an active Delivery', async () => {
+      claimIfAvailableMock.mockRejectedValue({ code: 11000 });
+
+      await expect(claimDelivery('d1', 'c1')).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'You already have an active Delivery.',
+      });
+    });
+  });
+
+  describe('getActiveDelivery', () => {
+    it('returns the in-flight Delivery with its pickup address', async () => {
+      findActiveByCourierMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'PICKED_UP',
+        createdAt: new Date(),
+      });
+      findOrderByIdMock.mockResolvedValue({ _id: 'o1', listingId: 'l1' });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
+      });
+
+      const result = await getActiveDelivery('c1');
+
+      expect(result.delivery).toMatchObject({ stage: 'PICKED_UP' });
+      expect(result.pickupAddressText).toBe('123 Main St');
+    });
+
+    it('reports 404 when the Courier has none, so the client falls through to the queue', async () => {
+      findActiveByCourierMock.mockResolvedValue(null);
+
+      await expect(getActiveDelivery('c1')).rejects.toMatchObject({
+        statusCode: 404,
+      });
     });
   });
 });
