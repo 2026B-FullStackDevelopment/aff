@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
 import { cn } from '@/shared/utils';
 
 export type ThemeRole = 'admin' | 'recipient' | 'donor';
@@ -18,11 +20,12 @@ const themeButtonHover: Record<ThemeRole, string> = {
   donor: 'hover:bg-[#805300]/10',
 };
 
-/**
- * Reusable +/- stepper. Used by FoodCard's reserve control, but kept
- * generic (no listing-specific knowledge) so it can be reused anywhere a
- * bounded integer needs adjusting (e.g. rationLimitPerPerson elsewhere).
- */
+const themeFocusRing: Record<ThemeRole, string> = {
+  admin: 'focus:border-[#5b7bc0] focus:ring-[#5b7bc0]',
+  recipient: 'focus:border-[#3D6852] focus:ring-[#3D6852]',
+  donor: 'focus:border-[#805300] focus:ring-[#805300]',
+};
+
 export function QuantityStepper({
   value,
   min = 1,
@@ -31,48 +34,133 @@ export function QuantityStepper({
   theme = 'recipient',
   onChange,
 }: QuantityStepperProps) {
+  const [inputValue, setInputValue] = useState<string>(String(value));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInputValue(String(value));
+  }, [value]);
+
   function decrement() {
+    setError(null);
     onChange(Math.max(min, value - 1));
   }
 
   function increment() {
+    setError(null);
     onChange(Math.min(max, value + 1));
   }
 
+  function validateAndCommit(raw: string) {
+    const trimmed = raw.trim();
+    const parsed = Number(trimmed);
+
+    if (trimmed === '' || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      setError(`Please enter a valid whole number between ${min} and ${max}.`);
+      setInputValue(String(value));
+      return;
+    }
+
+    if (parsed < min) {
+      setError(`Quantity must be at least ${min}.`);
+      setInputValue(String(value));
+      return;
+    }
+
+    if (parsed > max) {
+      setError(`Quantity cannot exceed ${max}${unitLabel ? ` ${unitLabel}` : ''}.`);
+      setInputValue(String(value));
+      return;
+    }
+
+    setError(null);
+    onChange(parsed);
+    setInputValue(String(parsed));
+  }
+
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
+    setInputValue(event.target.value);
+  }
+
+  function handleInputBlur() {
+    validateAndCommit(inputValue);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      validateAndCommit(inputValue);
+    } else if (event.key === 'Escape') {
+      setError(null);
+      setInputValue(String(value));
+      event.currentTarget.blur();
+    }
+  }
+
   return (
-    <div className="flex h-11 items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-2">
-      <button
-        type="button"
-        aria-label="Decrease quantity"
-        onClick={decrement}
-        disabled={value <= min}
+    <div className="space-y-2">
+      <div
         className={cn(
-          'flex size-7 items-center justify-center rounded-md text-slate-600 transition-colors duration-150',
-          'disabled:cursor-not-allowed disabled:opacity-40',
-          themeButtonHover[theme],
+          'flex h-11 items-center justify-between gap-2 rounded-lg border bg-slate-50 px-2 transition-colors duration-150',
+          error ? 'border-red-300' : 'border-slate-200',
         )}
       >
-        <Minus className="size-4" aria-hidden="true" />
-      </button>
+        <button
+          type="button"
+          aria-label="Decrease quantity"
+          onClick={decrement}
+          disabled={value <= min}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded-md text-slate-600 transition-colors duration-150',
+            'disabled:cursor-not-allowed disabled:opacity-40',
+            themeButtonHover[theme],
+          )}
+        >
+          <Minus className="size-4" aria-hidden="true" />
+        </button>
 
-      <span className="min-w-28 text-center text-sm font-bold text-slate-700" aria-live="polite">
-        Quantity: {value}
-        {unitLabel ? ` ${unitLabel}` : ''}
-      </span>
+        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label="Quantity"
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              'h-7 w-14 rounded border bg-white px-1 text-center text-sm font-bold text-slate-700 shadow-sm focus:outline-none focus:ring-2',
+              error
+                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                : 'border-slate-300',
+              !error && themeFocusRing[theme],
+            )}
+          />
+          {unitLabel && (
+            <span className="truncate text-xs font-semibold text-slate-600">
+              {unitLabel}
+            </span>
+          )}
+        </div>
 
-      <button
-        type="button"
-        aria-label="Increase quantity"
-        onClick={increment}
-        disabled={value >= max}
-        className={cn(
-          'flex size-7 items-center justify-center rounded-md text-slate-600 transition-colors duration-150',
-          'disabled:cursor-not-allowed disabled:opacity-40',
-          themeButtonHover[theme],
-        )}
-      >
-        <Plus className="size-4" aria-hidden="true" />
-      </button>
+        <button
+          type="button"
+          aria-label="Increase quantity"
+          onClick={increment}
+          disabled={value >= max}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded-md text-slate-600 transition-colors duration-150',
+            'disabled:cursor-not-allowed disabled:opacity-40',
+            themeButtonHover[theme],
+          )}
+        >
+          <Plus className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      <FormErrorAlert message={error} />
     </div>
   );
 }

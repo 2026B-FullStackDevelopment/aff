@@ -33,9 +33,15 @@ export const API_ROUTES = {
       `/listings/${listingId}/reserve`,
   },
   orders: {
-    checkoutSession: (orderId: string) =>
+    mine: '/orders/mine',
+    detail: (orderId: string) => 
+      `/orders/${orderId}`,
+    checkoutSession: (orderId: string) => 
       `/orders/${orderId}/checkout-session`,
+    cancel: (orderId: string) => 
+      `/orders/${orderId}`,
   },
+
   food: {
     list: '/food',
     create: '/food',

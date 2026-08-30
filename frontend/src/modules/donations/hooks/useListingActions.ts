@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import { listingService } from '../services/listing.service';
 import type {
     DonorListingStatusUpdate,
@@ -31,21 +32,6 @@ type PendingOrderCountResult =
         message: string;
     };
 
-function getResponseMessage(
-    data: unknown,
-    fallback: string,
-): string {
-    if (
-        typeof data === 'object'
-        && data !== null
-        && 'message' in data
-        && typeof data.message === 'string'
-    ) {
-        return data.message;
-    }
-
-    return fallback;
-}
 
 function isOrderAwaitingCancellation(
     order: ListingOrderDTO,

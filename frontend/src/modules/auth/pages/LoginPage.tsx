@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import { Button } from '@/shared/components/Button/Button';
 import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
 import { IconField } from '@/shared/components/IconField/IconField';
@@ -30,9 +31,7 @@ export function LoginPage() {
       const destination = ROLE_HOME[result.data.user.role] ?? '/';
       navigate(destination, { replace: true });
     } else {
-      const message = typeof result.data === 'object' && result.data && 'message' in result.data
-        ? String((result.data as { message?: unknown }).message)
-        : 'Unable to sign in. Please try again.';
+      const message = getResponseMessage(result.data, 'Unable to sign in. Please try again.');
       setSubmitError(message);
     }
 

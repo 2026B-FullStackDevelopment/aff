@@ -6,6 +6,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import type { FoodCategory } from '@/types/api';
 import { listingService } from '../services/listing.service';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import type {
   ListingGroup,
   ListingSortField,
@@ -78,21 +79,6 @@ function parseSortDirection(
     : 'desc';
 }
 
-function getResponseMessage(
-  data: unknown,
-  fallback: string,
-): string {
-  if (
-    typeof data === 'object'
-    && data !== null
-    && 'message' in data
-    && typeof data.message === 'string'
-  ) {
-    return data.message;
-  }
-
-  return fallback;
-}
 
 // Owns URL filters and server state for GET /listings/mine.
 export function useDonorListings() {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { validatePassword, validateUsername } from '../../../shared/utils/validation';
+import { getResponseMessage } from '@/shared/utils/apiError';
 
 type FieldErrors<T> = Partial<Record<keyof T, string>>;
 
@@ -100,10 +101,7 @@ export function useRegistrationForm<T extends PasswordFields>({
     if (result.ok) {
       navigate(successRedirect);
     } else {
-      const message =
-        typeof result.data === 'object' && result.data && 'message' in result.data
-          ? String((result.data as { message?: unknown }).message)
-          : 'Registration failed. Please try again.';
+      const message = getResponseMessage(result.data, 'Registration failed. Please try again.');
       setSubmitError(message);
     }
 

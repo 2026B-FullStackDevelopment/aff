@@ -5,6 +5,7 @@ import {
 } from 'react';
 import type { FoodCategory } from '@/types/api';
 import { listingService } from '../services/listing.service';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import type {
   ListingGroup,
   ManagedListingDTO,
@@ -58,21 +59,6 @@ export interface DonorAnalyticsSnapshot {
   topListings: ManagedListingDTO[];
 }
 
-function getResponseMessage(
-  data: unknown,
-  fallback: string,
-): string {
-  if (
-    typeof data === 'object'
-    && data !== null
-    && 'message' in data
-    && typeof data.message === 'string'
-  ) {
-    return data.message;
-  }
-
-  return fallback;
-}
 
 async function loadListingGroup(
   group: ListingGroup,

@@ -1,7 +1,8 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reservationService } from '../services/reservation.service';
-import type { ApiErrorBody, ListingDetailDTO, PaymentMethod } from '@/types/api';
+import { getResponseMessage } from '@/shared/utils/apiError';
+import type { ListingDetailDTO, PaymentMethod } from '@/types/api';
 import type { LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 
 interface UseReservationCheckoutResult {
@@ -71,8 +72,8 @@ export function useReservationCheckout(
       });
 
       if (!reserveResponse.ok || !reserveResponse.data) {
-        const message = (reserveResponse.data as unknown as ApiErrorBody | null)?.message;
-        setSubmitError(message ?? 'Could not complete your reservation. Please try again.');
+        const message = getResponseMessage(reserveResponse.data, 'Could not complete your reservation. Please try again.');
+        setSubmitError(message);
         reloadListing();
         return;
       }
@@ -83,8 +84,8 @@ export function useReservationCheckout(
         const checkoutResponse = await reservationService.createCheckoutSession(order.id);
 
         if (!checkoutResponse.ok || !checkoutResponse.data) {
-          const message = (checkoutResponse.data as unknown as ApiErrorBody | null)?.message;
-          setSubmitError(message ?? 'Could not start checkout. Please try again.');
+          const message = getResponseMessage(checkoutResponse.data, 'Could not start checkout. Please try again.');
+          setSubmitError(message);
           return;
         }
 

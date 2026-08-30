@@ -266,7 +266,7 @@ export function CreateListingForm({
               value={form.price}
               onChange={updateField('price')}
               placeholder="0"
-              helperText="Enter 0 for free, or more than 1000 VND."
+              helperText="Enter 0 for free, or 15,000 VND and above."
               error={errors.price}
               theme="donor"
               className="h-12 border-[#C1C8C2] bg-[#FBF9F8]"

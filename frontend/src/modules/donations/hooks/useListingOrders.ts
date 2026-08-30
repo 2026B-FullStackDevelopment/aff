@@ -4,6 +4,7 @@ import {
 } from 'react';
 import type { ListingDTO } from '@/types/api';
 import { listingService } from '../services/listing.service';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import type { ListingOrderDTO } from '../types';
 
 const PAGE_SIZE = 10;
@@ -13,21 +14,6 @@ interface ListingOrderPaginationState {
     page: number;
 }
 
-function getResponseMessage(
-    data: unknown,
-    fallback: string,
-): string {
-    if (
-        typeof data === 'object'
-        && data !== null
-        && 'message' in data
-        && typeof data.message === 'string'
-    ) {
-        return data.message;
-    }
-
-    return fallback;
-}
 
 // Loads the selected listing and its paginated tracked orders for C8.
 export function useListingOrders(

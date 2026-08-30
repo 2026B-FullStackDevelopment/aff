@@ -1,6 +1,7 @@
-﻿// Defines frontend routes and applies role guards to protected pages.
+// Defines frontend routes and applies role guards to protected pages.
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
 } from 'react-router-dom';
@@ -207,6 +208,11 @@ export function AppRouter() {
               <DeliveryQueuePage />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
         />
       </Routes>
     </BrowserRouter>
