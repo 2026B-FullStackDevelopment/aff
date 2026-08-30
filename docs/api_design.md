@@ -312,7 +312,7 @@ Covers Donor-side listing management and Recipient-side browsing.
 
 Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
 Response `201`: `ListingDTO`
-Errors: `400` invalid unit/category enum or `price` fails the "free or > 1000 VND" rule
+Errors: `400` invalid unit/category enum or `price` fails the "free or > 15000 VND" rule
 
 ### `GET /listings/mine` — *`4.1.2`, `4.2.2`*
 **Auth:** `DONOR`

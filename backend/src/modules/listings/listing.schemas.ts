@@ -56,13 +56,13 @@ const positiveQuantitySchema = z
   .finite({ message: 'Quantity must be a finite number.' })
   .positive({ message: 'Quantity must be greater than 0.' });
 
-// Listing prices must be free or strictly greater than 1000 VND.
+// Listing prices must be free or strictly greater than 15000 VND.
 const listingPriceSchema = z
   .number({ message: 'Price must be a number.' })
   .finite({ message: 'Price must be a finite number.' })
   .nonnegative({ message: 'Price cannot be negative.' })
-  .refine((price) => price === 0 || price > 1000, {
-    message: 'Price must be 0 or greater than 1000 VND.',
+  .refine((price) => price === 0 || price > 15000, {
+    message: 'Price must be 0 or greater than 15000 VND.',
   });
 
 // Validates `POST /listings`, the http request to create a listing
