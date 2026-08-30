@@ -8,7 +8,6 @@ import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { Toast } from '@/shared/components/Toast/Toast';
 import { getStoredUser } from '@/services/authStorage';
 import { DonorListingCard } from '../components/DonorListingCard';
 import { DonorListingFilters } from '../components/DonorListingFilters';
@@ -108,17 +107,6 @@ export function DonorDonationsPage() {
         hasUnreadNotifications={false}
         onNotificationsClick={() => {}}
       />
-
-      {feedback && (
-        <div className="fixed right-4 top-20 z-50 w-[calc(100%-2rem)] max-w-sm">
-          <Toast
-            variant={feedback.variant}
-            title={feedback.title}
-            message={feedback.message}
-            onClose={dismissFeedback}
-          />
-        </div>
-      )}
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
         <PageHeader

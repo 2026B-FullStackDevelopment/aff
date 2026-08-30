@@ -24,7 +24,7 @@ const REQUIRED_FIELDS = ['fullName', 'email', 'city', 'password', 'confirmPasswo
 export function RecipientRegisterPage() {
   const { registerRecipient } = useAuth();
 
-  const { form, errors, isSubmitting, submitError, progressPercent, updateField, handleSubmit } =
+  const { form, errors, isSubmitting, submitError, updateField, handleSubmit } =
     useRegistrationForm<FormState>({
       initialState: { fullName: '', email: '', city: '', password: '', confirmPassword: '' },
       requiredFields: REQUIRED_FIELDS,

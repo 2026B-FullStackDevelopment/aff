@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from '@/shared/components/ui/sonner';
 import { reservationService } from '../services/reservation.service';
 import type { OrderDTO } from '@/types/api';
 
@@ -89,12 +90,17 @@ export function useOrderTracking(orderId: string | undefined) {
     try {
       const response = await reservationService.cancelOrder(order.id);
       if (!response.ok || !response.data) {
-        setActionError('Could not cancel this order. Please try again.');
+        const errMsg = 'Could not cancel this order. Please try again.';
+        setActionError(errMsg);
+        toast.error(errMsg);
         setIsCancelling(false);
         return;
       }
 
       setOrder(response.data);
+      toast.success('Order cancelled', {
+        description: 'Your hold on this item has been released.',
+      });
       // Clear ?payment=cancelled once resolved, so refresh/back-nav
       // doesn't re-show the retry banner for a now-cancelled order.
       setSearchParams((prev) => {
@@ -103,7 +109,9 @@ export function useOrderTracking(orderId: string | undefined) {
         return next;
       }, { replace: true });
     } catch {
-      setActionError('Could not cancel this order. Please try again.');
+      const errMsg = 'Could not cancel this order. Please try again.';
+      setActionError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsCancelling(false);
     }

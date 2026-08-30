@@ -24,13 +24,13 @@ import { ReservationConfirmPage } from '../modules/reservations/pages/Reservatio
 import { ReservationsPage } from '../modules/reservations/pages/ReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
-import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
+import { Toaster } from '@/shared/components/ui/sonner';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <DonorSoldOutAlerts />
+      <Toaster />
       <Routes>
         <Route
           path="/"

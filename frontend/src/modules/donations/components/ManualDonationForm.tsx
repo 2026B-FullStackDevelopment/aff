@@ -23,7 +23,6 @@ import { IconField } from '@/shared/components/IconField/IconField';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
-import { Toast } from '@/shared/components/Toast/Toast';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { formatUnit } from '@/shared/constants/units';
 import { useManualDonation } from '../hooks/useManualDonation';
@@ -171,30 +170,6 @@ export function ManualDonationForm() {
 
   return (
     <div className="space-y-4">
-      {createdOrder && (
-        <Toast
-          variant={
-            isFreeDonation
-              ? 'success'
-              : 'warning'
-          }
-          title={
-            isFreeDonation
-              ? 'Donation recorded'
-              : 'Recipient payment required'
-          }
-          message={
-            isFreeDonation
-              ? `${submittedListing?.name ?? 'The donation'} is recorded and ready for delivery processing.`
-              : `${submittedListing?.name ?? 'The donation'} is recorded. The Recipient must now choose and complete their payment method.`
-          }
-          imageUrl={
-            submittedListing?.imageUrl
-          }
-          className="max-w-none"
-        />
-      )}
-
       <form
         onSubmit={handleSubmit}
         aria-busy={isSubmitting}

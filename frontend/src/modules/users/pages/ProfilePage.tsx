@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, CheckCircle2, Bell } from 'lucide-react';
+import { X, Bell } from 'lucide-react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 import { useProfileEditForm } from '../hooks/useProfileEditForm';
@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/Button/Button';
 import RecipientTopNavigation from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
 import DonorTopNavigation from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
 import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
+import { toast } from '@/shared/components/ui/sonner';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 import { getStoredUser } from '@/services/authStorage';
 import { cn } from '@/shared/utils';
@@ -61,6 +62,7 @@ export function ProfilePage() {
     handleSubmit(() => {
       refetch();
       setIsEditing(false);
+      toast.success('Profile updated successfully');
     });
   }
 
@@ -200,13 +202,6 @@ export function ProfilePage() {
           'bg-white rounded-xl shadow-sm p-6 sm:p-8 border',
           isDonor ? 'border-[#E4E2E1]' : 'border-[#e9f5ee]'
         )}>
-          {submitSuccess && (
-            <div className="mb-6 rounded-lg bg-emerald-50 p-4 border border-emerald-200 flex items-center gap-3 text-emerald-800 text-sm font-medium">
-              <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-              <span>Profile updated successfully!</span>
-            </div>
-          )}
-
           {!isEditing ? (
             <ProfileView profile={profile} isDonor={isDonor} isPremium={isPremium} />
           ) : (

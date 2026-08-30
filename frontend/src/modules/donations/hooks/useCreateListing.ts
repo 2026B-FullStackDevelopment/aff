@@ -16,6 +16,7 @@ import {
 } from '@/shared/services/media.service';
 import { listingService } from '../services/listing.service';
 import { getResponseMessage } from '@/shared/utils/apiError';
+import { toast } from '@/shared/components/ui/sonner';
 import type { CreateListingPayload } from '../types';
 
 export interface CreateListingFormState {
@@ -481,15 +482,24 @@ export function useCreateListing({
         return;
       }
 
-      setCreatedListing(response.data);
+      const kind = isExactClone
+        ? 'CLONED'
+        : cloneSource
+          ? 'EDITED_COPY'
+          : 'CREATED';
 
-      setSubmissionKind(
-        isExactClone
-          ? 'CLONED'
-          : cloneSource
-            ? 'EDITED_COPY'
-            : 'CREATED',
-      );
+      setSubmissionKind(kind);
+
+      const title =
+        kind === 'CLONED'
+          ? 'Listing duplicated'
+          : kind === 'EDITED_COPY'
+            ? 'Edited copy created'
+            : 'Listing created';
+
+      toast.success(title, {
+        description: `${response.data.name} is now an independent active listing.`,
+      });
     } catch {
       setSubmitError(
         'Unable to reach AFF. Check your connection and try again.',

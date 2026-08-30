@@ -4,6 +4,7 @@ import {
     useState,
 } from 'react';
 import { useLocation } from 'react-router-dom';
+import { toast } from '@/shared/components/ui/sonner';
 import {
     getStoredToken,
     getStoredUser,
@@ -113,23 +114,15 @@ export function useSoldOutNotifications() {
                         // The same event handler triggers both required alert forms.
                         soldOutAlertSoundService.play();
 
+                        toast.warning('Listing sold out', {
+                            description: `${event.name} has no remaining quantity and was moved to Past Donations.`,
+                            duration: ALERT_DURATION_MS,
+                        });
+
                         setAlerts((current) => [
                             ...current,
                             alert,
                         ]);
-
-                        const timeoutId =
-                            window.setTimeout(
-                                () => {
-                                    dismissAlert(alert.id);
-                                },
-                                ALERT_DURATION_MS,
-                            );
-
-                        timeoutIdsRef.current.set(
-                            alert.id,
-                            timeoutId,
-                        );
                     },
                 );
 

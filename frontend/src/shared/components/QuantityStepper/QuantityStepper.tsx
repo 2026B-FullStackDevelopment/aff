@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
 import { cn } from '@/shared/utils';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
+import { IconField } from '@/shared/components/IconField/IconField';
 
 export type ThemeRole = 'admin' | 'recipient' | 'donor';
 
@@ -120,8 +121,11 @@ export function QuantityStepper({
           <Minus className="size-4" aria-hidden="true" />
         </button>
 
-        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1">
-          <input
+        <div className="flex items-center justify-center gap-1.5 px-1">
+          <IconField
+            id="Quantity"
+            name="quantity"
+            theme={theme}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
@@ -131,15 +135,11 @@ export function QuantityStepper({
             onBlur={handleInputBlur}
             onKeyDown={handleKeyDown}
             className={cn(
-              'h-7 w-14 rounded border bg-white px-1 text-center text-sm font-bold text-slate-700 shadow-sm focus:outline-none focus:ring-2',
-              error
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                : 'border-slate-300',
-              !error && themeFocusRing[theme],
+              'h-7 w-18 px-1 text-center'
             )}
           />
           {unitLabel && (
-            <span className="truncate text-xs font-semibold text-slate-600">
+            <span className="whitespace-nowrap text-xs font-semibold text-slate-600">
               {unitLabel}
             </span>
           )}
