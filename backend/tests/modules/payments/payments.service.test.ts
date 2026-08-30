@@ -226,6 +226,59 @@ describe('payments.service', () => {
       await expect(startOneTimeCheckout(input)).rejects.toMatchObject({ statusCode: 502 });
       expect(createPaymentMock).not.toHaveBeenCalled();
     });
+
+    it('self-heals a stale customerId: recreates the Stripe customer and retries once', async () => {
+      const missingCustomerError = Object.assign(new Error("No such customer: 'cus_123'"), {
+        code: 'resource_missing',
+        param: 'customer',
+      });
+      createCheckoutSessionMock
+        .mockRejectedValueOnce(missingCustomerError)
+        .mockResolvedValueOnce({
+          provider: 'stripe',
+          sessionId: 'cs_456',
+          checkoutUrl: 'https://checkout.stripe.com/cs_456',
+        });
+      getUserByIdMock.mockResolvedValue({ id: 'u1', email: 'jane@example.com' });
+      createStripeCustomerMock.mockResolvedValue({ provider: 'stripe', customerId: 'cus_fresh' });
+
+      const result = await startOneTimeCheckout({ ...input, userId: 'u1' });
+
+      expect(createStripeCustomerMock).toHaveBeenCalledWith({
+        email: 'jane@example.com',
+        metadata: { userId: 'u1' },
+      });
+      expect(setRecipientStripeCustomerIdMock).toHaveBeenCalledWith('u1', 'cus_fresh');
+      expect(createCheckoutSessionMock).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ customerId: 'cus_fresh' }),
+      );
+      expect(result).toEqual({ checkoutUrl: 'https://checkout.stripe.com/cs_456' });
+    });
+
+    it('does not retry a non-missing-customer Stripe failure even with userId supplied', async () => {
+      createCheckoutSessionMock.mockRejectedValue(new Error('Stripe is down'));
+
+      await expect(startOneTimeCheckout({ ...input, userId: 'u1' })).rejects.toMatchObject({ statusCode: 502 });
+      expect(createCheckoutSessionMock).toHaveBeenCalledTimes(1);
+      expect(createStripeCustomerMock).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a 502 if the self-heal retry also fails, without looping further', async () => {
+      const missingCustomerError = Object.assign(new Error("No such customer: 'cus_123'"), {
+        code: 'resource_missing',
+        param: 'customer',
+      });
+      createCheckoutSessionMock
+        .mockRejectedValueOnce(missingCustomerError)
+        .mockRejectedValueOnce(new Error('Stripe is down'));
+      getUserByIdMock.mockResolvedValue({ id: 'u1', email: 'jane@example.com' });
+      createStripeCustomerMock.mockResolvedValue({ provider: 'stripe', customerId: 'cus_fresh' });
+
+      await expect(startOneTimeCheckout({ ...input, userId: 'u1' })).rejects.toMatchObject({ statusCode: 502 });
+      expect(createCheckoutSessionMock).toHaveBeenCalledTimes(2);
+      expect(createPaymentMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('startSubscriptionCheckout', () => {

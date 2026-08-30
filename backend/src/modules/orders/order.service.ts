@@ -183,6 +183,7 @@ async function createCheckoutSession(
     amount: order.amount,
     currency: 'vnd',
     customerId,
+    userId: recipientId,
     successUrl: `${env.clientUrl}/orders/${orderId}?payment=success`,
     cancelUrl: `${env.clientUrl}/orders/${orderId}?payment=cancelled`,
   });

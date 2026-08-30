@@ -83,7 +83,8 @@ export function useReservationCheckout(
         const checkoutResponse = await reservationService.createCheckoutSession(order.id);
 
         if (!checkoutResponse.ok || !checkoutResponse.data) {
-          setSubmitError('Could not start checkout. Please try again.');
+          const message = (checkoutResponse.data as unknown as ApiErrorBody | null)?.message;
+          setSubmitError(message ?? 'Could not start checkout. Please try again.');
           return;
         }
 
