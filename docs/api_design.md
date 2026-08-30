@@ -33,6 +33,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Listings (§6) | `GET /listings` | public |
 | Listings (§6) | `GET /listings/:id` | public |
 | Orders (§7) | `GET /orders/mine` | RECIPIENT |
+| Orders (§7) | `GET /orders/:id` | RECIPIENT |
 | Orders (§7) | `DELETE /orders/:id` | RECIPIENT |
 | Orders (§7) | `POST /orders/:id/feedback` | RECIPIENT |
 | Orders (§7) | `POST /orders/:id/checkout-session` | RECIPIENT |
@@ -388,6 +389,13 @@ Errors: `404`
 
 Query params: pagination only.
 Response `200`: paginated `OrderDTO[]`, each including `delivery: { stage } | null` and `donor: { id, companyName }`.
+
+### `GET /orders/:id` — *(new — supports the Recipient's order-tracking view; not tied to a distinct PRD story beyond the general order-visibility need already covered by `5.1.4`/`5.2.3`)*
+**Auth:** `RECIPIENT`
+**Ownership:** the order must belong to `req.user.id`
+
+Response `200`: `OrderDTO`
+Errors: `404` order not found — also returned when the order exists but belongs to a different Recipient, so this endpoint never confirms or denies another user's order id
 
 ### `DELETE /orders/:id` — *(new, replaces v1's no-cancellation rule)*
 **Auth:** `RECIPIENT`
