@@ -40,6 +40,7 @@ import {
   findMyListingsWithStats,
   decrementStockAtomically,
   decrementStockForReserveAtomically,
+  restoreStockAtomically,
 } from '../../../src/modules/listings/listing.repository.js';
 
 describe('listing.repository', () => {
@@ -309,5 +310,61 @@ describe('listing.repository', () => {
 
     const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];
     expect(JSON.stringify(updatePipeline)).toContain('SOLD_OUT');
+  });
+
+  describe('restoreStockAtomically', () => {
+    it('adds the quantity back and flips a SOLD_OUT Listing back to ACTIVE, clearing closedAt', async () => {
+      leanMock.mockResolvedValue({
+        _id: 'l1',
+        quantityRemaining: 2,
+        status: 'ACTIVE',
+        closedAt: null,
+      });
+
+      await restoreStockAtomically('l1', 2);
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        { _id: 'l1' },
+        expect.arrayContaining([
+          {
+            $set: {
+              quantityRemaining: {
+                $add: ['$quantityRemaining', 2],
+              },
+            },
+          },
+        ]),
+        { new: true, session: undefined, updatePipeline: true },
+      );
+
+      const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];
+      expect(JSON.stringify(updatePipeline)).toContain('SOLD_OUT');
+      expect(JSON.stringify(updatePipeline)).toContain('ACTIVE');
+    });
+
+    it('leaves a PAUSED Listing\'s status untouched, only restoring the count', async () => {
+      leanMock.mockResolvedValue({
+        _id: 'l1',
+        quantityRemaining: 5,
+        status: 'PAUSED',
+      });
+
+      await restoreStockAtomically('l1', 3);
+
+      const updatePipeline = findOneAndUpdateMock.mock.calls[0]?.[1];
+      const statusStage = updatePipeline[1].$set.status;
+      expect(statusStage).toEqual({
+        $cond: [{ $eq: ['$status', 'SOLD_OUT'] }, 'ACTIVE', '$status'],
+      });
+    });
+
+    it('applies no donorId filter and no stock-floor guard', async () => {
+      leanMock.mockResolvedValue({ _id: 'l1', quantityRemaining: 10 });
+
+      await restoreStockAtomically('l1', 4);
+
+      const filter = findOneAndUpdateMock.mock.calls[0]?.[0];
+      expect(filter).toEqual({ _id: 'l1' });
+    });
   });
 });

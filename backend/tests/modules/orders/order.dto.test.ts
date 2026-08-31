@@ -46,6 +46,27 @@ describe('toOrderResponseDto', () => {
       cancelledByUserId: null,
       feedback: null,
       createdAt,
+      delivery: null,
     });
+  });
+
+  it('embeds the Delivery stage when one is given', () => {
+    const order = {
+      _id: 'o1',
+      recipientId: 'r1',
+      listingId: 'l1',
+      intakePath: 'RESERVATION',
+      quantity: 2,
+      amount: 0,
+      paymentStatus: 'FREE',
+      orderStatus: 'PREPARING',
+      deliveryAddressText: '123 Main St',
+      deliveryLocation: { latitude: 21.0, longitude: 105.8, updatedAt: new Date() },
+      createdAt: new Date(),
+    };
+
+    const result = toOrderResponseDto(order, 'AWAITING_COURIER');
+
+    expect(result?.delivery).toEqual({ stage: 'AWAITING_COURIER' });
   });
 });

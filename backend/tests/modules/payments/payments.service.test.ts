@@ -18,6 +18,7 @@ const {
   getUserByIdMock,
   setRecipientStripeCustomerIdMock,
   markOrderPaidMock,
+  markOrderRefundedMock,
   createForOrderMock,
   emitToUserMock,
 } = vi.hoisted(() => ({
@@ -37,6 +38,7 @@ const {
   getUserByIdMock: vi.fn(),
   setRecipientStripeCustomerIdMock: vi.fn(),
   markOrderPaidMock: vi.fn(),
+  markOrderRefundedMock: vi.fn(),
   createForOrderMock: vi.fn(),
   emitToUserMock: vi.fn(),
 }));
@@ -70,6 +72,7 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
 vi.mock('../../../src/modules/orders/order.interface.js', () => ({
   orderInterface: {
     markOrderPaid: markOrderPaidMock,
+    markOrderRefunded: markOrderRefundedMock,
   },
 }));
 
@@ -133,6 +136,7 @@ describe('payments.service', () => {
     getUserByIdMock.mockReset();
     setRecipientStripeCustomerIdMock.mockReset();
     markOrderPaidMock.mockReset();
+    markOrderRefundedMock.mockReset();
     createForOrderMock.mockReset();
     emitToUserMock.mockReset();
 
@@ -493,8 +497,18 @@ describe('payments.service', () => {
       },
     );
 
-    it('marks the matching Payment REFUNDED on a fresh charge.refunded event', async () => {
-      findPaymentByRefundIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: undefined });
+    it('marks the matching Payment REFUNDED, flips the Order, and emits payment:refunded (D4)', async () => {
+      findPaymentByRefundIdMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'ORDER',
+        payableId: 'o1',
+        lastProcessedEventId: undefined,
+      });
+      markOrderRefundedMock.mockResolvedValue({
+        _id: 'o1',
+        recipientId: 'r1',
+        paymentStatus: 'REFUNDED',
+      });
 
       await processWebhookEvent(chargeRefundedEvent());
 
@@ -504,6 +518,10 @@ describe('payments.service', () => {
         status: 'REFUNDED',
         refundedAt: expect.any(Date),
       });
+      expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:refunded', {
+        orderId: 'o1',
+      });
     });
 
     it('skips already-processed charge.refunded events (idempotency)', async () => {
@@ -512,6 +530,37 @@ describe('payments.service', () => {
       await processWebhookEvent(chargeRefundedEvent());
 
       expect(updatePaymentEventMock).not.toHaveBeenCalled();
+      expect(markOrderRefundedMock).not.toHaveBeenCalled();
+    });
+
+    it('does not flip an Order or emit for a non-ORDER payable (e.g. a subscription payment)', async () => {
+      findPaymentByRefundIdMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'SUBSCRIPTIONS',
+        payableId: 's1',
+        lastProcessedEventId: undefined,
+      });
+
+      await processWebhookEvent(chargeRefundedEvent());
+
+      expect(updatePaymentEventMock).toHaveBeenCalled();
+      expect(markOrderRefundedMock).not.toHaveBeenCalled();
+      expect(emitToUserMock).not.toHaveBeenCalled();
+    });
+
+    it('does not emit payment:refunded when the Order was not in REFUND_PENDING (race)', async () => {
+      findPaymentByRefundIdMock.mockResolvedValue({
+        _id: 'p1',
+        payableType: 'ORDER',
+        payableId: 'o1',
+        lastProcessedEventId: undefined,
+      });
+      markOrderRefundedMock.mockResolvedValue(null);
+
+      await processWebhookEvent(chargeRefundedEvent());
+
+      expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
+      expect(emitToUserMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the refund id', async () => {

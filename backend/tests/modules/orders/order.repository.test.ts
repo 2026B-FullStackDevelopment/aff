@@ -6,13 +6,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // findOneMock represents Order.findOne().
 // createMock represents Order.create().
 // leanMock represents the .lean() method returned
-const { findMock, findOneMock, createMock, existsMock, leanMock } = vi.hoisted(() => {
+const { findMock, findOneMock, createMock, existsMock, findOneAndUpdateMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findMock: vi.fn(() => ({ lean: leanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
     existsMock: vi.fn(),
+    findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     leanMock,
   };
 });
@@ -23,6 +24,7 @@ vi.mock('../../../src/modules/orders/order.model.js', () => ({
     findOne: findOneMock,
     create: createMock,
     exists: existsMock,
+    findOneAndUpdate: findOneAndUpdateMock,
   },
 }));
 
@@ -32,6 +34,8 @@ import {
   findOrderByIdAndRecipient,
   createOrder,
   hasNonCancelledOrderForListing,
+  cancelOrderById,
+  markOrderRefunded,
 } from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
@@ -40,6 +44,7 @@ describe('order.repository', () => {
     findOneMock.mockClear();
     createMock.mockClear();
     existsMock.mockClear();
+    findOneAndUpdateMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue([{ _id: 'o1' }]);
   });
@@ -116,6 +121,78 @@ describe('order.repository', () => {
       const result = await hasNonCancelledOrderForListing('l1', 'r1');
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('cancelOrderById', () => {
+    it('atomically cancels an Order not already CANCELLED', async () => {
+      const cancelledAt = new Date('2026-01-01T00:00:00.000Z');
+      leanMock.mockResolvedValue({
+        _id: 'o1',
+        orderStatus: 'CANCELLED',
+        cancelledByUserId: 'r1',
+        cancelledAt,
+      });
+
+      const result = await cancelOrderById('o1', 'r1', cancelledAt);
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        {
+          _id: 'o1',
+          orderStatus: { $ne: 'CANCELLED' },
+        },
+        {
+          $set: {
+            orderStatus: 'CANCELLED',
+            cancelledByUserId: 'r1',
+            cancelledAt,
+          },
+        },
+        { new: true, runValidators: true, session: undefined },
+      );
+      expect(result).toMatchObject({ orderStatus: 'CANCELLED' });
+    });
+
+    it('returns null when the Order was already CANCELLED (race)', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await cancelOrderById('o1', 'r1', new Date());
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('markOrderRefunded', () => {
+    it('flips a REFUND_PENDING Order to REFUNDED', async () => {
+      leanMock.mockResolvedValue({
+        _id: 'o1',
+        recipientId: 'r1',
+        paymentStatus: 'REFUNDED',
+      });
+
+      const result = await markOrderRefunded('o1');
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        {
+          _id: 'o1',
+          paymentStatus: 'REFUND_PENDING',
+        },
+        {
+          $set: {
+            paymentStatus: 'REFUNDED',
+          },
+        },
+        { new: true, runValidators: true, session: undefined },
+      );
+      expect(result).toMatchObject({ paymentStatus: 'REFUNDED' });
+    });
+
+    it('returns null when the Order was not REFUND_PENDING', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await markOrderRefunded('o1');
+
+      expect(result).toBeNull();
     });
   });
 });
