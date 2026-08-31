@@ -210,6 +210,7 @@ export interface OrderDTO {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  delivery: { stage: DeliveryStage } | null;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId: string | null;
@@ -219,6 +220,9 @@ export interface OrderDTO {
   } | null;
   createdAt: string;
 }
+
+export type RefundStatus = 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED';
+export type CancelOrderResponseDto = OrderDTO & { refundStatus: RefundStatus };
 
 export interface ReserveListingPayload {
   quantity: number;

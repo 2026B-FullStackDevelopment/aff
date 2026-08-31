@@ -4,6 +4,7 @@ import type {
   CheckoutSessionResponseDto,
   OrderDTO,
   ReserveListingPayload,
+  CancelOrderResponseDto,
 } from '@/types/api';
 
 export const reservationService = {
@@ -14,7 +15,7 @@ export const reservationService = {
   createCheckoutSession: (orderId: string) =>
     httpClient.post<CheckoutSessionResponseDto>(API_ROUTES.orders.checkoutSession(orderId), {}),
   cancelOrder: (orderId: string) =>
-    httpClient.delete<OrderDTO>(API_ROUTES.orders.cancel(orderId)),
+    httpClient.delete<CancelOrderResponseDto>(API_ROUTES.orders.cancel(orderId)),
 };
 
 export default reservationService;

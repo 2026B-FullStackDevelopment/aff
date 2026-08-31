@@ -7,9 +7,16 @@ export interface PaymentSuccessEvent {
     orderId: string;
 }
 
+export interface PaymentRefundedEvent {
+    orderId: string;
+}
+
 interface OrderServerToClientEvents {
     'payment:success': (
         event: PaymentSuccessEvent,
+    ) => void;
+    'payment:refunded': (
+        event: PaymentRefundedEvent,
     ) => void;
 }
 
@@ -24,8 +31,15 @@ type PaymentSuccessListener = (
     event: PaymentSuccessEvent,
 ) => void;
 
+type PaymentRefundedListener = (
+    event: PaymentRefundedEvent,
+) => void;
+
 const paymentSuccessListeners =
     new Set<PaymentSuccessListener>();
+
+const paymentRefundedListeners =
+    new Set<PaymentRefundedListener>();
 
 let activeSocket: OrderSocket | null =
     null;
@@ -62,10 +76,31 @@ function isPaymentSuccessEvent(
     );
 }
 
+function isPaymentRefundedEvent(
+    payload: unknown,
+): payload is PaymentRefundedEvent {
+    return (
+        typeof payload === 'object'
+        && payload !== null
+        && 'orderId' in payload
+        && typeof payload.orderId === 'string'
+    );
+}
+
 function notifyPaymentSuccessListeners(
     payload: PaymentSuccessEvent,
 ) {
     paymentSuccessListeners.forEach(
+        (listener) => {
+            listener(payload);
+        },
+    );
+}
+
+function notifyPaymentRefundedListeners(
+    payload: PaymentRefundedEvent,
+) {
+    paymentRefundedListeners.forEach(
         (listener) => {
             listener(payload);
         },
@@ -82,11 +117,26 @@ function handlePaymentSuccessEvent(
     notifyPaymentSuccessListeners(payload);
 }
 
+function handlePaymentRefundedEvent(
+    payload: PaymentRefundedEvent,
+) {
+    if (!isPaymentRefundedEvent(payload)) {
+        return;
+    }
+
+    notifyPaymentRefundedListeners(payload);
+}
+
 function disconnect() {
     if (activeSocket) {
         activeSocket.off(
             'payment:success',
             handlePaymentSuccessEvent,
+        );
+
+        activeSocket.off(
+            'payment:refunded',
+            handlePaymentRefundedEvent,
         );
 
         activeSocket.disconnect();
@@ -127,6 +177,11 @@ function connect(token: string) {
         'payment:success',
         handlePaymentSuccessEvent,
     );
+
+    activeSocket.on(
+        'payment:refunded',
+        handlePaymentRefundedEvent,
+    );
 }
 
 function subscribeToPaymentSuccess(
@@ -139,8 +194,19 @@ function subscribeToPaymentSuccess(
     };
 }
 
+function subscribeToPaymentRefunded(
+    listener: PaymentRefundedListener,
+): () => void {
+    paymentRefundedListeners.add(listener);
+
+    return () => {
+        paymentRefundedListeners.delete(listener);
+    };
+}
+
 export const orderRealtimeService = {
     connect,
     disconnect,
     subscribeToPaymentSuccess,
+    subscribeToPaymentRefunded,
 };

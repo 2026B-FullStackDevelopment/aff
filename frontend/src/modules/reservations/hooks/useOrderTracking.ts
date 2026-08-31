@@ -3,11 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from '@/shared/components/ui/sonner';
 import { reservationService } from '../services/reservation.service';
 import { useOrderPaymentNotifications } from './useOrderPaymentNotifications';
-import type { OrderDTO } from '@/types/api';
+import type { OrderDTO, RefundStatus } from '@/types/api';
 
 export function useOrderTracking(orderId: string | undefined) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [order, setOrder] = useState<OrderDTO | null>(null);
+  const [refundStatus, setRefundStatus] = useState<RefundStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotFound, setIsNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +55,17 @@ export function useOrderTracking(orderId: string | undefined) {
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
-  useOrderPaymentNotifications(orderId, reload);
+  const handleRefunded = useCallback(() => {
+    setRefundStatus('REFUND_PENDING' as RefundStatus extends never ? never : 'REFUND_PENDING');
+    // Flip local state to REFUNDED without a refetch, matching how
+    // payment:success flips paymentStatus live elsewhere in this hook.
+    setOrder((prev) =>
+      prev ? { ...prev, paymentStatus: 'REFUNDED' } : prev,
+    );
+    setRefundStatus('REFUNDED' as unknown as RefundStatus);
+  }, []);
+
+  useOrderPaymentNotifications(orderId, reload, handleRefunded);
 
   const paymentWasCancelled = searchParams.get('payment') === 'cancelled';
 
@@ -63,6 +74,15 @@ export function useOrderTracking(orderId: string | undefined) {
     order.paymentMethod === 'STRIPE' &&
     order.paymentStatus === 'PAYMENT_PENDING' &&
     order.orderStatus === 'PENDING_PAYMENT',
+  );
+
+  // Eligible iff there's no Delivery yet, or it hasn't been claimed by a
+  // Courier yet — orderStatus stays PREPARING through claim/pickup, so it
+  // is deliberately not used here (see docs/api_design.md §9).
+  const canCancelOrder = Boolean(
+    order &&
+    order.orderStatus !== 'CANCELLED' &&
+    (!order.delivery || order.delivery.stage === 'AWAITING_COURIER'),
   );
 
   async function retryPayment() {
@@ -77,7 +97,6 @@ export function useOrderTracking(orderId: string | undefined) {
         setIsRetrying(false);
         return;
       }
-      // Hosted redirect — leaves the app, same as the original checkout.
       window.location.href = response.data.checkoutUrl;
     } catch {
       setActionError('Could not start checkout. Please try again.');
@@ -111,7 +130,10 @@ export function useOrderTracking(orderId: string | undefined) {
         return;
       }
 
-      setOrder(response.data);
+      const { refundStatus: newRefundStatus, ...updatedOrder } = response.data;
+      setOrder(updatedOrder);
+      setRefundStatus(newRefundStatus);
+
       toast.success('Order cancelled', {
         description: 'Your hold on this item has been released.',
       });
@@ -130,8 +152,8 @@ export function useOrderTracking(orderId: string | undefined) {
   }
 
   return {
-    order, isLoading, isNotFound, error,
-    paymentWasCancelled, isAwaitingPayment,
+    order, refundStatus, isLoading, isNotFound, error,
+    paymentWasCancelled, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload
   };

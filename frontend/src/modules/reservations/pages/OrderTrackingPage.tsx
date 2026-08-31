@@ -17,13 +17,11 @@ import { useOrderTracking } from '../hooks/useOrderTracking';
 export function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
   const {
-    order, isLoading, isNotFound, error,
-    paymentWasCancelled, isAwaitingPayment,
+    order, refundStatus, isLoading, isNotFound, error,
+    paymentWasCancelled, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload,
   } = useOrderTracking(id);
-
-  const canCancelOrder = order?.orderStatus === 'PREPARING';
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
@@ -94,6 +92,28 @@ export function OrderTrackingPage() {
                     ? 'This order has been cancelled.'
                     : 'This order was automatically cancelled.'}{' '}
                   You're free to reserve this listing again if it's still available.
+                </p>
+              </WarningCallout>
+            )}
+
+            {/* Refund state — only meaningful once the order is cancelled and was Stripe-paid.
+                NOT_APPLICABLE (free/cash/never-paid) needs no callout at all. */}
+            {refundStatus === 'REFUND_PENDING' && (
+              <WarningCallout title="Refund in progress">
+                <p>
+                  Your payment refund has started and is being processed by Stripe. This can
+                  take a few business days to appear on your statement — we'll update this page
+                  automatically once it's confirmed.
+                </p>
+              </WarningCallout>
+            )}
+
+            {refundStatus === 'FAILED' && (
+              <WarningCallout title="Refund needs attention">
+                <p>
+                  Your order is cancelled, but we weren't able to start the refund automatically.
+                  This needs manual follow-up — please contact support so we can sort out your
+                  refund.
                 </p>
               </WarningCallout>
             )}
