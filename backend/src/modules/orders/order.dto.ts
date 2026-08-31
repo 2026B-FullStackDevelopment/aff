@@ -1,6 +1,7 @@
 // Shapes order data before sending it to the frontend or another module, and the request/response bodies for the module's other endpoints.
 import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
+import type { DeliveryStage } from '../delivery/delivery.model.js';
 
 interface OrderListingSummary {
   id: string;
@@ -24,6 +25,7 @@ interface OrderResponseDto {
   cancelledByUserId: string | null;
   feedback: OrderFeedback | null;
   createdAt: Date;
+  delivery: { stage: DeliveryStage } | null;
 }
 
 interface CancelOrderResponseDto extends OrderResponseDto {
@@ -45,7 +47,10 @@ interface CreateOrderCheckoutSessionResponseDto {
   checkoutUrl: string;
 }
 
-function toOrderResponseDto(order: OrderDocument | null): OrderResponseDto | null {
+function toOrderResponseDto(
+  order: OrderDocument | null,
+  deliveryStage: DeliveryStage | null = null,
+): OrderResponseDto | null {
   if (!order) return null;
 
   return {
@@ -68,10 +73,23 @@ function toOrderResponseDto(order: OrderDocument | null): OrderResponseDto | nul
     cancelledByUserId: order.cancelledByUserId ? String(order.cancelledByUserId) : null,
     feedback: order.feedback ?? null,
     createdAt: order.createdAt,
+    delivery: deliveryStage ? { stage: deliveryStage } : null,
   };
 }
 
-export { toOrderResponseDto };
+/** Builds the `DELETE /orders/:id` response (D4), embedding the post-cancel refund state. */
+function toCancelOrderResponseDto(
+  order: OrderDocument,
+  refundStatus: CancelOrderResponseDto['refundStatus'],
+  deliveryStage: DeliveryStage | null = null,
+): CancelOrderResponseDto {
+  return {
+    ...toOrderResponseDto(order, deliveryStage)!,
+    refundStatus,
+  };
+}
+
+export { toOrderResponseDto, toCancelOrderResponseDto };
 export type {
   OrderListingSummary,
   OrderResponseDto,

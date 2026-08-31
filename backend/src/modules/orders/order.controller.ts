@@ -1,7 +1,7 @@
 // Handles order HTTP requests and returns order DTOs.
 import type { Request, Response, NextFunction } from 'express';
 import * as orderService from './order.service.js';
-import { toOrderResponseDto } from './order.dto.js';
+import { toOrderResponseDto, toCancelOrderResponseDto } from './order.dto.js';
 import { ok, notImplemented } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js';
 import {
@@ -12,7 +12,7 @@ import {
 async function listMyOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const orders = await orderService.listOrdersForRecipient(req.user!.id);
-    return ok(res, orders.map(toOrderResponseDto));
+    return ok(res, orders.map((order) => toOrderResponseDto(order)));
   } catch (error) {
     return next(error);
   }
@@ -21,17 +21,27 @@ async function listMyOrders(req: Request, res: Response, next: NextFunction) {
 async function getOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(orderIdParamsSchema, req.params);
-    const order = await orderService.getOrderForRecipient(id, req.user!.id);
-    return ok(res, toOrderResponseDto(order));
+    const { order, deliveryStage } = await orderService.getOrderForRecipient(
+      id,
+      req.user!.id,
+    );
+    return ok(res, toOrderResponseDto(order, deliveryStage));
   } catch (error) {
     return next(error);
   }
 }
 
-// The following need the Stripe integration and the Delivery module before they can be implemented
-// — see docs/api_design.md §7 and docs/blockers.md.
-async function cancelOrder(_req: Request, res: Response) {
-  return notImplemented(res);
+async function cancelOrder(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(orderIdParamsSchema, req.params);
+    const { order, deliveryStage, refundStatus } = await orderService.cancelOrder(
+      id,
+      req.user!.id,
+    );
+    return ok(res, toCancelOrderResponseDto(order, refundStatus, deliveryStage));
+  } catch (error) {
+    return next(error);
+  }
 }
 
 async function submitFeedback(_req: Request, res: Response) {

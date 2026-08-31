@@ -1,7 +1,7 @@
 // Contains order database queries so services do not call Mongoose directly.
 import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import {
+import mongoose, {
   Types,
   type ClientSession,
   type PipelineStage,
@@ -234,6 +234,83 @@ async function cancelOrdersByIds(
   return result.modifiedCount;
 }
 
+/**
+ * Atomically cancels a single Order, guarded against double-cancellation.
+ * Returns `null` if the Order was already `CANCELLED` (a race with another
+ * cancellation attempt).
+ */
+function cancelOrderById(
+  orderId: string | Types.ObjectId,
+  cancelledByUserId: string | Types.ObjectId,
+  cancelledAt: Date,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      orderStatus: { $ne: 'CANCELLED' },
+    },
+    {
+      $set: {
+        orderStatus: 'CANCELLED',
+        cancelledByUserId,
+        cancelledAt,
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
+/**
+ * Flips a cancelled Order's `paymentStatus` from `REFUND_PENDING` to
+ * `REFUNDED` once the `charge.refunded` webhook confirms the refund (D4).
+ * Mirrors `markOrderPaid`'s exact guard-then-set shape.
+ */
+function markOrderRefunded(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      paymentStatus: 'REFUND_PENDING',
+    },
+    {
+      $set: {
+        paymentStatus: 'REFUNDED',
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
+/** Runs related Order-domain writes in one MongoDB transaction. */
+async function withTransaction<T>(
+  operation: (session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const session = await mongoose.startSession();
+
+  try {
+    let result!: T;
+
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
 async function findOrdersForListing(
   listingId: string | Types.ObjectId,
   page: number,
@@ -302,6 +379,9 @@ export {
   findNonCancelledOrderIdsByListing,
   hasNonCancelledOrderForListing,
   cancelOrdersByIds,
+  cancelOrderById,
+  markOrderRefunded,
+  withTransaction,
   findOrdersForListing,
 };
 
