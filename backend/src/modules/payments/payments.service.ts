@@ -352,8 +352,19 @@ async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
     refundedAt: new Date(),
   });
 
-  // TODO(D4 - Cancel Order Before Courier Claim): flip ORDER.paymentStatus=REFUNDED and emit
-  // payment:refunded (docs/api_design.md §8/§12).
+  if (payment.payableType !== 'ORDER') {
+    return;
+  }
+
+  const updatedOrder = await orderInterface.markOrderRefunded(
+    String(payment.payableId),
+  );
+
+  if (updatedOrder) {
+    emitToUser(String(updatedOrder.recipientId), 'payment:refunded', {
+      orderId: String(updatedOrder._id),
+    });
+  }
 }
 
 /**
