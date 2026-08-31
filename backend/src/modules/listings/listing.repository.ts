@@ -506,6 +506,53 @@ function decrementStockForReserveAtomically(
   ).lean<ListingDocument>();
 }
 
+/**
+ * Restores stock on a cancelled Order's Listing (D4) — the literal inverse
+ * of `decrementStockForReserveAtomically`: `$add` instead of `$subtract`,
+ * and flips `SOLD_OUT` back to `ACTIVE` (clearing `closedAt`) only when the
+ * Listing was `SOLD_OUT`; a `PAUSED`/`CANCELLED` Listing's status is left
+ * untouched, only its count restored. No `donorId` filter (a Recipient
+ * cancelling an order doesn't own the Listing) and no stock-floor guard
+ * needed, since this only ever adds.
+ */
+function restoreStockAtomically(
+  listingId: string | Types.ObjectId,
+  quantity: number,
+  session?: ClientSession,
+) {
+  return Listing.findOneAndUpdate(
+    { _id: listingId },
+    [
+      {
+        $set: {
+          quantityRemaining: {
+            $add: ['$quantityRemaining', quantity],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [
+              { $eq: ['$status', 'SOLD_OUT'] },
+              'ACTIVE',
+              '$status',
+            ],
+          },
+          closedAt: {
+            $cond: [
+              { $eq: ['$status', 'SOLD_OUT'] },
+              null,
+              '$closedAt',
+            ],
+          },
+        },
+      },
+    ],
+    { new: true, session, updatePipeline: true },
+  ).lean<ListingDocument>();
+}
+
 async function withTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
@@ -533,5 +580,6 @@ export {
   updateListingStatusIfCurrent,
   decrementStockAtomically,
   decrementStockForReserveAtomically,
+  restoreStockAtomically,
   withTransaction,
 };

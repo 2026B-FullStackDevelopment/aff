@@ -243,6 +243,15 @@ async function getListingById(id: string): Promise<ListingDtoSource> {
   return enrichListing(listing);
 }
 
+/** Restores stock on a cancelled Order's Listing (D4). */
+async function restoreStock(
+  listingId: string,
+  quantity: number,
+  session?: ClientSession,
+) {
+  return listingRepository.restoreStockAtomically(listingId, quantity, session);
+}
+
 async function cloneListing(
   listingId: string,
   donorId: string,
@@ -640,6 +649,7 @@ export {
   listAvailableListings,
   createListing,
   getListingById,
+  restoreStock,
   cloneListing,
   updateListingStatus,
   listListingOrders,
