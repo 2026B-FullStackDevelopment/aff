@@ -492,7 +492,7 @@
           "price": {
             "type": "number",
             "minimum": 0,
-            "description": "Must be exactly 0 (free) or strictly greater than 15000 VND. OpenAPI 3.0 cannot express this disjoint numeric constraint compactly, so clients must enforce both branches."
+            "description": "Must be exactly 0 (free) or greater than or equal to 15000 VND. OpenAPI 3.0 cannot express this disjoint numeric constraint compactly, so clients must enforce both branches."
           },
           "donationLimit": {
             "type": "number",
@@ -811,7 +811,7 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "examples": {
-              "price": { "value": { "message": "Price must be 0 or greater than 15000 VND." } },
+              "price": { "value": { "message": "Price must be 0 or greater than or equal to 15000 VND." } },
               "unknownField": { "value": { "message": "Unrecognized key: city" } }
             }
           }

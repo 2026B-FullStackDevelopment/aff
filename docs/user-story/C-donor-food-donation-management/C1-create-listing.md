@@ -27,7 +27,7 @@ so that **Recipients can discover and receive the surplus food I have available*
   - **When** I enter a price `<price>`
   - **Then** I see an inline error explaining "<reason>", and the form does not submit
 
-  **Price rule:** a listing must be free (`price = 0`) or priced above 15000 VND.
+  **Price rule:** a listing must be free (`price = 0`) or priced from 15000 VND upwards.
 
   **Examples:**
   | price | reason |
@@ -48,7 +48,7 @@ so that **Recipients can discover and receive the surplus food I have available*
 
 ## Implementation Flow
 
-1. **Mirror validation client-side, but the server is authoritative.** The unit/category enums and the "free or >15000 VND" price rule must be re-checked in `POST /listings` regardless of what the form already caught — never rely on the client alone.
+1. **Mirror validation client-side, but the server is authoritative.** The unit/category enums and the "free or >=15000 VND" price rule must be re-checked in `POST /listings` regardless of what the form already caught — never rely on the client alone.
 2. **Gate submission on the Per-Request warning.** If `unit=PER_REQUEST` is selected, the warning must be acknowledged (e.g. shown inline, submit disabled until seen) before the form can be submitted — don't just display it as a passive banner.
 3. **Image upload follows the same signed-URL handoff as avatars, with one difference:** request `POST /media/upload-url` with `purpose: 'LISTING_IMAGE'`, `PUT` the bytes to Supabase, then include the returned `mediaUrl` as `imageUrl` directly in the `POST /listings` payload — there's no listing to `PATCH` afterward, since it doesn't exist yet.
 4. **Never send `city` from the client.** It's inherited server-side from the Donor's profile; don't add a city field to this form.
