@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AddressAutocomplete } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';
-import { DonorLocationMap } from '@/shared/components/DonorLocationMap/DonorLocationMap';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';

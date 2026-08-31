@@ -92,6 +92,17 @@ export function useOrderTracking(orderId: string | undefined) {
 
     try {
       const response = await reservationService.cancelOrder(order.id);
+
+      // A courier claimed this order between page load and the cancel
+      if (response.status === 409) {
+        toast.error('This order can no longer be cancelled', {
+          description: 'A courier already picked this up before your cancellation went through.',
+        });
+        setIsCancelling(false);
+        reload();
+        return;
+      }
+
       if (!response.ok || !response.data) {
         const errMsg = 'Could not cancel this order. Please try again.';
         setActionError(errMsg);
@@ -104,8 +115,6 @@ export function useOrderTracking(orderId: string | undefined) {
       toast.success('Order cancelled', {
         description: 'Your hold on this item has been released.',
       });
-      // Clear ?payment=cancelled once resolved, so refresh/back-nav
-      // doesn't re-show the retry banner for a now-cancelled order.
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete('payment');
@@ -124,6 +133,6 @@ export function useOrderTracking(orderId: string | undefined) {
     order, isLoading, isNotFound, error,
     paymentWasCancelled, isAwaitingPayment,
     isRetrying, isCancelling, actionError,
-    retryPayment, cancelOrder, reload,
+    retryPayment, cancelOrder, reload
   };
 }

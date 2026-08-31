@@ -23,6 +23,8 @@ export function OrderTrackingPage() {
     retryPayment, cancelOrder, reload,
   } = useOrderTracking(id);
 
+  const canCancelOrder = order?.orderStatus === 'PREPARING';
+
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
   return (
@@ -117,7 +119,7 @@ export function OrderTrackingPage() {
                     Item
                   </span>
                   <span className="font-semibold text-[#414844]">
-                    {order.listing.name ?? 'Listing'} × {order.quantity}
+                    {order?.listing?.name ?? 'Listing'} × {order.quantity}
                     {order.listing.unit ? ` ${UNIT_LABELS[order.listing.unit] ?? ''}` : ''}
                   </span>
                 </div>
@@ -141,6 +143,21 @@ export function OrderTrackingPage() {
                   </p>
                   <p className="text-[#414844]">{order.deliveryAddressText}</p>
                 </div>
+
+                {canCancelOrder && (
+                  <div className="flex flex-col items-end gap-3 border-t border-slate-100 pt-4">
+                    {actionError && <FormErrorAlert message={actionError} />}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCancelDialogOpen(true)}
+                      disabled={isCancelling}
+                      className="h-10 rounded-lg border-red-200 px-4 text-sm font-semibold text-red-700 transition-all duration-200 ease-out hover:bg-red-50 hover:shadow-md active:scale-[0.98]"
+                    >
+                      Cancel Order
+                    </Button>
+                  </div>
+                )}
               </div>
             </Panel>
           </div>
