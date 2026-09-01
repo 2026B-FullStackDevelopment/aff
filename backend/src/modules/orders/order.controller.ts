@@ -5,13 +5,15 @@ import {
   toOrderResponseDto,
   toCancelOrderResponseDto,
   toRecipientOrderResponseDto,
+  toSubmitFeedbackResponseDto,
 } from './order.dto.js';
-import { ok, paginated, notImplemented } from '../../shared/http/response.js';
+import { ok, created, paginated } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js';
 import {
   orderIdParamsSchema,
   choosePaymentMethodSchema,
   mineOrdersQuerySchema,
+  submitFeedbackSchema,
 } from './order.schemas.js';
 
 async function listMyOrders(req: Request, res: Response, next: NextFunction) {
@@ -61,8 +63,21 @@ async function cancelOrder(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-async function submitFeedback(_req: Request, res: Response) {
-  return notImplemented(res);
+async function submitFeedback(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(orderIdParamsSchema, req.params);
+    const { comment } = parseBody(submitFeedbackSchema, req.body);
+
+    const feedback = await orderService.submitFeedback(
+      id,
+      req.user!.id,
+      comment,
+    );
+
+    return created(res, toSubmitFeedbackResponseDto(feedback));
+  } catch (error) {
+    return next(error);
+  }
 }
 
 async function choosePaymentMethod(

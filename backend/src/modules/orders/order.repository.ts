@@ -328,6 +328,37 @@ function markOrderRefunded(
   ).lean<OrderDocument>();
 }
 
+/**
+ * Atomically records a Recipient's one-shot feedback on a delivered Order (D7). Guarded on
+ * `orderStatus: 'DELIVERED'` and no existing `feedback`, so a race between the service's
+ * pre-check and this write (order un-delivered, or feedback already set by a concurrent
+ * request) safely returns `null` instead of overwriting anything.
+ */
+function setFeedback(
+  orderId: string | Types.ObjectId,
+  comment: string,
+  createdAt: Date,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      orderStatus: 'DELIVERED',
+      feedback: { $exists: false },
+    },
+    {
+      $set: {
+        feedback: { comment, createdAt },
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
 /** Runs related Order-domain writes in one MongoDB transaction. */
 async function withTransaction<T>(
   operation: (session: ClientSession) => Promise<T>,
@@ -507,6 +538,7 @@ export {
   cancelOrdersByIds,
   cancelOrderById,
   markOrderRefunded,
+  setFeedback,
   withTransaction,
   findOrdersForListing,
   findOrdersForRecipient,

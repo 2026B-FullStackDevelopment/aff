@@ -11,6 +11,14 @@ function toErrorDto(error: Error): ErrorResponse {
     dto.lockedUntilSeconds = error.lockedUntilSeconds;
   }
 
+  // Set on the 409 from submitFeedback when feedback was already submitted (D7).
+  if (error.feedback !== undefined) {
+    dto.feedback = {
+      comment: error.feedback.comment,
+      createdAt: error.feedback.createdAt.toISOString(),
+    };
+  }
+
   return dto;
 }
 

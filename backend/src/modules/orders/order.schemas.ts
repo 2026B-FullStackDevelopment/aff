@@ -14,6 +14,21 @@ const choosePaymentMethodSchema = z
   })
   .strict();
 
+/**
+ * Validates `POST /orders/:id/feedback` request bodies (D7). The 500-char cap matches the
+ * frontend mock's existing MAX_COMMENT_LENGTH, so behavior doesn't change for a user who
+ * already saw that limit.
+ */
+const submitFeedbackSchema = z
+  .object({
+    comment: z
+      .string()
+      .trim()
+      .min(1, { message: 'Feedback comment is required.' })
+      .max(500, { message: 'Feedback comment cannot exceed 500 characters.' }),
+  })
+  .strict();
+
 // Shared pagination validation (mirrors listing.schemas.ts#paginationQuerySchema;
 // duplicated locally since it isn't shared cross-module elsewhere either).
 const paginationQuerySchema = z.object({
@@ -36,4 +51,9 @@ const paginationQuerySchema = z.object({
  */
 const mineOrdersQuerySchema = paginationQuerySchema.strict();
 
-export { orderIdParamsSchema, choosePaymentMethodSchema, mineOrdersQuerySchema };
+export {
+  orderIdParamsSchema,
+  choosePaymentMethodSchema,
+  mineOrdersQuerySchema,
+  submitFeedbackSchema,
+};

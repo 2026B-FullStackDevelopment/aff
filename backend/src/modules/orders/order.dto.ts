@@ -139,10 +139,18 @@ function toRecipientOrderResponseDto(
   };
 }
 
+/** Builds the `POST /orders/:id/feedback` response (D7): a bare feedback object, not a full Order. */
+function toSubmitFeedbackResponseDto(
+  feedback: OrderFeedback,
+): SubmitFeedbackResponseDto {
+  return { feedback };
+}
+
 export {
   toOrderResponseDto,
   toCancelOrderResponseDto,
   toRecipientOrderResponseDto,
+  toSubmitFeedbackResponseDto,
 };
 export type {
   OrderListingSummary,
