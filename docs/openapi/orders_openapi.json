@@ -3,7 +3,7 @@
   "info": {
     "title": "AFF Orders API",
     "version": "0.1.0",
-    "description": "The Recipient-facing Order read/cancel endpoints (Epic D). Reflects backend/src/modules/orders/order.controller.ts::listMyOrders, ::getOrder, and ::cancelOrder as implemented. Note: docs/api_design.md §7 documents GET /orders/mine as paginated and enriched with a donor summary — neither is implemented yet (left for D5, Order/Delivery History); as built today it returns the Recipient's full, unpaginated Order list with no donor field. checkout-session and payment-choice (D2/D3) are not documented here, to keep this file scoped to the read/cancel surface.",
+    "description": "The Recipient-facing Order read/cancel endpoints (Epic D). Reflects backend/src/modules/orders/order.controller.ts::listMyOrders, ::getOrder, and ::cancelOrder as implemented. GET /orders/mine is paginated and enriched with donor/listing/live-delivery-stage per row (D5, Order/Delivery History); GET /orders/{id} and DELETE /orders/{id} return the base Order shape only — listing.name/imageUrl/unit stay omitted there, and neither returns a donor field (D5 scoped enrichment to the list endpoint only). checkout-session and payment-choice (D2/D3) are not documented here, to keep this file scoped to the read/cancel surface.",
     "contact": { "name": "AFF Backend" }
   },
   "servers": [
@@ -17,18 +17,23 @@
       "get": {
         "tags": ["Recipient Orders"],
         "operationId": "listMyOrders",
-        "summary": "List the authenticated Recipient's Orders",
-        "description": "Always implicitly scoped to req.user.id as recipientId. As implemented today this returns every matching Order with no pagination and delivery always null (bulk Delivery-stage enrichment is D5's job) — see this file's top-level description.",
+        "summary": "List the authenticated Recipient's Orders, paginated and enriched (D5)",
+        "description": "Always implicitly scoped to req.user.id as recipientId — there is no parameter to query anyone else's orders. Sorted newest-first (createdAt descending, no client-controlled sort). Each item embeds the donating Listing's name/imageUrl/unit, the Donor's id/companyName, and the Order's live Delivery stage (null when no Delivery exists yet, e.g. a Stripe Order still PENDING_PAYMENT) — all joined server-side so the client never needs a second call per row.",
         "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
         "responses": {
           "200": {
-            "description": "All of the Recipient's Orders",
+            "description": "A page of the Recipient's Orders",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OrdersListResponse" }
+                "schema": { "$ref": "#/components/schemas/PaginatedRecipientOrdersResponse" }
               }
             }
           },
+          "400": { "$ref": "#/components/responses/ValidationError" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/RecipientRoleRequired" }
         }
@@ -166,6 +171,25 @@
           "pattern": "^[0-9a-fA-F]{24}$"
         },
         "example": "507f1f77bcf86cd799439011"
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
       }
     },
     "schemas": {
@@ -200,9 +224,9 @@
         "required": ["id"],
         "properties": {
           "id": { "type": "string" },
-          "name": { "type": "string", "description": "Always omitted today — Listing enrichment is D5's job" },
-          "imageUrl": { "type": "string", "format": "uri", "description": "Always omitted today — Listing enrichment is D5's job" },
-          "unit": { "type": "string", "description": "Always omitted today — Listing enrichment is D5's job" }
+          "name": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "imageUrl": { "type": "string", "format": "uri", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "unit": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" }
         }
       },
       "DeliveryStage": {
@@ -283,14 +307,46 @@
           "data": { "$ref": "#/components/schemas/Order" }
         }
       },
-      "OrdersListResponse": {
+      "RecipientDonorSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "companyName"],
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" }
+        }
+      },
+      "RecipientOrderListItem": {
+        "description": "GET /orders/mine returns Order plus the donating Donor's summary — not returned by GET/DELETE /orders/{id}, so it's kept as its own schema rather than added to the shared Order schema.",
+        "allOf": [
+          { "$ref": "#/components/schemas/Order" },
+          {
+            "type": "object",
+            "required": ["donor"],
+            "properties": {
+              "donor": { "$ref": "#/components/schemas/RecipientDonorSummary" }
+            }
+          }
+        ]
+      },
+      "PaginatedRecipientOrdersResponse": {
         "type": "object",
         "additionalProperties": false,
         "required": ["data"],
         "properties": {
           "data": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/Order" }
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecipientOrderListItem" }
+              },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            }
           }
         }
       },
@@ -304,6 +360,18 @@
       }
     },
     "responses": {
+      "ValidationError": {
+        "description": "Query validation failed. mineOrdersQuerySchema is .strict(), so an unrecognized query parameter is also rejected.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "badPage": { "value": { "message": "Page must be at least 1." } },
+              "badLimit": { "value": { "message": "Limit cannot be greater than 100." } }
+            }
+          }
+        }
+      },
       "Unauthorized": {
         "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
         "content": {
