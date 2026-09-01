@@ -3,14 +3,14 @@
   "info": {
     "title": "AFF Orders API",
     "version": "0.1.0",
-    "description": "The Recipient-facing Order read/cancel endpoints (Epic D). Reflects backend/src/modules/orders/order.controller.ts::listMyOrders, ::getOrder, and ::cancelOrder as implemented. GET /orders/mine is paginated and enriched with donor/listing/live-delivery-stage per row (D5, Order/Delivery History); GET /orders/{id} and DELETE /orders/{id} return the base Order shape only — listing.name/imageUrl/unit stay omitted there, and neither returns a donor field (D5 scoped enrichment to the list endpoint only). checkout-session and payment-choice (D2/D3) are not documented here, to keep this file scoped to the read/cancel surface.",
+    "description": "The Recipient-facing Order read/cancel/feedback endpoints (Epic D). Reflects backend/src/modules/orders/order.controller.ts::listMyOrders, ::getOrder, ::cancelOrder, and ::submitFeedback as implemented. GET /orders/mine is paginated and enriched with donor/listing/live-delivery-stage per row (D5, Order/Delivery History); GET /orders/{id} and DELETE /orders/{id} return the base Order shape only — listing.name/imageUrl/unit stay omitted there, and neither returns a donor field (D5 scoped enrichment to the list endpoint only). POST /orders/{id}/feedback is one-shot per Order, only after orderStatus=DELIVERED (D7). checkout-session and payment-choice (D2/D3) are not documented here, to keep this file scoped to the read/cancel/feedback surface.",
     "contact": { "name": "AFF Backend" }
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
   ],
   "tags": [
-    { "name": "Recipient Orders", "description": "View and cancel the authenticated Recipient's own Orders (D4)" }
+    { "name": "Recipient Orders", "description": "View, cancel, and leave feedback on the authenticated Recipient's own Orders (D4, D7)" }
   ],
   "paths": {
     "/orders/mine": {
@@ -155,6 +155,50 @@
           "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
           "404": { "$ref": "#/components/responses/OrderNotFound" },
           "409": { "$ref": "#/components/responses/OrderNoLongerCancellable" }
+        }
+      }
+    },
+    "/orders/{id}/feedback": {
+      "post": {
+        "tags": ["Recipient Orders"],
+        "operationId": "submitFeedback",
+        "summary": "Leave feedback on my own delivered Order (D7)",
+        "description": "Ownership: the Order must belong to req.user.id, same non-distinguishing 404 as GET/DELETE /orders/{id}. Only allowed once orderStatus=DELIVERED; rejected with 409 otherwise. One-shot per Order: a second attempt is rejected with 409 and the response body echoes the existing feedback (data.feedback on success is exactly what was persisted, so the client never needs to re-fetch the Order to render it) so the client can render it instead of an empty form, even if it bypassed the UI's own DELIVERED gate.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/OrderId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitFeedbackRequest" },
+              "example": { "comment": "Great donation, thank you!" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Feedback was persisted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SubmitFeedbackResponse" },
+                "example": {
+                  "data": {
+                    "feedback": {
+                      "comment": "Great donation, thank you!",
+                      "createdAt": "2026-01-01T00:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/FeedbackValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "404": { "$ref": "#/components/responses/OrderNotFound" },
+          "409": { "$ref": "#/components/responses/FeedbackConflict" }
         }
       }
     }
@@ -357,6 +401,48 @@
         "properties": {
           "data": { "$ref": "#/components/schemas/CancelOrderResult" }
         }
+      },
+      "SubmitFeedbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["comment"],
+        "properties": {
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Trimmed server-side before length validation"
+          }
+        }
+      },
+      "SubmitFeedbackResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["feedback"],
+        "properties": {
+          "feedback": { "$ref": "#/components/schemas/Feedback" }
+        }
+      },
+      "SubmitFeedbackResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/SubmitFeedbackResult" }
+        },
+        "description": "A bare feedback object, not a full Order — matches docs/api_design.md §7's documented 201 shape."
+      },
+      "FeedbackErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" },
+          "feedback": {
+            "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
+            "description": "Only present when the cause is \"feedback already submitted\" — the Recipient's existing feedback, so the client can render it instead of an empty form."
+          }
+        }
       }
     },
     "responses": {
@@ -408,6 +494,42 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "example": { "message": "This order can no longer be cancelled." }
+          }
+        }
+      },
+      "FeedbackValidationError": {
+        "description": "Request body validation failed. submitFeedbackSchema is .strict(): comment is required, trimmed, and capped at 500 characters.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "empty": { "value": { "message": "Feedback comment is required." } },
+              "tooLong": { "value": { "message": "Feedback comment cannot exceed 500 characters." } }
+            }
+          }
+        }
+      },
+      "FeedbackConflict": {
+        "description": "Either the Order hasn't been delivered yet, or feedback was already submitted for it — in the latter case the existing feedback is echoed back in the error body so the client can render it instead of an empty form.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/FeedbackErrorResponse" },
+            "examples": {
+              "notDelivered": {
+                "summary": "Order hasn't been delivered yet",
+                "value": { "message": "This order hasn't been delivered yet." }
+              },
+              "alreadySubmitted": {
+                "summary": "Feedback already submitted — existing feedback echoed back",
+                "value": {
+                  "message": "Feedback has already been submitted for this order.",
+                  "feedback": {
+                    "comment": "Great donation, thank you!",
+                    "createdAt": "2026-01-01T00:00:00.000Z"
+                  }
+                }
+              }
+            }
           }
         }
       }
