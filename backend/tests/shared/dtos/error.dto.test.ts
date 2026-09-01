@@ -28,4 +28,19 @@ describe('toErrorDto', () => {
   it('omits lockedUntilSeconds entirely when the error does not carry it', () => {
     expect(toErrorDto(new Error('Nope.'))).toEqual({ message: 'Nope.' });
   });
+
+  it('passes feedback through, serialized as an ISO string, when the error carries it (D7)', () => {
+    const error: Error = new Error('Feedback has already been submitted for this order.');
+    const createdAt = new Date('2026-01-01T00:00:00.000Z');
+    error.feedback = { comment: 'Great donation!', createdAt };
+
+    expect(toErrorDto(error)).toEqual({
+      message: 'Feedback has already been submitted for this order.',
+      feedback: { comment: 'Great donation!', createdAt: '2026-01-01T00:00:00.000Z' },
+    });
+  });
+
+  it('omits feedback entirely when the error does not carry it', () => {
+    expect(toErrorDto(new Error('Nope.'))).toEqual({ message: 'Nope.' });
+  });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   toOrderResponseDto,
   toRecipientOrderResponseDto,
+  toSubmitFeedbackResponseDto,
 } from '../../../src/modules/orders/order.dto.js';
 
 describe('toOrderResponseDto', () => {
@@ -144,5 +145,13 @@ describe('toRecipientOrderResponseDto', () => {
     });
 
     expect(result.delivery).toBeNull();
+  });
+});
+
+describe('toSubmitFeedbackResponseDto', () => {
+  it('wraps the feedback object as { feedback }', () => {
+    const feedback = { comment: 'Great donation!', createdAt: new Date('2026-01-01T00:00:00.000Z') };
+
+    expect(toSubmitFeedbackResponseDto(feedback)).toEqual({ feedback });
   });
 });

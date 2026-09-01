@@ -38,6 +38,7 @@ import {
   cancelOrderById,
   markOrderPaid,
   markOrderRefunded,
+  setFeedback,
   findOrdersForRecipient,
 } from '../../../src/modules/orders/order.repository.js';
 
@@ -224,6 +225,50 @@ describe('order.repository', () => {
       leanMock.mockResolvedValue(null);
 
       const result = await markOrderRefunded('o1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('setFeedback', () => {
+    it('sets feedback on a DELIVERED Order with no existing feedback', async () => {
+      const createdAt = new Date('2026-01-01T00:00:00.000Z');
+      leanMock.mockResolvedValue({
+        _id: 'o1',
+        orderStatus: 'DELIVERED',
+        feedback: { comment: 'Great donation!', createdAt },
+      });
+
+      const result = await setFeedback('o1', 'Great donation!', createdAt);
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        {
+          _id: 'o1',
+          orderStatus: 'DELIVERED',
+          feedback: { $exists: false },
+        },
+        {
+          $set: {
+            feedback: { comment: 'Great donation!', createdAt },
+          },
+        },
+        { new: true, runValidators: true, session: undefined },
+      );
+      expect(result).toMatchObject({ feedback: { comment: 'Great donation!', createdAt } });
+    });
+
+    it('returns null when the Order is not DELIVERED', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await setFeedback('o1', 'Great donation!', new Date());
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when feedback was already set (race)', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await setFeedback('o1', 'Great donation!', new Date());
 
       expect(result).toBeNull();
     });
