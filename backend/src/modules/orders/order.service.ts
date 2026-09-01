@@ -16,8 +16,12 @@ function createHttpError(statusCode: number, message: string): Error {
   return error;
 }
 
-async function listOrdersForRecipient(recipientId: string) {
-  return orderRepository.findOrdersByRecipient(recipientId);
+async function listOrdersForRecipient(
+  recipientId: string,
+  page: number,
+  limit: number,
+) {
+  return orderRepository.findOrdersForRecipient(recipientId, page, limit);
 }
 
 async function findOrderById(

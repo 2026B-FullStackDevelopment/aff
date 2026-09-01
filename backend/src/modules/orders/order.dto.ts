@@ -89,7 +89,61 @@ function toCancelOrderResponseDto(
   };
 }
 
-export { toOrderResponseDto, toCancelOrderResponseDto };
+/**
+ * Data needed to build a row for `GET /orders/mine` (D5): the raw Order plus its Listing/Donor
+ * summaries and live Delivery stage, as joined by `order.repository.ts#findOrdersForRecipient`.
+ */
+interface RecipientOrderDtoSource {
+  order: OrderDocument;
+  listing: {
+    id: string;
+    name: string;
+    imageUrl: string | undefined;
+    unit: string;
+  };
+  donor: {
+    id: string;
+    companyName: string;
+  };
+  deliveryStage: DeliveryStage | null;
+}
+
+/**
+ * `GET /orders/mine` returns `OrderDTO` with an additional Donor summary, so a Recipient's
+ * history list doesn't need a second call per row to look up who donated each order.
+ */
+interface RecipientOrderResponseDto extends OrderResponseDto {
+  donor: {
+    id: string;
+    companyName: string;
+  };
+}
+
+/**
+ * Maps a joined Order row into the shape returned by `GET /orders/mine` — same
+ * "build the base DTO, then override/extend" shape as `listing.dto.ts#toListingOrderResponseDto`.
+ */
+function toRecipientOrderResponseDto(
+  source: RecipientOrderDtoSource,
+): RecipientOrderResponseDto {
+  const order = toOrderResponseDto(source.order, source.deliveryStage);
+
+  if (!order) {
+    throw new Error('Cannot map a missing Order.');
+  }
+
+  return {
+    ...order,
+    listing: source.listing,
+    donor: source.donor,
+  };
+}
+
+export {
+  toOrderResponseDto,
+  toCancelOrderResponseDto,
+  toRecipientOrderResponseDto,
+};
 export type {
   OrderListingSummary,
   OrderResponseDto,
@@ -97,4 +151,6 @@ export type {
   SubmitFeedbackRequestDto,
   SubmitFeedbackResponseDto,
   CreateOrderCheckoutSessionResponseDto,
+  RecipientOrderDtoSource,
+  RecipientOrderResponseDto,
 };

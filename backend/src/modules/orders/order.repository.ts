@@ -1,6 +1,8 @@
 // Contains order database queries so services do not call Mongoose directly.
 import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
+import type { MeasurementUnit } from '../listings/listing.model.js';
+import type { DeliveryStage } from '../delivery/delivery.model.js';
 import mongoose, {
   Types,
   type ClientSession,
@@ -47,8 +49,41 @@ interface ListingOrdersAggregationResult {
   metadata: Array<{ total: number }>;
 }
 
-function findOrdersByRecipient(recipientId: string | Types.ObjectId) {
-  return Order.find({ recipientId }).lean<OrderDocument[]>();
+interface RecipientOrderListingSummary {
+  id: string;
+  name: string;
+  imageUrl: string | undefined;
+  unit: MeasurementUnit;
+}
+
+interface RecipientOrderDonorSummary {
+  id: string;
+  companyName: string;
+}
+
+interface RecipientOrderRepositoryItem {
+  order: OrderDocument;
+  listing: RecipientOrderListingSummary;
+  donor: RecipientOrderDonorSummary;
+  deliveryStage: DeliveryStage | null;
+}
+
+interface RecipientOrdersRepositoryResult {
+  items: RecipientOrderRepositoryItem[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface AggregatedRecipientOrder extends OrderDocument {
+  listing: RecipientOrderListingSummary;
+  donor: RecipientOrderDonorSummary;
+  deliveryStage: DeliveryStage | null;
+}
+
+interface RecipientOrdersAggregationResult {
+  items: AggregatedRecipientOrder[];
+  metadata: Array<{ total: number }>;
 }
 
 function findOrderById(
@@ -369,8 +404,98 @@ async function findOrdersForListing(
   };
 }
 
+/**
+ * Paginated, Donor/Listing/Delivery-enriched view of a Recipient's own Orders (D5). Extends
+ * `findOrdersForListing`'s `$facet`/`$skip`/`$limit`/`$count` shape with a chained lookup —
+ * `listings` off `listingId`, then `donors` off that Listing's `donorId` (matched against
+ * `Donor.userId`, since Donor isn't keyed by its own `_id` cross-reference) — plus a `deliveries`
+ * lookup on `_id`/`orderId` (unique per Order, so at most one match) reduced to a single
+ * `stage`, `null` when no Delivery exists yet.
+ */
+async function findOrdersForRecipient(
+  recipientId: string | Types.ObjectId,
+  page: number,
+  limit: number,
+): Promise<RecipientOrdersRepositoryResult> {
+  const recipientObjectId =
+    typeof recipientId === 'string'
+      ? new Types.ObjectId(recipientId)
+      : recipientId;
+  const skip = (page - 1) * limit;
+
+  const pipeline: PipelineStage[] = [
+    { $match: { recipientId: recipientObjectId } },
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: 'listings',
+              localField: 'listingId',
+              foreignField: '_id',
+              as: 'listingDoc',
+            },
+          },
+          { $unwind: '$listingDoc' },
+          {
+            $lookup: {
+              from: 'donors',
+              localField: 'listingDoc.donorId',
+              foreignField: 'userId',
+              as: 'donorDoc',
+            },
+          },
+          { $unwind: '$donorDoc' },
+          {
+            $lookup: {
+              from: 'deliveries',
+              localField: '_id',
+              foreignField: 'orderId',
+              as: 'deliveryDoc',
+            },
+          },
+          {
+            $set: {
+              listing: {
+                id: { $toString: '$listingDoc._id' },
+                name: '$listingDoc.name',
+                imageUrl: '$listingDoc.imageUrl',
+                unit: '$listingDoc.unit',
+              },
+              donor: {
+                id: { $toString: '$donorDoc.userId' },
+                companyName: '$donorDoc.companyName',
+              },
+              deliveryStage: {
+                $ifNull: [{ $arrayElemAt: ['$deliveryDoc.stage', 0] }, null],
+              },
+            },
+          },
+          { $project: { listingDoc: 0, donorDoc: 0, deliveryDoc: 0 } },
+        ],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ];
+
+  const [result] =
+    await Order.aggregate<RecipientOrdersAggregationResult>(pipeline);
+
+  return {
+    items: (result?.items ?? []).map((item) => {
+      const { listing, donor, deliveryStage, ...order } = item;
+      return { order: order as OrderDocument, listing, donor, deliveryStage };
+    }),
+    page,
+    limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 export {
-  findOrdersByRecipient,
   findOrderById,
   findOrderByIdAndRecipient,
   createOrder,
@@ -384,10 +509,13 @@ export {
   markOrderRefunded,
   withTransaction,
   findOrdersForListing,
+  findOrdersForRecipient,
 };
 
 export type {
   CreateOrderInput,
   ListingOrderRepositoryItem,
   ListingOrdersRepositoryResult,
+  RecipientOrderRepositoryItem,
+  RecipientOrdersRepositoryResult,
 };

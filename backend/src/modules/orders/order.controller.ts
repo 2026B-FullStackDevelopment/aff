@@ -1,18 +1,35 @@
 // Handles order HTTP requests and returns order DTOs.
 import type { Request, Response, NextFunction } from 'express';
 import * as orderService from './order.service.js';
-import { toOrderResponseDto, toCancelOrderResponseDto } from './order.dto.js';
-import { ok, notImplemented } from '../../shared/http/response.js';
+import {
+  toOrderResponseDto,
+  toCancelOrderResponseDto,
+  toRecipientOrderResponseDto,
+} from './order.dto.js';
+import { ok, paginated, notImplemented } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js';
 import {
   orderIdParamsSchema,
   choosePaymentMethodSchema,
+  mineOrdersQuerySchema,
 } from './order.schemas.js';
 
 async function listMyOrders(req: Request, res: Response, next: NextFunction) {
   try {
-    const orders = await orderService.listOrdersForRecipient(req.user!.id);
-    return ok(res, orders.map((order) => toOrderResponseDto(order)));
+    const { page, limit } = parseBody(mineOrdersQuerySchema, req.query);
+    const result = await orderService.listOrdersForRecipient(
+      req.user!.id,
+      page,
+      limit,
+    );
+
+    return paginated(
+      res,
+      result.items.map(toRecipientOrderResponseDto),
+      result.page,
+      result.limit,
+      result.total,
+    );
   } catch (error) {
     return next(error);
   }
