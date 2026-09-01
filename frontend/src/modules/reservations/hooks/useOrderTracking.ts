@@ -68,6 +68,7 @@ export function useOrderTracking(orderId: string | undefined) {
   useOrderPaymentNotifications(orderId, reload, handleRefunded);
 
   const paymentWasCancelled = searchParams.get('payment') === 'cancelled';
+  const paymentSucceeded = searchParams.get('payment') === 'success';
 
   const isAwaitingPayment = Boolean(
     order &&
@@ -153,7 +154,7 @@ export function useOrderTracking(orderId: string | undefined) {
 
   return {
     order, refundStatus, isLoading, isNotFound, error,
-    paymentWasCancelled, isAwaitingPayment, canCancelOrder,
+    paymentWasCancelled, paymentSucceeded, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload
   };

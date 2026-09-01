@@ -18,7 +18,7 @@ export function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
   const {
     order, refundStatus, isLoading, isNotFound, error,
-    paymentWasCancelled, isAwaitingPayment, canCancelOrder,
+    paymentWasCancelled, paymentSucceeded, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload,
   } = useOrderTracking(id);
@@ -84,6 +84,20 @@ export function OrderTrackingPage() {
                 </div>
               </WarningCallout>
             )}
+
+            {/* Edge case: recipient completed Stripe checkout on a tab that was still
+                open after they'd already cancelled the order elsewhere. The order is
+                correctly CANCELLED either way — this just tells them what happened
+                and to reach out if money was actually taken. */}
+            {paymentSucceeded && order.orderStatus === 'CANCELLED' && (
+              <WarningCallout title="This order was already cancelled">
+                <p>
+                  It looks like you completed payment after this order had already been cancelled.
+                  No delivery will be created for it. If you were charged, please contact support
+                  and we'll help sort out a refund.
+                </p>
+              </WarningCallout>
+            )} 
 
             {order.orderStatus === 'CANCELLED' && (
               <WarningCallout title="This order was cancelled">
