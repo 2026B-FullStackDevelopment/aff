@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
-  findOrdersByRecipientMock,
+  findOrdersForRecipientMock,
   findOrderByIdAndRecipientMock,
   hasNonCancelledOrderForListingMock,
   withTransactionMock,
@@ -13,7 +13,7 @@ const {
   refundOrderPaymentMock,
   cancelPendingOrderPaymentMock,
 } = vi.hoisted(() => ({
-  findOrdersByRecipientMock: vi.fn(),
+  findOrdersForRecipientMock: vi.fn(),
   findOrderByIdAndRecipientMock: vi.fn(),
   hasNonCancelledOrderForListingMock: vi.fn(),
   withTransactionMock: vi.fn(),
@@ -27,7 +27,7 @@ const {
 }));
 
 vi.mock('../../../src/modules/orders/order.repository.js', () => ({
-  findOrdersByRecipient: findOrdersByRecipientMock,
+  findOrdersForRecipient: findOrdersForRecipientMock,
   findOrderByIdAndRecipient: findOrderByIdAndRecipientMock,
   hasNonCancelledOrderForListing: hasNonCancelledOrderForListingMock,
   withTransaction: withTransactionMock,
@@ -70,7 +70,7 @@ describe('order.service', () => {
   const databaseSession = { id: 'database-session' };
 
   beforeEach(() => {
-    findOrdersByRecipientMock.mockClear();
+    findOrdersForRecipientMock.mockClear();
     findOrderByIdAndRecipientMock.mockClear();
     hasNonCancelledOrderForListingMock.mockClear();
     withTransactionMock.mockClear();
@@ -89,13 +89,14 @@ describe('order.service', () => {
   });
 
   describe('listOrdersForRecipient', () => {
-    it('delegates to the repository', async () => {
-      findOrdersByRecipientMock.mockResolvedValue([{ _id: 'o1' }]);
+    it('delegates to the repository, passing page/limit through', async () => {
+      const page = { items: [{ order: { _id: 'o1' } }], page: 2, limit: 5, total: 1 };
+      findOrdersForRecipientMock.mockResolvedValue(page);
 
-      const result = await listOrdersForRecipient('r1');
+      const result = await listOrdersForRecipient('r1', 2, 5);
 
-      expect(findOrdersByRecipientMock).toHaveBeenCalledWith('r1');
-      expect(result).toEqual([{ _id: 'o1' }]);
+      expect(findOrdersForRecipientMock).toHaveBeenCalledWith('r1', 2, 5);
+      expect(result).toEqual(page);
     });
   });
 

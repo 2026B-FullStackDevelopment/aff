@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // findOneMock represents Order.findOne().
 // createMock represents Order.create().
 // leanMock represents the .lean() method returned
-const { findMock, findOneMock, createMock, existsMock, findOneAndUpdateMock, leanMock } = vi.hoisted(() => {
+const { findMock, findOneMock, createMock, existsMock, findOneAndUpdateMock, aggregateMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findMock: vi.fn(() => ({ lean: leanMock })),
@@ -14,6 +14,7 @@ const { findMock, findOneMock, createMock, existsMock, findOneAndUpdateMock, lea
     createMock: vi.fn(),
     existsMock: vi.fn(),
     findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
+    aggregateMock: vi.fn(),
     leanMock,
   };
 });
@@ -25,18 +26,19 @@ vi.mock('../../../src/modules/orders/order.model.js', () => ({
     create: createMock,
     exists: existsMock,
     findOneAndUpdate: findOneAndUpdateMock,
+    aggregate: aggregateMock,
   },
 }));
 
 // Import the repository functions
 import {
-  findOrdersByRecipient,
   findOrderByIdAndRecipient,
   createOrder,
   hasNonCancelledOrderForListing,
   cancelOrderById,
   markOrderPaid,
   markOrderRefunded,
+  findOrdersForRecipient,
 } from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
@@ -46,16 +48,9 @@ describe('order.repository', () => {
     createMock.mockClear();
     existsMock.mockClear();
     findOneAndUpdateMock.mockClear();
+    aggregateMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue([{ _id: 'o1' }]);
-  });
-
-  // Verify that recipient orders are queried using recipientId.
-  it('findOrdersByRecipient queries by recipientId and returns lean documents', async () => {
-    await findOrdersByRecipient('r1');
-
-    expect(findMock).toHaveBeenCalledWith({ recipientId: 'r1' });
-    expect(leanMock).toHaveBeenCalled();
   });
 
   // Verify that ownership lookup includes both IDs in Order.findOne()
@@ -231,6 +226,88 @@ describe('order.repository', () => {
       const result = await markOrderRefunded('o1');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('findOrdersForRecipient', () => {
+    it('paginates, joins listing/donor/delivery, and returns the aggregation total', async () => {
+      aggregateMock.mockResolvedValue([
+        {
+          items: [
+            {
+              _id: 'o1',
+              recipientId: 'r1',
+              listing: { id: 'l1', name: 'Bread', imageUrl: undefined, unit: 'UNIT' },
+              donor: { id: 'd1', companyName: 'Acme Foods' },
+              deliveryStage: 'ASSIGNED',
+            },
+          ],
+          metadata: [{ total: 7 }],
+        },
+      ]);
+
+      const result = await findOrdersForRecipient('507f191e810c19729de860ea', 2, 5);
+
+      const pipeline = aggregateMock.mock.calls[0]?.[0];
+      expect(pipeline).toEqual(expect.any(Array));
+      expect(pipeline[0].$match).toMatchObject({ recipientId: expect.anything() });
+      expect(pipeline).toContainEqual({ $sort: { createdAt: -1, _id: -1 } });
+      expect(JSON.stringify(pipeline)).toContain('"$skip":5');
+      expect(JSON.stringify(pipeline)).toContain('"$limit":5');
+
+      const itemsStage = pipeline[2].$facet.items;
+      expect(itemsStage).toContainEqual({
+        $lookup: { from: 'listings', localField: 'listingId', foreignField: '_id', as: 'listingDoc' },
+      });
+      expect(itemsStage).toContainEqual({
+        $lookup: { from: 'donors', localField: 'listingDoc.donorId', foreignField: 'userId', as: 'donorDoc' },
+      });
+      expect(itemsStage).toContainEqual({
+        $lookup: { from: 'deliveries', localField: '_id', foreignField: 'orderId', as: 'deliveryDoc' },
+      });
+
+      expect(result).toEqual({
+        items: [
+          {
+            order: { _id: 'o1', recipientId: 'r1' },
+            listing: { id: 'l1', name: 'Bread', imageUrl: undefined, unit: 'UNIT' },
+            donor: { id: 'd1', companyName: 'Acme Foods' },
+            deliveryStage: 'ASSIGNED',
+          },
+        ],
+        page: 2,
+        limit: 5,
+        total: 7,
+      });
+    });
+
+    it('reports deliveryStage: null when no Delivery exists yet for the Order', async () => {
+      aggregateMock.mockResolvedValue([
+        {
+          items: [
+            {
+              _id: 'o1',
+              recipientId: 'r1',
+              listing: { id: 'l1', name: 'Bread', imageUrl: undefined, unit: 'UNIT' },
+              donor: { id: 'd1', companyName: 'Acme Foods' },
+              deliveryStage: null,
+            },
+          ],
+          metadata: [{ total: 1 }],
+        },
+      ]);
+
+      const result = await findOrdersForRecipient('507f191e810c19729de860ea', 1, 20);
+
+      expect(result.items[0]?.deliveryStage).toBeNull();
+    });
+
+    it('returns an empty page when the aggregation returns no results', async () => {
+      aggregateMock.mockResolvedValue([]);
+
+      const result = await findOrdersForRecipient('507f191e810c19729de860ea', 1, 20);
+
+      expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
     });
   });
 });
