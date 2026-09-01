@@ -7,7 +7,7 @@ import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
 import type { PayableType } from './payment.model.js';
-import type { Types } from 'mongoose';
+import type { ClientSession, Types } from 'mongoose';
 import type Stripe from 'stripe';
 
 function recipientNotFoundError(): Error {
@@ -321,6 +321,22 @@ async function refundOrderPayment(orderId: string | Types.ObjectId) {
 }
 
 /**
+ * Cancels a still-PENDING Payment tied to a cancelled Order's abandoned Stripe Checkout Session
+ * (D4 — cancelling a Stripe order before checkout completed). DB-only: unlike `refundOrderPayment`,
+ * there is nothing to call Stripe for — a Checkout Session simply expires on its own — this just
+ * stops a late `checkout.session.completed` webhook from resurrecting the cancelled Order (see
+ * `handlePaymentCheckoutCompleted`'s `payment.status !== 'PENDING'` guard above). No-op if no
+ * PENDING Payment row exists (free/cash orders, or a Stripe order whose checkout was never
+ * started).
+ */
+async function cancelPendingOrderPayment(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return paymentRepository.cancelPendingPaymentByPayable('ORDER', orderId, session);
+}
+
+/**
  * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
  * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
  * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and emitting
@@ -412,5 +428,5 @@ async function processWebhookEvent(event: Stripe.Event) {
 }
 
 export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout,
-  refundOrderPayment, processWebhookEvent,
+  refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
 };

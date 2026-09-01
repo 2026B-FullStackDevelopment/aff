@@ -78,6 +78,7 @@ function markOrderPaid(orderId: string | Types.ObjectId, session?: ClientSession
       _id: orderId,
       paymentMethod: 'STRIPE',
       paymentStatus: 'PAYMENT_PENDING',
+      orderStatus: { $ne: 'CANCELLED' },
     },
     {
       $set: {

@@ -53,6 +53,24 @@ function findPaymentByRefundId(stripeRefundId: string) {
 }
 
 /**
+ * Cancels a still-PENDING Payment for a payable (e.g. a Stripe order cancelled before checkout
+ * completed) so a late `checkout.session.completed` webhook against its abandoned Checkout
+ * Session finds `status !== 'PENDING'` and safely no-ops. No-op (returns `null`) if no PENDING
+ * Payment row exists for this payable.
+ */
+function cancelPendingPaymentByPayable(
+  payableType: PayableType,
+  payableId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return Payment.findOneAndUpdate(
+    { payableType, payableId, status: 'PENDING' },
+    { $set: { status: 'CANCELLED' } },
+    { new: true, session },
+  ).lean<PaymentDocument>();
+}
+
+/**
  * Claims a pending Checkout Payment exactly once and stores the Stripe ids
  * needed for webhook deduplication and any later refund.
  */
@@ -110,6 +128,7 @@ export {
   updatePaymentEvent,
   markPaymentPaidIfPending,
   markPaymentRefundPending,
+  cancelPendingPaymentByPayable,
   withTransaction,
 };
 export type { CreatePaymentInput, UpdatePaymentEventInput };

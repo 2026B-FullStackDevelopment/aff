@@ -66,7 +66,10 @@ async function getOrderForRecipient(
  * discovered by the atomic update losing a claim race — is a `409`, and the
  * Order is left untouched. The Stripe refund call happens only after the
  * cancellation transaction commits (it's a network call) and never rolls
- * the cancellation back if it fails.
+ * the cancellation back if it fails. A Stripe Order still `PAYMENT_PENDING`
+ * (checkout started, never completed) has its dangling `PENDING` Payment row
+ * cancelled inside the same transaction, so a late `checkout.session.completed`
+ * against that abandoned Checkout Session can't resurrect a cancelled Order.
  * @throws {Error} with statusCode = 404 if the Order doesn't exist or isn't this Recipient's
  * @throws {Error} with statusCode = 409 if the Delivery has moved past `AWAITING_COURIER`,
  *   including a claim that wins the race between the pre-check and the atomic update
@@ -123,6 +126,13 @@ async function cancelOrder(orderId: string, recipientId: string) {
         cancelled.quantity,
         session,
       );
+
+      if (
+        cancelled.paymentMethod === 'STRIPE' &&
+        cancelled.paymentStatus === 'PAYMENT_PENDING'
+      ) {
+        await paymentInterface.cancelPendingOrderPayment(orderId, session);
+      }
 
       return {
         updatedOrder: cancelled,
