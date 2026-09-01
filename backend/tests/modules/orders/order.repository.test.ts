@@ -35,6 +35,7 @@ import {
   createOrder,
   hasNonCancelledOrderForListing,
   cancelOrderById,
+  markOrderPaid,
   markOrderRefunded,
 } from '../../../src/modules/orders/order.repository.js';
 
@@ -157,6 +158,43 @@ describe('order.repository', () => {
       leanMock.mockResolvedValue(null);
 
       const result = await cancelOrderById('o1', 'r1', new Date());
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('markOrderPaid', () => {
+    it('marks a Stripe, PAYMENT_PENDING, non-CANCELLED Order as PAID/PREPARING', async () => {
+      leanMock.mockResolvedValue({
+        _id: 'o1',
+        paymentStatus: 'PAID',
+        orderStatus: 'PREPARING',
+      });
+
+      const result = await markOrderPaid('o1');
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        {
+          _id: 'o1',
+          paymentMethod: 'STRIPE',
+          paymentStatus: 'PAYMENT_PENDING',
+          orderStatus: { $ne: 'CANCELLED' },
+        },
+        {
+          $set: {
+            paymentStatus: 'PAID',
+            orderStatus: 'PREPARING',
+          },
+        },
+        { new: true, runValidators: true, session: undefined },
+      );
+      expect(result).toMatchObject({ paymentStatus: 'PAID' });
+    });
+
+    it('does not mark a CANCELLED Order as PAID, even if paymentStatus is still PAYMENT_PENDING (late webhook race)', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await markOrderPaid('o1');
 
       expect(result).toBeNull();
     });

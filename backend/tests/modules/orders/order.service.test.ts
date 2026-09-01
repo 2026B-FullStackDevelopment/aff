@@ -11,6 +11,7 @@ const {
   cancelAwaitingDeliveryForOrderMock,
   restoreStockMock,
   refundOrderPaymentMock,
+  cancelPendingOrderPaymentMock,
 } = vi.hoisted(() => ({
   findOrdersByRecipientMock: vi.fn(),
   findOrderByIdAndRecipientMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   cancelAwaitingDeliveryForOrderMock: vi.fn(),
   restoreStockMock: vi.fn(),
   refundOrderPaymentMock: vi.fn(),
+  cancelPendingOrderPaymentMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/orders/order.repository.js', () => ({
@@ -49,6 +51,7 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 vi.mock('../../../src/modules/payments/payment.interface.js', () => ({
   paymentInterface: {
     refundOrderPayment: refundOrderPaymentMock,
+    cancelPendingOrderPayment: cancelPendingOrderPaymentMock,
   },
 }));
 
@@ -77,6 +80,7 @@ describe('order.service', () => {
     cancelAwaitingDeliveryForOrderMock.mockClear();
     restoreStockMock.mockClear();
     refundOrderPaymentMock.mockClear();
+    cancelPendingOrderPaymentMock.mockClear();
 
     withTransactionMock.mockImplementation(
       async (operation: (session: unknown) => unknown) => operation(databaseSession),
@@ -352,6 +356,39 @@ describe('order.service', () => {
 
       expect(refundOrderPaymentMock).not.toHaveBeenCalled();
       expect(result.refundStatus).toBe('NOT_APPLICABLE');
+    });
+
+    it('cancels the dangling PENDING Payment row inside the transaction for a Stripe order still PAYMENT_PENDING', async () => {
+      prepareOrder({ paymentMethod: 'STRIPE', paymentStatus: 'PAYMENT_PENDING' });
+
+      await cancelOrder(orderId, recipientId);
+
+      expect(cancelPendingOrderPaymentMock).toHaveBeenCalledWith(orderId, databaseSession);
+    });
+
+    it('does not touch the Payment row for a free order', async () => {
+      prepareOrder({ paymentMethod: undefined, paymentStatus: 'FREE' });
+
+      await cancelOrder(orderId, recipientId);
+
+      expect(cancelPendingOrderPaymentMock).not.toHaveBeenCalled();
+    });
+
+    it('does not touch the Payment row for a cash order', async () => {
+      prepareOrder({ paymentMethod: 'CASH', paymentStatus: 'PAYMENT_PENDING' });
+
+      await cancelOrder(orderId, recipientId);
+
+      expect(cancelPendingOrderPaymentMock).not.toHaveBeenCalled();
+    });
+
+    it('does not touch the Payment row for an already-paid Stripe order (refund path handles it instead)', async () => {
+      prepareOrder({ paymentMethod: 'STRIPE', paymentStatus: 'PAID' });
+      refundOrderPaymentMock.mockResolvedValue({ status: 'REFUND_PENDING', refundId: 're_1' });
+
+      await cancelOrder(orderId, recipientId);
+
+      expect(cancelPendingOrderPaymentMock).not.toHaveBeenCalled();
     });
   });
 

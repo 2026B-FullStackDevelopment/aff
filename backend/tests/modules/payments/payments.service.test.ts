@@ -13,6 +13,7 @@ const {
   updatePaymentEventMock,
   markPaymentPaidIfPendingMock,
   markPaymentRefundPendingMock,
+  cancelPendingPaymentByPayableMock,
   withTransactionMock,
   findRecipientByUserIdMock,
   getUserByIdMock,
@@ -33,6 +34,7 @@ const {
   updatePaymentEventMock: vi.fn(),
   markPaymentPaidIfPendingMock: vi.fn(),
   markPaymentRefundPendingMock: vi.fn(),
+  cancelPendingPaymentByPayableMock: vi.fn(),
   withTransactionMock: vi.fn(),
   findRecipientByUserIdMock: vi.fn(),
   getUserByIdMock: vi.fn(),
@@ -58,6 +60,7 @@ vi.mock('../../../src/modules/payments/payment.repository.js', () => ({
   updatePaymentEvent: updatePaymentEventMock,
   markPaymentPaidIfPending: markPaymentPaidIfPendingMock,
   markPaymentRefundPending: markPaymentRefundPendingMock,
+  cancelPendingPaymentByPayable: cancelPendingPaymentByPayableMock,
   withTransaction: withTransactionMock,
 }));
 
@@ -91,6 +94,7 @@ import {
   startOneTimeCheckout,
   startSubscriptionCheckout,
   refundOrderPayment,
+  cancelPendingOrderPayment,
   processWebhookEvent,
 } from '../../../src/modules/payments/payments.service.js';
 
@@ -131,6 +135,7 @@ describe('payments.service', () => {
     updatePaymentEventMock.mockReset();
     markPaymentPaidIfPendingMock.mockReset();
     markPaymentRefundPendingMock.mockReset();
+    cancelPendingPaymentByPayableMock.mockReset();
     withTransactionMock.mockReset();
     findRecipientByUserIdMock.mockReset();
     getUserByIdMock.mockReset();
@@ -380,6 +385,17 @@ describe('payments.service', () => {
 
       await expect(refundOrderPayment('o1')).rejects.toMatchObject({ statusCode: 502 });
       expect(markPaymentRefundPendingMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancelPendingOrderPayment', () => {
+    it('delegates to paymentRepository.cancelPendingPaymentByPayable for the ORDER payable', async () => {
+      cancelPendingPaymentByPayableMock.mockResolvedValue({ _id: 'p1', status: 'CANCELLED' });
+
+      const result = await cancelPendingOrderPayment('o1', databaseSession as never);
+
+      expect(cancelPendingPaymentByPayableMock).toHaveBeenCalledWith('ORDER', 'o1', databaseSession);
+      expect(result).toEqual({ _id: 'p1', status: 'CANCELLED' });
     });
   });
 
