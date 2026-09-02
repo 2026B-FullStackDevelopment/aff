@@ -1,7 +1,7 @@
 // Contains order database queries so services do not call Mongoose directly.
 import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { MeasurementUnit } from '../listings/listing.model.js';
+import type { FoodCategory, MeasurementUnit } from '../listings/listing.model.js';
 import type { DeliveryStage } from '../delivery/delivery.model.js';
 import mongoose, {
   Types,
@@ -54,6 +54,7 @@ interface RecipientOrderListingSummary {
   name: string;
   imageUrl: string | undefined;
   unit: MeasurementUnit;
+  category: FoodCategory;
 }
 
 interface RecipientOrderDonorSummary {
@@ -495,6 +496,7 @@ async function findOrdersForRecipient(
                 name: '$listingDoc.name',
                 imageUrl: '$listingDoc.imageUrl',
                 unit: '$listingDoc.unit',
+                category: '$listingDoc.category',
               },
               donor: {
                 id: { $toString: '$donorDoc.userId' },

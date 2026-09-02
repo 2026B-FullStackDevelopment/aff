@@ -270,7 +270,8 @@
           "id": { "type": "string" },
           "name": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
           "imageUrl": { "type": "string", "format": "uri", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
-          "unit": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" }
+          "unit": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "category": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" }
         }
       },
       "DeliveryStage": {

@@ -390,6 +390,7 @@ async function listListingOrders(
         name: listing.name,
         imageUrl: listing.imageUrl,
         unit: listing.unit,
+        category: listing.category,
       },
     })),
     page: result.page,

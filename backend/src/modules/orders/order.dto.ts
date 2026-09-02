@@ -2,12 +2,14 @@
 import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 import type { DeliveryStage } from '../delivery/delivery.model.js';
+import { FoodCategory } from '../listings/listing.model.js';
 
 interface OrderListingSummary {
   id: string;
   name: string | undefined;
   imageUrl: string | undefined;
   unit: string | undefined;
+  category: FoodCategory | undefined;
 }
 
 interface OrderResponseDto {
@@ -61,6 +63,7 @@ function toOrderResponseDto(
       name: undefined,
       imageUrl: undefined,
       unit: undefined,
+      category: undefined,
     },
     intakePath: order.intakePath,
     quantity: order.quantity,
@@ -100,6 +103,7 @@ interface RecipientOrderDtoSource {
     name: string;
     imageUrl: string | undefined;
     unit: string;
+    category: FoodCategory;
   };
   donor: {
     id: string;

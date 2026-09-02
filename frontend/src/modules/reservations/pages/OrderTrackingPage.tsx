@@ -13,6 +13,7 @@ import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { formatDate, formatPrice, UNIT_LABELS } from '@/shared/utils/listingFormatting';
 import { useOrderTracking } from '../hooks/useOrderTracking';
+import { OrderFeedbackSection } from '../components/OrderFeedbackSection';
 
 export function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export function OrderTrackingPage() {
     paymentWasCancelled, paymentSucceeded, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload,
+    isSubmittingFeedback, feedbackError, submitFeedback,
   } = useOrderTracking(id);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -194,6 +196,15 @@ export function OrderTrackingPage() {
                 )}
               </div>
             </Panel>
+
+            {/* D7 — one-shot feedback, only meaningful once DELIVERED.
+                Renders nothing until then; read-only once submitted. */}
+            <OrderFeedbackSection
+              order={order}
+              isSubmitting={isSubmittingFeedback}
+              error={feedbackError}
+              onSubmit={submitFeedback}
+            />
           </div>
         )}
       </div>

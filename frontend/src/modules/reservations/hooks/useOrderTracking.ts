@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from '@/shared/components/ui/sonner';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import { reservationService } from '../services/reservation.service';
 import { useOrderPaymentNotifications } from './useOrderPaymentNotifications';
 import type { OrderDTO, RefundStatus } from '@/types/api';
@@ -17,6 +18,11 @@ export function useOrderTracking(orderId: string | undefined) {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // D7 — feedback submission state, separate from the cancel/retry action
+  // error above so the two flows never clobber each other's messages.
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) {
@@ -152,10 +158,62 @@ export function useOrderTracking(orderId: string | undefined) {
     }
   }
 
+  /**
+   * D7 — submits feedback for this (already-DELIVERED) order.
+   * On success, patches `order.feedback` from the response directly —
+   * no refetch, matching the response's documented `201` shape.
+   * On a 409, distinguishes "already submitted" (the error body echoes
+   * the existing feedback per `error.dto.ts#toErrorDto` — use it to
+   * self-correct the read-only view immediately) from "not yet
+   * delivered" (generic message; shouldn't normally be reachable since
+   * `OrderFeedbackSection` already gates on `DELIVERED`, but the server
+   * rejection is handled gracefully regardless).
+   */
+  async function submitFeedback(comment: string) {
+    if (!order) return;
+    setIsSubmittingFeedback(true);
+    setFeedbackError(null);
+
+    try {
+      const response = await reservationService.submitFeedback(order.id, comment);
+
+      if (response.status === 409) {
+        const echoedFeedback = (
+          response.data as unknown as {
+            feedback?: { comment: string; createdAt: string };
+          } | null
+        )?.feedback;
+
+        if (echoedFeedback) {
+          setOrder((prev) => (prev ? { ...prev, feedback: echoedFeedback } : prev));
+        } else {
+          setFeedbackError(
+            getResponseMessage(response.data, "This order hasn't been delivered yet."),
+          );
+        }
+        return;
+      }
+
+      if (!response.ok || !response.data) {
+        setFeedbackError(
+          getResponseMessage(response.data, 'Could not submit feedback. Please try again.'),
+        );
+        return;
+      }
+
+      setOrder((prev) => (prev ? { ...prev, feedback: response.data!.feedback } : prev));
+    } catch {
+      setFeedbackError('Could not submit feedback. Please try again.');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  }
+
   return {
     order, refundStatus, isLoading, isNotFound, error,
     paymentWasCancelled, paymentSucceeded, isAwaitingPayment, canCancelOrder,
     isRetrying, isCancelling, actionError,
-    retryPayment, cancelOrder, reload
+    retryPayment, cancelOrder, reload,
+    isSubmittingFeedback, feedbackError, submitFeedback,
   };
 }

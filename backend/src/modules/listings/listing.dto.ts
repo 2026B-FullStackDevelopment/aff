@@ -161,6 +161,7 @@ interface ListingOrderDtoSource {
     name: string;
     imageUrl: string | undefined;
     unit: MeasurementUnit;
+    category: FoodCategory;
   };
 }
 

@@ -203,6 +203,7 @@ export interface OrderDTO {
     name?: string;
     imageUrl?: string | null;
     unit?: ListingUnit;
+    category?: FoodCategory;
   };
   intakePath: OrderIntakePath;
   quantity: number;
@@ -219,6 +220,20 @@ export interface OrderDTO {
     createdAt: string;
   } | null;
   createdAt: string;
+}
+
+export interface RecipientOrderDTO extends OrderDTO {
+  donor: {
+    id: string;
+    companyName: string;
+  };
+}
+
+export interface SubmitFeedbackResponseDto {
+  feedback: {
+    comment: string;
+    createdAt: string;
+  };
 }
 
 export type RefundStatus = 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED';

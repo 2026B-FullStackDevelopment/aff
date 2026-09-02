@@ -3,34 +3,31 @@ import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { CollectionHistoryRow } from './CollectionHistoryRow';
-import type { CollectionHistoryItem } from '../services/collectionHistory.mock';
+import type { RecipientOrderDTO } from '@/types/api';
 
 const COLUMN_HEADERS = [
   'Donation Name',
   'Donor Name',
-  'Category & Qty',
+  'Category',
+  'Quantity',
   'Price',
   'Date & Time',
   'Payment',
-  'Action',
+  'Status',
 ] as const;
 
 interface CollectionHistoryTableProps {
-  items: CollectionHistoryItem[];
+  items: RecipientOrderDTO[];
   isLoading: boolean;
   error: string | null;
-  pendingFeedbackId: string | null;
   onRetry: () => void;
-  onLeaveFeedback: (item: CollectionHistoryItem) => void;
 }
 
 export function CollectionHistoryTable({
   items,
   isLoading,
   error,
-  pendingFeedbackId,
   onRetry,
-  onLeaveFeedback,
 }: CollectionHistoryTableProps) {
   if (isLoading) {
     return <LoadingSkeleton count={4} />;
@@ -44,8 +41,8 @@ export function CollectionHistoryTable({
     return (
       <EmptyState
         icon={PackageSearch}
-        title="No collections yet"
-        description="Reservations you collect will show up here, along with the option to leave feedback for the donor."
+        title="No orders yet"
+        description="Orders you place will show up here, along with their delivery status."
       />
     );
   }
@@ -69,12 +66,7 @@ export function CollectionHistoryTable({
 
         <tbody>
           {items.map((item) => (
-            <CollectionHistoryRow
-              key={item.id}
-              item={item}
-              isSubmittingFeedback={pendingFeedbackId === item.id}
-              onLeaveFeedback={onLeaveFeedback}
-            />
+            <CollectionHistoryRow key={item.id} item={item} />
           ))}
         </tbody>
       </table>

@@ -40,6 +40,8 @@ export const API_ROUTES = {
       `/orders/${orderId}/checkout-session`,
     cancel: (orderId: string) => 
       `/orders/${orderId}`,
+    feedback: (orderId: string) => 
+      `/orders/${orderId}/feedback`,
   },
 
   food: {
