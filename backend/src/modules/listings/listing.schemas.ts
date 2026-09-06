@@ -288,8 +288,43 @@ const donorInitiatedDonationSchema = z
       .min(1, { message: 'Delivery address is required.' }),
 
     deliveryLocation: deliveryLocationSchema,
+
+    paymentMethod: paymentMethodSchema.optional(),
+
+    cashReceivedAmount: z
+      .number({ message: 'Cash received amount must be a number.' })
+      .finite({ message: 'Cash received amount must be a finite number.' })
+      .int({ message: 'Cash received amount must be a whole number.' })
+      .nonnegative({ message: 'Cash received amount cannot be negative.' })
+      .max(Number.MAX_SAFE_INTEGER, {
+        message: 'Cash received amount is too large.',
+      })
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((payload, context) => {
+    if (
+      payload.paymentMethod === 'CASH' &&
+      payload.cashReceivedAmount === undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['cashReceivedAmount'],
+        message: 'Cash received amount is required for cash payment.',
+      });
+    }
+
+    if (
+      payload.paymentMethod !== 'CASH' &&
+      payload.cashReceivedAmount !== undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['cashReceivedAmount'],
+        message: 'Cash received amount is only allowed for cash payment.',
+      });
+    }
+  });
 
 /**
  * Validates pagination for `GET /listings/:id/orders`.
