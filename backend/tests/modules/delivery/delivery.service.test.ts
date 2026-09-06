@@ -8,6 +8,7 @@ const {
   withTransactionMock,
   findDeliveryByIdMock,
   markPickedUpIfAssignedMock,
+  recordCourierLocationMock,
   markDeliveredIfPickedUpMock,
   listForAdminMock,
   findQueueMock,
@@ -26,6 +27,7 @@ const {
   withTransactionMock: vi.fn(),
   findDeliveryByIdMock: vi.fn(),
   markPickedUpIfAssignedMock: vi.fn(),
+  recordCourierLocationMock: vi.fn(),
   markDeliveredIfPickedUpMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findQueueMock: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
   withTransaction: withTransactionMock,
   findDeliveryById: findDeliveryByIdMock,
   markPickedUpIfAssigned: markPickedUpIfAssignedMock,
+  recordCourierLocation: recordCourierLocationMock,
   markDeliveredIfPickedUp: markDeliveredIfPickedUpMock,
   listForAdmin: listForAdminMock,
   findQueue: findQueueMock,
@@ -72,6 +75,7 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 import {
   createForOrder,
   markPickedUp,
+  recordCourierLocation,
   markDelivered,
   listForAdmin,
   listQueue,
@@ -381,6 +385,24 @@ describe('delivery.service', () => {
         statusCode: 409,
         message: 'Only an assigned Delivery can be picked up.',
       });
+    });
+  });
+
+  describe('recordCourierLocation', () => {
+    it('hands the position straight to the repository', async () => {
+      const delivery = { _id: 'd1', orderId: 'o1', stage: 'PICKED_UP' };
+      recordCourierLocationMock.mockResolvedValue(delivery);
+
+      const result = await recordCourierLocation('c1', {
+        latitude: 10.8,
+        longitude: 106.6,
+      });
+
+      expect(recordCourierLocationMock).toHaveBeenCalledWith('c1', {
+        latitude: 10.8,
+        longitude: 106.6,
+      });
+      expect(result).toBe(delivery);
     });
   });
 

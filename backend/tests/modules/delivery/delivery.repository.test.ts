@@ -35,6 +35,7 @@ import {
   claimIfAvailable,
   findActiveByCourier,
   markPickedUpIfAssigned,
+  recordCourierLocation,
 } from '../../../src/modules/delivery/delivery.repository.js';
 
 describe('delivery.repository', () => {
@@ -276,6 +277,35 @@ describe('delivery.repository.listForAdmin', () => {
       leanMock.mockResolvedValue(null);
 
       expect(await markPickedUpIfAssigned('d1', 'c1', new Date())).toBeNull();
+    });
+  });
+
+  describe('recordCourierLocation', () => {
+    it('writes the position to this Courier picked-up Delivery in one operation', async () => {
+      leanMock.mockResolvedValue({ _id: 'd1', orderId: 'o1', stage: 'PICKED_UP' });
+
+      const result = await recordCourierLocation('c1', {
+        latitude: 10.8,
+        longitude: 106.6,
+      });
+
+      const [filter, update, options] = findOneAndUpdateMock.mock.calls[0];
+      expect(filter).toEqual({ courierId: 'c1', stage: 'PICKED_UP' });
+      expect(update.$set.courierLastLocation).toMatchObject({
+        latitude: 10.8,
+        longitude: 106.6,
+      });
+      expect(update.$set.courierLastLocation.updatedAt).toBeInstanceOf(Date);
+      expect(options).toEqual({ new: true });
+      expect(result).toEqual({ _id: 'd1', orderId: 'o1', stage: 'PICKED_UP' });
+    });
+
+    it('resolves null when the Courier has no picked-up Delivery', async () => {
+      leanMock.mockResolvedValue(null);
+
+      expect(
+        await recordCourierLocation('c1', { latitude: 10.8, longitude: 106.6 }),
+      ).toBeNull();
     });
   });
 });

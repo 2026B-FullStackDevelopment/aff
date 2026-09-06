@@ -301,6 +301,17 @@ async function markPickedUp(
 }
 
 /**
+ * Records a Courier's latest position (E6/E9). Called by the realtime layer's
+ * `delivery:ping` handler, not by any HTTP route.
+ */
+async function recordCourierLocation(
+  courierId: string,
+  position: { latitude: number; longitude: number },
+): Promise<DeliveryDocument | null> {
+  return deliveryRepository.recordCourierLocation(courierId, position);
+}
+
+/**
  * Completes a Delivery owned by the authenticated Courier. Cash Orders require
  * explicit receipt confirmation, and both Delivery and Order changes commit in
  * the same transaction.
@@ -406,6 +417,7 @@ export {
   claimDelivery,
   getActiveDelivery,
   markPickedUp,
+  recordCourierLocation,
   markDelivered,
 };
 export type { QueueDeliveryPage };

@@ -161,6 +161,38 @@ function markPickedUpIfAssigned(
   ).lean<DeliveryDocument>();
 }
 
+/**
+ * Records a Courier's latest position on whichever Delivery they are currently
+ * carrying (E6/E9).
+ *
+ * The Delivery is derived from `courierId` rather than supplied by the caller,
+ * so a Courier can only ever write to their own picked-up Delivery — there is
+ * no id to forge. One operation performs the ownership check, the stage check,
+ * the write, and the `orderId` lookup the caller needs to address its emit.
+ *
+ * @returns The updated Delivery, or `null` if this Courier has none in
+ *   `PICKED_UP` — which is the normal case for a stale client still pinging.
+ */
+function recordCourierLocation(
+  courierId: string | Types.ObjectId,
+  position: { latitude: number; longitude: number },
+) {
+  return Delivery.findOneAndUpdate(
+    { courierId, stage: 'PICKED_UP' },
+    {
+      $set: {
+        courierLastLocation: {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          // The client sends coordinates only; the server owns the timestamp.
+          updatedAt: new Date(),
+        },
+      },
+    },
+    { new: true },
+  ).lean<DeliveryDocument>();
+}
+
 /** Atomically claims the one-way `PICKED_UP` to `DELIVERED` transition. */
 function markDeliveredIfPickedUp(
   deliveryId: string | Types.ObjectId,
@@ -330,6 +362,7 @@ export {
   cancelAwaitingDeliveriesByOrderIds,
   cancelAwaitingDeliveryForOrder,
   markPickedUpIfAssigned,
+  recordCourierLocation,
   markDeliveredIfPickedUp,
   listForAdmin,
   findQueue,

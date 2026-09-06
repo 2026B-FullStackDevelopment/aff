@@ -10,6 +10,7 @@ const deliveryInterface = {
   cancelAwaitingDeliveryForOrder:
     deliveryService.cancelAwaitingDeliveryForOrder,
   listForAdmin: deliveryService.listForAdmin,
+  recordCourierLocation: deliveryService.recordCourierLocation,
 };
 
 export { deliveryInterface };
