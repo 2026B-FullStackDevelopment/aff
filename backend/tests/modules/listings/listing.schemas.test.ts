@@ -500,11 +500,60 @@ describe('listing.schemas', () => {
       ).toBe(false);
     });
 
-    it('rejects paymentMethod because the Recipient chooses it later', () => {
+    it('accepts Stripe as the Donor-selected payment method', () => {
+      expect(
+        donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
+          paymentMethod: 'STRIPE',
+        }).success,
+      ).toBe(true);
+    });
+
+    it('accepts cash payment with the amount received by the Donor', () => {
       expect(
         donorInitiatedDonationSchema.safeParse({
           ...validDonationBody,
           paymentMethod: 'CASH',
+          cashReceivedAmount: 50000,
+        }).success,
+      ).toBe(true);
+    });
+
+    it('requires the amount received for cash payment', () => {
+      const result = donorInitiatedDonationSchema.safeParse({
+        ...validDonationBody,
+        paymentMethod: 'CASH',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ path: ['cashReceivedAmount'] }),
+          ]),
+        );
+      }
+    });
+
+    it.each([-1, 1.5, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
+      'rejects invalid cash received amount %s',
+      (cashReceivedAmount) => {
+        expect(
+          donorInitiatedDonationSchema.safeParse({
+            ...validDonationBody,
+            paymentMethod: 'CASH',
+            cashReceivedAmount,
+          }).success,
+        ).toBe(false);
+      },
+    );
+
+    it('rejects a cash amount when Cash is not selected', () => {
+      expect(
+        donorInitiatedDonationSchema.safeParse({
+          ...validDonationBody,
+          paymentMethod: 'STRIPE',
+          cashReceivedAmount: 50000,
         }).success,
       ).toBe(false);
     });

@@ -24,6 +24,9 @@ interface OrderAttrs {
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId?: mongoose.Types.ObjectId;
+  cashReceivedAmount?: number;
+  cashReceivedByDonorId?: mongoose.Types.ObjectId;
+  cashReceivedAt?: Date;
   cashConfirmedByCourierId?: mongoose.Types.ObjectId;
   cashConfirmedAt?: Date;
   feedback?: OrderFeedback;
@@ -59,6 +62,16 @@ const orderSchema = new Schema<OrderDocument>(
       updatedAt: { type: Date, required: true },
     },
     cancelledByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
+    cashReceivedAmount: {
+      type: Number,
+      min: 0,
+      validate: {
+        validator: Number.isSafeInteger,
+        message: 'Cash received amount must be a whole VND amount.',
+      },
+    },
+    cashReceivedByDonorId: { type: Schema.Types.ObjectId, ref: 'User' },
+    cashReceivedAt: { type: Date },
     cashConfirmedByCourierId: { type: Schema.Types.ObjectId, ref: 'User' },
     cashConfirmedAt: { type: Date },
     feedback: {

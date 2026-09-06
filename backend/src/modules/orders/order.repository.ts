@@ -20,6 +20,9 @@ interface CreateOrderInput {
   orderStatus: OrderStatus;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
+  cashReceivedAmount?: number;
+  cashReceivedByDonorId?: string | Types.ObjectId;
+  cashReceivedAt?: Date;
 }
 
 interface ListingOrderRepositoryItem {

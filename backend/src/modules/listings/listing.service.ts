@@ -401,7 +401,7 @@ async function listListingOrders(
 
 /**
  * Creates a Donor-initiated Order for a registered Recipient.
- * Stock, Order creation, and free-order Delivery creation commit together.
+ * Stock, Order creation, and queue-eligible Delivery creation commit together.
  */
 async function createDonorInitiatedDonation(
   listingId: string,
@@ -453,6 +453,53 @@ async function createDonorInitiatedDonation(
         throw createHttpError(422, 'Quantity exceeds the remaining stock.');
       }
 
+      const isFree = listing.price === 0;
+      const orderAmount = listing.price * payload.quantity;
+
+      if (!isFree && !payload.paymentMethod) {
+        throw createHttpError(
+          400,
+          'A payment method is required for a priced listing.',
+        );
+      }
+
+      if (isFree && payload.paymentMethod) {
+        throw createHttpError(
+          400,
+          'A payment method must not be provided for a free listing.',
+        );
+      }
+
+      if (
+        payload.paymentMethod === 'CASH' &&
+        payload.cashReceivedAmount === undefined
+      ) {
+        throw createHttpError(
+          400,
+          'Cash received amount is required for cash payment.',
+        );
+      }
+
+      if (
+        payload.paymentMethod === 'CASH' &&
+        payload.cashReceivedAmount! < orderAmount
+      ) {
+        throw createHttpError(
+          422,
+          'Cash received amount cannot be less than the order total.',
+        );
+      }
+
+      if (
+        payload.paymentMethod !== 'CASH' &&
+        payload.cashReceivedAmount !== undefined
+      ) {
+        throw createHttpError(
+          400,
+          'Cash received amount is only allowed for cash payment.',
+        );
+      }
+
       const updatedListing =
         await listingRepository.decrementStockAtomically(
           listingId,
@@ -468,26 +515,39 @@ async function createDonorInitiatedDonation(
         );
       }
 
-      const isFree = listing.price === 0;
+      const paymentMethod = payload.paymentMethod;
+      const isCash = paymentMethod === 'CASH';
+      const cashReceivedAt = isCash ? new Date() : undefined;
       const order = await orderInterface.createOrder(
         {
           recipientId: recipient._id,
           listingId: listing._id,
           intakePath: 'DONOR_INITIATED',
           quantity: payload.quantity,
-          amount: listing.price * payload.quantity,
-          paymentStatus: isFree ? 'FREE' : 'PAYMENT_PENDING',
-          orderStatus: isFree ? 'PREPARING' : 'PENDING_PAYMENT',
+          amount: orderAmount,
+          paymentMethod,
+          paymentStatus: isFree ? 'FREE' : isCash ? 'PAID' : 'PAYMENT_PENDING',
+          orderStatus:
+            !isFree && paymentMethod === 'STRIPE'
+              ? 'PENDING_PAYMENT'
+              : 'PREPARING',
           deliveryAddressText: payload.deliveryAddressText,
           deliveryLocation: {
             ...payload.deliveryLocation,
             updatedAt: new Date(),
           },
+          ...(isCash
+            ? {
+                cashReceivedAmount: payload.cashReceivedAmount,
+                cashReceivedByDonorId: donorId,
+                cashReceivedAt,
+              }
+            : {}),
         },
         session,
       );
 
-      if (isFree) {
+      if (isFree || isCash) {
         await deliveryInterface.createForOrder(String(order._id), session);
       }
 
@@ -496,7 +556,7 @@ async function createDonorInitiatedDonation(
         listingName: listing.name,
         recipientId: String(recipient._id),
         becameSoldOut: updatedListing.status === 'SOLD_OUT',
-        isFree,
+        requiresStripePayment: paymentMethod === 'STRIPE',
       };
     },
   );
@@ -509,7 +569,7 @@ async function createDonorInitiatedDonation(
     });
   }
 
-  if (!result.isFree) {
+  if (result.requiresStripePayment) {
     emitToUser(result.recipientId, 'notification:payment_requested', {
       orderId: String(result.order._id),
       listingName: result.listingName,
