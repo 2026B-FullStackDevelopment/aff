@@ -88,6 +88,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | stripeSubscriptionId | string | | |
 | status | SubscriptionStatus (enum) | | ACTIVE, PAST_DUE, CANCELLED |
 | currentPeriodEnd | datetime | | |
+| cancelAtPeriodEnd | boolean | | Default `false`. Set `true` by `DELETE /subscriptions/me` (F5) — subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
 | createdAt | datetime | | Append-only: new row per billing cycle |
 
 ### LISTING

@@ -46,6 +46,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Delivery (§9) | `PATCH /deliveries/:id/deliver` | COURIER |
 | Subscriptions (§10) | `GET /subscriptions/me` | RECIPIENT |
 | Subscriptions (§10) | `POST /subscriptions/checkout-session` | RECIPIENT |
+| Subscriptions (§10) | `DELETE /subscriptions/me` | RECIPIENT (Premium) |
 | Subscriptions (§10) | `PUT /recipients/me/preferences` | RECIPIENT (Premium) |
 | Admin (§11) | `POST /admin/couriers` | ADMIN |
 | Admin (§11) | `GET /admin/couriers` | ADMIN |
@@ -205,7 +206,8 @@ Referenced by multiple endpoints below; defined once here.
 | courierLastLocation | GeoLocation \| null |
 | createdAt | datetime |
 
-**SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, createdAt: datetime }`
+**SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, cancelAtPeriodEnd: boolean, createdAt: datetime }`
+(`cancelAtPeriodEnd` is `true` after `DELETE /subscriptions/me` — the subscription stays `ACTIVE` and the tier stays `PREMIUM` until `currentPeriodEnd`, then the `customer.subscription.deleted` webhook flips `status` to `CANCELLED`.)
 
 ---
 
@@ -366,12 +368,13 @@ Behavior — eligibility checks (all `422` on failure): listing `status=ACTIVE`,
 Response `201`: `OrderDTO`
 Errors: `422` see eligibility checks above; `400` missing `paymentMethod` on a priced listing
 
-### `GET /listings` — *`5.1.1`, `5.2.1`, `5.2.2`, `5.3.3`*
-**Auth:** public (unauthenticated browsing allowed; ranking/preferences require auth)
+### `GET /listings` — *`5.1.1`, `5.2.1`, `5.2.2`*
+**Auth:** public (unauthenticated browsing allowed)
 
-Query params: `status=ACTIVE` (default, only value supported publicly), `search=` (case-insensitive partial match on `name`), `city=`, `category=`, `priceMin=`, `priceMax=`, `sort=price&order=asc|desc`, `rank=proximity` (Premium only), plus pagination.
-Behavior for `rank=proximity` (**Auth:** `RECIPIENT`, tier must be `PREMIUM`, else `403`): if the request includes `?lat=&lng=` (browser geolocation was granted), rank by distance from those coordinates; otherwise fall back to ranking by match against `RECIPIENT.city`.
+Query params: `status=ACTIVE` (default, only value supported publicly), `search=` (case-insensitive partial match on `name`), `city=`, `category=`, `priceMin=`, `priceMax=`, `sort=price&order=asc|desc`, plus pagination.
 Response `200`: paginated `ListingDTO[]`
+
+*(SRS `5.3.3` location-aware ranking was dropped — see PRD §10. There is no `rank=proximity` mode.)*
 
 ### `GET /listings/:id` — *`5.3.4`*
 **Auth:** public
@@ -454,7 +457,8 @@ Single endpoint handling both one-off order payments and subscription billing, d
 | `checkout.session.completed` (subscription mode) | Create initial `SUBSCRIPTION` row, `status=ACTIVE` |
 | `invoice.paid` | Append a new `SUBSCRIPTION` row for the new billing cycle (append-only ledger per `docs/database_design.md`); send confirmation email (Nodemailer) |
 | `invoice.payment_failed` | Latest `SUBSCRIPTION.status=PAST_DUE` |
-| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` |
+| `customer.subscription.updated` | Reconcile `cancelAtPeriodEnd` on the latest `SUBSCRIPTION` row from `event.data.object.cancel_at_period_end` (keeps the local flag in sync if a cancellation is ever toggled outside `DELETE /subscriptions/me`). Optional — the `DELETE`/`PATCH` response is the primary source of truth for the flag |
+| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` (fires at `currentPeriodEnd` for a `cancel_at_period_end` cancellation — see `DELETE /subscriptions/me`, §10) |
 | `charge.refunded` | Confirms a refund initiated by `DELETE /orders/:id` (§7) actually settled. Look up `PAYMENT` via `stripeRefundId` → `PAYMENT.status=REFUNDED`, `refundedAt=now`; `ORDER.paymentStatus=REFUNDED`; emit `payment:refunded` (§12). If no matching `PAYMENT` (e.g. `stripeRefundId` not yet persisted when the event arrives), safe to ignore — the event isn't retried indefinitely, but this ordering shouldn't occur since the id is stored synchronously before the webhook can fire |
 
 Idempotency: `PAYMENT.lastProcessedEventId` (per `docs/database_design.md`) is checked before applying any event, guarding against Stripe's at-least-once webhook delivery.
@@ -530,6 +534,15 @@ Response `200`: `{ tier: 'STANDARD'|'PREMIUM', subscription: SubscriptionDTO | n
 Behavior: creates a Stripe Checkout Session in subscription mode ($5/month), creating a Stripe Customer first if none exists (shared logic with `POST /orders/:id/checkout-session`, §7).
 Response `200`: `{ checkoutUrl: string }`
 Confirmation happens via the `POST /webhooks/stripe` handler (§8), which creates the `SUBSCRIPTION` row and sends the confirmation email.
+
+### `DELETE /subscriptions/me` — *(new — not tied to an original PRD story; see `docs/user-story/F-premium-subscription/F5-cancel-subscription.md`)*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — the caller must have an `ACTIVE` subscription)
+
+Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end: true })` on the caller's own latest subscription, then sets `cancelAtPeriodEnd=true` on that `SUBSCRIPTION` row. **Access is not revoked now** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`PUT /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`.
+Idempotent: calling again while `cancelAtPeriodEnd` is already `true` is a no-op success, no second Stripe call.
+Reversible: a follow-up `POST /subscriptions/checkout-session` is **not** needed to undo a not-yet-lapsed cancellation — a client may re-call this route's inverse (`cancel_at_period_end: false`) via `PATCH /subscriptions/me { cancelAtPeriodEnd: false }` while `currentPeriodEnd` is still in the future. *(If the team prefers a single toggle endpoint over `DELETE` + `PATCH`, collapse both into `PATCH /subscriptions/me { cancelAtPeriodEnd: boolean }` — the F5 story is written against the observable behavior, not the verb.)*
+Response `200`: `SubscriptionDTO` (with `cancelAtPeriodEnd=true`)
+Errors: `409` no `ACTIVE` subscription to cancel (never subscribed, or already lapsed)
 
 ### `PUT /recipients/me/preferences` — *`5.3.1`*
 **Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
