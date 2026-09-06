@@ -3,7 +3,7 @@
   "info": {
     "title": "AFF Delivery API",
     "version": "0.1.0",
-    "description": "Courier queue, claim, and delivery lifecycle (stories E2-E5 and E7). Design intent lives in docs/api_design.md §9; this document reflects the routes as implemented in backend/src/modules/delivery. Two routes are registered but still return 501 and are documented as such rather than omitted: PATCH /deliveries/{id}/pickup (E6, needs the Socket.IO location channel) and GET /deliveries/{id} (E8, the Recipient tracking view). Note that GET /deliveries/{id} is RECIPIENT/ADMIN-only by design — a Courier reaches their own Delivery through GET /deliveries/active or the claim/pickup/deliver responses, never by arbitrary id."
+    "description": "Courier queue, claim, and delivery lifecycle (stories E2-E5 and E7). Design intent lives in docs/api_design.md §9; this document reflects the routes as implemented in backend/src/modules/delivery. Every route in this document is implemented. Epic E's remaining work is frontend only."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
@@ -145,14 +145,35 @@
     "/deliveries/{id}/pickup": {
       "patch": {
         "tags": ["Courier Delivery"],
-        "summary": "Confirm pickup and start live tracking (NOT YET IMPLEMENTED)",
-        "description": "Registered but returns 501. Implemented by story E6, which also adds the Socket.IO channel the Courier's client uses to broadcast location.\n\nWhen implemented: sets stage=PICKED_UP and pickedUpAt, rejects with 409 from any other stage, and deliberately leaves ORDER.orderStatus untouched — it stays PREPARING through claim and pickup, and clients drive delivery-progress UI from DeliveryDTO.stage rather than orderStatus.",
+        "summary": "Confirm pickup and start live tracking",
+        "description": "Sets stage=PICKED_UP and pickedUpAt (E6). ORDER.orderStatus is deliberately untouched — it stays PREPARING through claim and pickup, and clients drive delivery-progress UI from DeliveryDTO.stage.\n\nFrom this point the Courier's client begins sending delivery:ping over the WebSocket connection; this REST call only flips the stage. The response carries the pickup address so it stays visible after pickup (E5).\n\nUnlike claim, a 409 here does not distinguish an unknown id from a wrong stage. The client reached this route with an id it received seconds earlier from claim or /active, so an unknown id means a broken client rather than a normal race.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
         "responses": {
-          "501": { "$ref": "#/components/responses/NotImplemented" },
+          "200": {
+            "description": "The picked-up Delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "The Delivery is not currently ASSIGNED to this Courier, or does not exist",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Only an assigned Delivery can be picked up." }
+              }
+            }
+          }
         }
       }
     },
@@ -237,14 +258,35 @@
     "/deliveries/{id}": {
       "get": {
         "tags": ["Courier Delivery"],
-        "summary": "Read a Delivery by id — RECIPIENT/ADMIN only (NOT YET IMPLEMENTED)",
-        "description": "Registered but returns 501. Implemented by story E8, which powers the Recipient's live order-status view.\n\nDeliberately not available to COURIER callers, and this is a scope boundary to preserve rather than a gap to close: a Courier reaches their own in-progress Delivery through GET /deliveries/active or the DeliveryDTO returned by claim/pickup/deliver, never by looking up an arbitrary id. There is no Courier delivery-history feature that would need one.\n\nWhen implemented: the Recipient must own the underlying Order. courierLastLocation is only populated while stage=PICKED_UP.",
+        "summary": "Read a Delivery by id — RECIPIENT or ADMIN",
+        "description": "Powers the Recipient's live order-status view (E8) and Admin oversight. A Recipient must own the underlying Order; an Admin may read any Delivery.\n\nA Recipient who does not own the Delivery receives 404, not 403. A 403 would confirm the Delivery exists, turning this endpoint into an existence oracle for other people's orders.\n\nDeliberately closed to COURIER callers, and this is a scope boundary to preserve rather than a gap: a Courier reaches their own in-progress Delivery through GET /deliveries/active or the DeliveryDTO returned by claim/pickup/deliver, never by looking up an arbitrary id. There is no Courier delivery-history feature that would need one.\n\ncourierLastLocation is only populated while stage=PICKED_UP.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
         "responses": {
-          "501": { "$ref": "#/components/responses/NotImplemented" },
+          "200": {
+            "description": "The Delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No such Delivery, or the calling Recipient does not own its Order",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Delivery not found." }
+              }
+            }
+          }
         }
       }
     }
@@ -416,15 +458,6 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "example": { "message": "You do not have permission to access this resource." }
-          }
-        }
-      },
-      "NotImplemented": {
-        "description": "The route is registered but has no business logic behind it yet",
-        "content": {
-          "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" },
-            "example": { "message": "Not implemented yet." }
           }
         }
       }

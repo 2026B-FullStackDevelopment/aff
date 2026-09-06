@@ -625,6 +625,20 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
 
+### Client → server events
+
+| Event | Sent by | Effect | Payload |
+|---|---|---|---|
+| `order:join` | `RECIPIENT` | Joins `order:<orderId>` after an ownership check, so this Recipient receives `delivery:location` for that order | `orderId` |
+| `order:leave` | any | Leaves `order:<orderId>` | `orderId` |
+| `delivery:ping` | `COURIER` | Writes `DELIVERY.courierLastLocation` on whichever Delivery this Courier is carrying, then emits `delivery:location` to that order's room | `{ latitude, longitude }` |
+
+`delivery:ping` deliberately carries **no delivery id**: the server resolves the
+target from the authenticated socket's user id and the `PICKED_UP` stage, so a
+Courier can only ever write to their own in-progress Delivery. Invalid or
+unauthorized pings are ignored silently rather than answered with an error,
+matching `order:join`.
+
 ---
 
 ## 13. Explicit Non-Endpoints (Out of Scope)
