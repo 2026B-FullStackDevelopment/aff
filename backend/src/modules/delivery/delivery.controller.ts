@@ -55,15 +55,28 @@ async function claimDelivery(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// Still unwired: the Recipient's tracking view (E8) and live tracking (E6).
+// Still unwired: the Recipient's tracking view (E8).
 // A Courier never reaches a Delivery by arbitrary id — getDeliveryById is
 // RECIPIENT/ADMIN-only by design (E5). See docs/api_design.md §9.
 async function getDeliveryById(_req: Request, res: Response) {
   return notImplemented(res);
 }
 
-async function markPickedUp(_req: Request, res: Response) {
-  return notImplemented(res);
+/** `PATCH /deliveries/:id/pickup` — confirm collection and start live tracking (E6). */
+async function markPickedUp(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(deliveryIdParamsSchema, req.params);
+
+    const { delivery, pickupAddressText, pickupAddressLocation } =
+      await deliveryService.markPickedUp(id, req.user!.id);
+
+    return ok(
+      res,
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
 async function markDelivered(req: Request, res: Response, next: NextFunction) {

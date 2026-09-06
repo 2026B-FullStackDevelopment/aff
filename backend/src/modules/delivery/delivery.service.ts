@@ -277,6 +277,30 @@ async function getActiveDelivery(
 }
 
 /**
+ * Confirms a Courier has collected the order (E6).
+ *
+ * `ORDER.orderStatus` is deliberately untouched — it stays `PREPARING` through
+ * claim and pickup per `docs/api_design.md` §9, and clients drive
+ * delivery-progress UI from `DeliveryDTO.stage` rather than `orderStatus`.
+ */
+async function markPickedUp(
+  deliveryId: string,
+  courierId: string,
+): Promise<DeliveryWithPickupAddress> {
+  const updated = await deliveryRepository.markPickedUpIfAssigned(
+    deliveryId,
+    courierId,
+    new Date(),
+  );
+
+  if (!updated) {
+    throw createHttpError(409, 'Only an assigned Delivery can be picked up.');
+  }
+
+  return withPickupAddress(updated);
+}
+
+/**
  * Completes a Delivery owned by the authenticated Courier. Cash Orders require
  * explicit receipt confirmation, and both Delivery and Order changes commit in
  * the same transaction.
@@ -381,6 +405,7 @@ export {
   listQueue,
   claimDelivery,
   getActiveDelivery,
+  markPickedUp,
   markDelivered,
 };
 export type { QueueDeliveryPage };

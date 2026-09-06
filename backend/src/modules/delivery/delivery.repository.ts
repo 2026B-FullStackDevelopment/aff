@@ -141,6 +141,26 @@ function cancelAwaitingDeliveryForOrder(
   ).lean<DeliveryDocument>();
 }
 
+/**
+ * Atomically claims the one-way `ASSIGNED` to `PICKED_UP` transition (E6).
+ *
+ * `courierId` is part of the filter, so another Courier's Delivery is
+ * indistinguishable from a wrong-stage one — neither is actionable by this
+ * caller. The row stays inside the partial unique index on `courierId` across
+ * this transition, so the Courier keeps holding their one active slot.
+ */
+function markPickedUpIfAssigned(
+  deliveryId: string | Types.ObjectId,
+  courierId: string | Types.ObjectId,
+  pickedUpAt: Date,
+) {
+  return Delivery.findOneAndUpdate(
+    { _id: deliveryId, courierId, stage: 'ASSIGNED' },
+    { $set: { stage: 'PICKED_UP', pickedUpAt } },
+    { new: true, runValidators: true },
+  ).lean<DeliveryDocument>();
+}
+
 /** Atomically claims the one-way `PICKED_UP` to `DELIVERED` transition. */
 function markDeliveredIfPickedUp(
   deliveryId: string | Types.ObjectId,
@@ -309,6 +329,7 @@ export {
   findProtectedOrderIds,
   cancelAwaitingDeliveriesByOrderIds,
   cancelAwaitingDeliveryForOrder,
+  markPickedUpIfAssigned,
   markDeliveredIfPickedUp,
   listForAdmin,
   findQueue,

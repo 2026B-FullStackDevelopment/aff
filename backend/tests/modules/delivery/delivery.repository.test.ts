@@ -34,6 +34,7 @@ import {
   findQueue,
   claimIfAvailable,
   findActiveByCourier,
+  markPickedUpIfAssigned,
 } from '../../../src/modules/delivery/delivery.repository.js';
 
 describe('delivery.repository', () => {
@@ -253,6 +254,28 @@ describe('delivery.repository.listForAdmin', () => {
         stage: { $in: ['ASSIGNED', 'PICKED_UP'] },
       });
       expect(result).toEqual({ _id: 'd1', stage: 'PICKED_UP' });
+    });
+  });
+
+  describe('markPickedUpIfAssigned', () => {
+    it('advances only an assigned Delivery belonging to this Courier', async () => {
+      const pickedUpAt = new Date('2026-09-07T10:00:00.000Z');
+      leanMock.mockResolvedValue({ _id: 'd1', stage: 'PICKED_UP' });
+
+      const result = await markPickedUpIfAssigned('d1', 'c1', pickedUpAt);
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        { _id: 'd1', courierId: 'c1', stage: 'ASSIGNED' },
+        { $set: { stage: 'PICKED_UP', pickedUpAt } },
+        { new: true, runValidators: true },
+      );
+      expect(result).toEqual({ _id: 'd1', stage: 'PICKED_UP' });
+    });
+
+    it('resolves null when the Delivery is not assigned to this Courier', async () => {
+      leanMock.mockResolvedValue(null);
+
+      expect(await markPickedUpIfAssigned('d1', 'c1', new Date())).toBeNull();
     });
   });
 });

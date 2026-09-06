@@ -7,6 +7,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock,
   withTransactionMock,
   findDeliveryByIdMock,
+  markPickedUpIfAssignedMock,
   markDeliveredIfPickedUpMock,
   listForAdminMock,
   findQueueMock,
@@ -24,6 +25,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   withTransactionMock: vi.fn(),
   findDeliveryByIdMock: vi.fn(),
+  markPickedUpIfAssignedMock: vi.fn(),
   markDeliveredIfPickedUpMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findQueueMock: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
     cancelAwaitingDeliveriesByOrderIdsMock,
   withTransaction: withTransactionMock,
   findDeliveryById: findDeliveryByIdMock,
+  markPickedUpIfAssigned: markPickedUpIfAssignedMock,
   markDeliveredIfPickedUp: markDeliveredIfPickedUpMock,
   listForAdmin: listForAdminMock,
   findQueue: findQueueMock,
@@ -68,6 +71,7 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 
 import {
   createForOrder,
+  markPickedUp,
   markDelivered,
   listForAdmin,
   listQueue,
@@ -333,6 +337,49 @@ describe('delivery.service', () => {
       await expect(claimDelivery('d1', 'c1')).rejects.toMatchObject({
         statusCode: 409,
         message: 'You already have an active Delivery.',
+      });
+    });
+  });
+
+  describe('markPickedUp', () => {
+    it('advances the Delivery and returns it with the pickup address', async () => {
+      markPickedUpIfAssignedMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'PICKED_UP',
+        createdAt: new Date(),
+      });
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+      });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
+      });
+
+      const result = await markPickedUp('d1', 'c1');
+
+      expect(markPickedUpIfAssignedMock).toHaveBeenCalledWith(
+        'd1',
+        'c1',
+        expect.any(Date),
+      );
+      expect(result.delivery).toMatchObject({ stage: 'PICKED_UP' });
+      expect(result.pickupAddressText).toBe('123 Main St');
+    });
+
+    it('reports 409 when the Delivery is not currently assigned to this Courier', async () => {
+      markPickedUpIfAssignedMock.mockResolvedValue(null);
+
+      await expect(markPickedUp('d1', 'c1')).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'Only an assigned Delivery can be picked up.',
       });
     });
   });
