@@ -19,6 +19,8 @@ const {
   findDonorSummariesByListingIdsMock,
   markOrderDeliveredMock,
   getListingByIdMock,
+  emitToUserMock,
+  emitToOrderMock,
 } = vi.hoisted(() => ({
   findOrCreateForOrderMock: vi.fn(),
   findDeliveryByOrderIdMock: vi.fn(),
@@ -38,6 +40,8 @@ const {
   findDonorSummariesByListingIdsMock: vi.fn(),
   markOrderDeliveredMock: vi.fn(),
   getListingByIdMock: vi.fn(),
+  emitToUserMock: vi.fn(),
+  emitToOrderMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
@@ -70,6 +74,11 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
     getListingById: getListingByIdMock,
     findDonorSummariesByListingIds: findDonorSummariesByListingIdsMock,
   },
+}));
+
+vi.mock('../../../src/realtime/socket.js', () => ({
+  emitToUser: emitToUserMock,
+  emitToOrder: emitToOrderMock,
 }));
 
 import {
@@ -202,6 +211,55 @@ describe('delivery.service', () => {
         latitude: 10.8,
         longitude: 106.6,
       });
+    });
+
+    it('announces a completed Delivery to both the order room and the Recipient', async () => {
+      preparePickedUpOrder('STRIPE');
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+        paymentMethod: 'STRIPE',
+      });
+
+      await markDelivered('d1', 'c1', {});
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+        orderId: 'o1',
+        stage: 'DELIVERED',
+      });
+      expect(emitToOrderMock).toHaveBeenCalledWith(
+        'o1',
+        'delivery:delivered',
+        expect.objectContaining({ orderId: 'o1' }),
+      );
+      expect(emitToUserMock).toHaveBeenCalledWith(
+        'r1',
+        'delivery:delivered',
+        expect.objectContaining({ orderId: 'o1' }),
+      );
+    });
+
+    it('emits only after the delivery transaction commits', async () => {
+      preparePickedUpOrder('STRIPE');
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+        paymentMethod: 'STRIPE',
+      });
+
+      let emittedDuringTransaction = false;
+      withTransactionMock.mockImplementation(async (operation) => {
+        const value = await operation(databaseSession);
+        emittedDuringTransaction = emitToUserMock.mock.calls.length > 0;
+        return value;
+      });
+
+      await markDelivered('d1', 'c1', {});
+
+      expect(emittedDuringTransaction).toBe(false);
+      expect(emitToUserMock).toHaveBeenCalled();
     });
   });
 
@@ -435,6 +493,59 @@ describe('delivery.service', () => {
 
       await expect(getActiveDelivery('c1')).rejects.toMatchObject({
         statusCode: 404,
+      });
+    });
+  });
+
+  describe('stage change events', () => {
+    function prepareOrder() {
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+      });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
+      });
+    }
+
+    it('tells the Recipient when their Delivery is claimed', async () => {
+      claimIfAvailableMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'ASSIGNED',
+        createdAt: new Date(),
+      });
+      prepareOrder();
+
+      await claimDelivery('d1', 'c1');
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+        orderId: 'o1',
+        stage: 'ASSIGNED',
+      });
+    });
+
+    it('tells the Recipient when their Delivery is picked up', async () => {
+      markPickedUpIfAssignedMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'PICKED_UP',
+        createdAt: new Date(),
+      });
+      prepareOrder();
+
+      await markPickedUp('d1', 'c1');
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+        orderId: 'o1',
+        stage: 'PICKED_UP',
       });
     });
   });

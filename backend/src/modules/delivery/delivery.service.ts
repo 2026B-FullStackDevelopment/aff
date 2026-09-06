@@ -1,9 +1,10 @@
 // Contains Courier Delivery business rules. See docs/api_design.md section 9.
 import type { ClientSession } from 'mongoose';
-import type { DeliveryDocument } from './delivery.model.js';
+import type { DeliveryDocument, DeliveryStage } from './delivery.model.js';
 import * as deliveryRepository from './delivery.repository.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
+import { emitToUser, emitToOrder } from '../../realtime/socket.js';
 import type {
   AdminDeliveryFilter,
   DeliveryPage,
@@ -204,21 +205,61 @@ async function resolvePickupAddress(listingId: string): Promise<{
   };
 }
 
-/** Loads a Delivery's Order and resolves its pickup address in one step. */
-async function withPickupAddress(
+/** A Delivery's public view plus the Order behind it, loaded once. */
+interface DeliveryContext {
+  view: DeliveryWithPickupAddress;
+  // Union with null explicitly: `findOrderById` uses `.lean<OrderDocument>()`,
+  // so its inferred return type is not nullable even though it resolves to
+  // null for a missing row. Importing `OrderDocument` to say so directly would
+  // cross a module boundary (AGENTS.md A.3.1), so derive it from the interface
+  // and widen it here.
+  order: Awaited<ReturnType<typeof orderInterface.findOrderById>> | null;
+}
+
+/**
+ * Loads the Order behind a Delivery once, and resolves the pickup address from
+ * its Listing. Callers that also need the Recipient (to emit to them) use the
+ * returned `order` rather than fetching it again.
+ */
+async function loadDeliveryContext(
   delivery: DeliveryDocument,
-): Promise<DeliveryWithPickupAddress> {
+): Promise<DeliveryContext> {
   const order = await orderInterface.findOrderById(String(delivery.orderId));
 
   if (!order) {
     return {
-      delivery,
-      pickupAddressText: undefined,
-      pickupAddressLocation: undefined,
+      view: {
+        delivery,
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+      },
+      order: null,
     };
   }
 
-  return { delivery, ...(await resolvePickupAddress(String(order.listingId))) };
+  return {
+    view: { delivery, ...(await resolvePickupAddress(String(order.listingId))) },
+    order,
+  };
+}
+
+/** Loads a Delivery's Order and resolves its pickup address in one step. */
+async function withPickupAddress(
+  delivery: DeliveryDocument,
+): Promise<DeliveryWithPickupAddress> {
+  return (await loadDeliveryContext(delivery)).view;
+}
+
+/**
+ * Tells a Recipient their Delivery moved to a new stage (E8).
+ *
+ * Fires on claim, pickup and deliver only — never on cancellation. Cascade
+ * cancellation is a bulk update over many orders, the Recipient's stepper has
+ * no cancelled state, and cancellations reach them through
+ * `notification:admin_cancel` instead. See D4 in the design doc.
+ */
+function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryStage) {
+  emitToUser(recipientId, 'order:status_changed', { orderId, stage });
 }
 
 /**
@@ -257,7 +298,13 @@ async function claimDelivery(
       : createHttpError(404, 'Delivery not found.');
   }
 
-  return withPickupAddress(claimed);
+  const { view, order } = await loadDeliveryContext(claimed);
+
+  if (order) {
+    emitStageChanged(String(order._id), String(order.recipientId), claimed.stage);
+  }
+
+  return view;
 }
 
 /**
@@ -297,7 +344,13 @@ async function markPickedUp(
     throw createHttpError(409, 'Only an assigned Delivery can be picked up.');
   }
 
-  return withPickupAddress(updated);
+  const { view, order } = await loadDeliveryContext(updated);
+
+  if (order) {
+    emitStageChanged(String(order._id), String(order.recipientId), updated.stage);
+  }
+
+  return view;
 }
 
 /**
@@ -321,7 +374,7 @@ async function markDelivered(
   courierId: string,
   payload: MarkDeliveredPayload,
 ): Promise<DeliveryWithPickupAddress> {
-  return deliveryRepository.withTransaction(
+  const { view, recipientId, orderId, deliveredAt } = await deliveryRepository.withTransaction(
     async (databaseSession) => {
       const delivery = await deliveryRepository.findDeliveryById(
         deliveryId,
@@ -399,11 +452,25 @@ async function markDelivered(
       }
 
       return {
-        delivery: updatedDelivery,
-        ...(await resolvePickupAddress(String(order.listingId))),
+        view: {
+          delivery: updatedDelivery,
+          ...(await resolvePickupAddress(String(order.listingId))),
+        },
+        recipientId: String(order.recipientId),
+        orderId: String(order._id),
+        deliveredAt,
       };
     },
   );
+
+  // After the commit, never inside it: an emit from within the callback would
+  // announce a delivery that a later abort rolls back, and that announcement
+  // cannot be retracted.
+  emitStageChanged(orderId, recipientId, view.delivery.stage);
+  emitToUser(recipientId, 'delivery:delivered', { orderId, deliveredAt });
+  emitToOrder(orderId, 'delivery:delivered', { orderId, deliveredAt });
+
+  return view;
 }
 
 export {
