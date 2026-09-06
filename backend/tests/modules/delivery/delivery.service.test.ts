@@ -21,6 +21,7 @@ const {
   getListingByIdMock,
   emitToUserMock,
   emitToOrderMock,
+  verifyOrderOwnershipMock,
 } = vi.hoisted(() => ({
   findOrCreateForOrderMock: vi.fn(),
   findDeliveryByOrderIdMock: vi.fn(),
@@ -42,6 +43,7 @@ const {
   getListingByIdMock: vi.fn(),
   emitToUserMock: vi.fn(),
   emitToOrderMock: vi.fn(),
+  verifyOrderOwnershipMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
@@ -66,6 +68,7 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
     findOrderById: findOrderByIdMock,
     findOrdersByIds: findOrdersByIdsMock,
     markOrderDelivered: markOrderDeliveredMock,
+    verifyOrderOwnership: verifyOrderOwnershipMock,
   },
 }));
 
@@ -90,6 +93,7 @@ import {
   listQueue,
   claimDelivery,
   getActiveDelivery,
+  getDeliveryById,
 } from '../../../src/modules/delivery/delivery.service.js';
 
 describe('delivery.service', () => {
@@ -546,6 +550,68 @@ describe('delivery.service', () => {
       expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
         orderId: 'o1',
         stage: 'PICKED_UP',
+      });
+    });
+  });
+
+  describe('getDeliveryById', () => {
+    function prepareDelivery() {
+      findDeliveryByIdMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'PICKED_UP',
+        createdAt: new Date(),
+      });
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+      });
+      getListingByIdMock.mockResolvedValue({
+        listing: { _id: 'l1' },
+        donor: {
+          addressText: '123 Main St',
+          location: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        },
+      });
+    }
+
+    it('returns the Delivery to the Recipient who owns its Order', async () => {
+      prepareDelivery();
+      verifyOrderOwnershipMock.mockResolvedValue(true);
+
+      const result = await getDeliveryById('d1', 'r1', 'RECIPIENT');
+
+      expect(verifyOrderOwnershipMock).toHaveBeenCalledWith('o1', 'r1');
+      expect(result.delivery).toMatchObject({ stage: 'PICKED_UP' });
+      expect(result.pickupAddressText).toBe('123 Main St');
+    });
+
+    it('returns any Delivery to an Admin without an ownership check', async () => {
+      prepareDelivery();
+
+      const result = await getDeliveryById('d1', 'admin1', 'ADMIN');
+
+      expect(verifyOrderOwnershipMock).not.toHaveBeenCalled();
+      expect(result.delivery).toMatchObject({ _id: 'd1' });
+    });
+
+    it('reports 404, not 403, to a Recipient who does not own the Order', async () => {
+      prepareDelivery();
+      verifyOrderOwnershipMock.mockResolvedValue(false);
+
+      await expect(
+        getDeliveryById('d1', 'other-recipient', 'RECIPIENT'),
+      ).rejects.toMatchObject({ statusCode: 404, message: 'Delivery not found.' });
+    });
+
+    it('reports 404 when no such Delivery exists', async () => {
+      findDeliveryByIdMock.mockResolvedValue(null);
+
+      await expect(getDeliveryById('d1', 'r1', 'RECIPIENT')).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'Delivery not found.',
       });
     });
   });

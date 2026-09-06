@@ -32,6 +32,9 @@ interface QueueDeliveryPage {
   total: number;
 }
 
+/** The roles `GET /deliveries/:id` accepts, per the route's own guard. */
+type DeliveryViewerRole = 'RECIPIENT' | 'ADMIN';
+
 /** Collects the distinct, defined ids in `values`, preserving first-seen order. */
 function distinctIds(values: Array<unknown>): string[] {
   const ids = new Set<string>();
@@ -473,6 +476,44 @@ async function markDelivered(
   return view;
 }
 
+/**
+ * Reads one Delivery for the Recipient tracking view or Admin oversight (E8).
+ *
+ * A Recipient who does not own the Order gets `404` rather than `403`: a `403`
+ * would confirm the Delivery exists, turning this into an existence oracle for
+ * other people's orders. Ownership uses the same `verifyOrderOwnership` the
+ * socket layer's `order:join` uses, so "may I see this order" has one
+ * definition.
+ *
+ * Not reachable by a `COURIER` — the route guard excludes them, and a Courier
+ * reaches their own Delivery through `/active` or the claim/pickup/deliver
+ * responses, never by arbitrary id (E5).
+ */
+async function getDeliveryById(
+  deliveryId: string,
+  userId: string,
+  role: DeliveryViewerRole,
+): Promise<DeliveryWithPickupAddress> {
+  const delivery = await deliveryRepository.findDeliveryById(deliveryId);
+
+  if (!delivery) {
+    throw createHttpError(404, 'Delivery not found.');
+  }
+
+  if (role !== 'ADMIN') {
+    const owns = await orderInterface.verifyOrderOwnership(
+      String(delivery.orderId),
+      userId,
+    );
+
+    if (!owns) {
+      throw createHttpError(404, 'Delivery not found.');
+    }
+  }
+
+  return withPickupAddress(delivery);
+}
+
 export {
   createForOrder,
   findProtectedOrderIds,
@@ -486,5 +527,6 @@ export {
   markPickedUp,
   recordCourierLocation,
   markDelivered,
+  getDeliveryById,
 };
-export type { QueueDeliveryPage };
+export type { QueueDeliveryPage, DeliveryViewerRole };

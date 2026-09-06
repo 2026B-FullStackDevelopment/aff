@@ -1,6 +1,6 @@
 // Handles Courier delivery HTTP requests. See docs/api_design.md §9.
 import type { Request, Response, NextFunction } from 'express';
-import { ok, paginated, notImplemented } from '../../shared/http/response.js';
+import { ok, paginated } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js';
 import {
   deliveryIdParamsSchema,
@@ -9,6 +9,7 @@ import {
 } from './delivery.schemas.js';
 import { toDeliveryResponseDto } from './delivery.dto.js';
 import * as deliveryService from './delivery.service.js';
+import type { DeliveryViewerRole } from './delivery.service.js';
 
 
 /** `GET /deliveries/queue` — the shared, oldest-first Courier queue (E2). */
@@ -55,11 +56,25 @@ async function claimDelivery(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// Still unwired: the Recipient's tracking view (E8).
-// A Courier never reaches a Delivery by arbitrary id — getDeliveryById is
-// RECIPIENT/ADMIN-only by design (E5). See docs/api_design.md §9.
-async function getDeliveryById(_req: Request, res: Response) {
-  return notImplemented(res);
+/** `GET /deliveries/:id` — the Recipient's tracking view, or Admin oversight (E8). */
+async function getDeliveryById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(deliveryIdParamsSchema, req.params);
+
+    const { delivery, pickupAddressText, pickupAddressLocation } =
+      await deliveryService.getDeliveryById(
+        id,
+        req.user!.id,
+        req.user!.role as DeliveryViewerRole,
+      );
+
+    return ok(
+      res,
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+    );
+  } catch (error) {
+    return next(error);
+  }
 }
 
 /** `PATCH /deliveries/:id/pickup` — confirm collection and start live tracking (E6). */
