@@ -242,3 +242,48 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | DeliveryStage | AWAITING_COURIER, ASSIGNED, PICKED_UP, DELIVERED, CANCELLED |
 | PayableType | ORDER, SUBSCRIPTIONS |
 | TransactionStatus | PENDING, PAID, FAILED, EXPIRED, CANCELLED, REFUND_PENDING, REFUNDED |
+
+---
+
+## 6. Indexes
+
+Several guarantees in this system are enforced by MongoDB indexes rather than
+by application code. The services rely on this: they catch duplicate-key
+errors (`11000`) and translate them into `409` responses instead of doing a
+read-then-write check, which would reopen the race the index exists to close.
+
+| Collection | Index | Guarantee |
+|---|---|---|
+| DELIVERY | `{ courierId }` unique, partial on `stage ∈ {ASSIGNED, PICKED_UP}` | A Courier holds at most one active Delivery (E3/E4) |
+| DELIVERY | `{ orderId }` unique | One Delivery per Order — makes `DeliveryService.createForOrder` idempotent against the Stripe webhook's at-least-once delivery (E12) |
+| DELIVERY | `{ stage, createdAt }` | Serves the oldest-first Courier queue read (E2) |
+| USER | `{ email }` unique | One account per email; the real guard behind registration's `409` |
+| DONOR / RECIPIENT / COURIER | `{ userId }` unique | One profile row per User |
+| REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
+| REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |
+
+The partial index on `DELIVERY.courierId` requires **MongoDB 6.1 or newer** —
+`partialFilterExpression` did not accept `$in` before that version.
+
+### How indexes reach an environment
+
+`connectDatabase()` calls `syncIndexes()` immediately after connecting, in
+**every** environment. Mongoose's own `autoIndex` option is disabled, so index
+creation is one explicit, logged step rather than a silent side effect that
+behaves differently in development and production.
+
+Two consequences worth knowing:
+
+- **`syncIndexes` drops indexes that are not declared in a schema.** An index
+  created by hand in Atlas will be removed on the next deploy. Drops are logged
+  with a warning naming the collection and index.
+- **A failed index build fails startup.** This is deliberate: an API running
+  without its uniqueness constraints corrupts data silently and permanently,
+  which is worse than not booting.
+
+`syncIndexes()` reads `mongoose.modelNames()`, so it only sees models that have
+been imported. `server.ts` statically imports `app.ts`, which transitively
+imports every model, so the full set is registered before startup runs.
+Changing any of those to a dynamic import would silently shrink what gets
+synced — the "Syncing indexes for N models" log line exists to make that
+visible.
