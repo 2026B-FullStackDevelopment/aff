@@ -214,8 +214,8 @@ interface DeliveryContext {
   // Union with null explicitly: `findOrderById` uses `.lean<OrderDocument>()`,
   // so its inferred return type is not nullable even though it resolves to
   // null for a missing row. Importing `OrderDocument` to say so directly would
-  // cross a module boundary (AGENTS.md A.3.1), so derive it from the interface
-  // and widen it here.
+  // cross a module boundary (docs/api_design.md A.3.1), so derive it from the
+  // interface and widen it here.
   order: Awaited<ReturnType<typeof orderInterface.findOrderById>> | null;
 }
 
@@ -266,6 +266,44 @@ function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryS
 }
 
 /**
+ * Runs a realtime notification without letting its failure reach the caller.
+ *
+ * Every call site here runs after its database write has already committed.
+ * The emit helpers call `getSocketServer()`, which throws if Socket.IO has
+ * not been initialized; letting that propagate would turn a successful write
+ * into an API error, and a retry of pickup or deliver would then hit a
+ * spurious 409. A missed notification is strictly better than that, so it is
+ * logged and swallowed instead.
+ */
+function safeEmit(emit: () => void): void {
+  try {
+    emit();
+  } catch (error) {
+    console.error('Failed to emit a realtime delivery event:', error);
+  }
+}
+
+/**
+ * Loads a Delivery's view and tells the Recipient its stage changed — the
+ * shared tail of `claimDelivery` and `markPickedUp`, which differ only in how
+ * they produce the updated Delivery. See `safeEmit` for why the notification
+ * can't fail the call.
+ */
+async function loadContextAndNotifyStageChange(
+  delivery: DeliveryDocument,
+): Promise<DeliveryWithPickupAddress> {
+  const { view, order } = await loadDeliveryContext(delivery);
+
+  if (order) {
+    safeEmit(() =>
+      emitStageChanged(String(order._id), String(order.recipientId), delivery.stage),
+    );
+  }
+
+  return view;
+}
+
+/**
  * Claims an unclaimed Delivery for a Courier (E3/E4/E5).
  *
  * Both 409s are distinct on purpose: the client shows "someone beat you to it"
@@ -301,13 +339,7 @@ async function claimDelivery(
       : createHttpError(404, 'Delivery not found.');
   }
 
-  const { view, order } = await loadDeliveryContext(claimed);
-
-  if (order) {
-    emitStageChanged(String(order._id), String(order.recipientId), claimed.stage);
-  }
-
-  return view;
+  return loadContextAndNotifyStageChange(claimed);
 }
 
 /**
@@ -347,13 +379,7 @@ async function markPickedUp(
     throw createHttpError(409, 'Only an assigned Delivery can be picked up.');
   }
 
-  const { view, order } = await loadDeliveryContext(updated);
-
-  if (order) {
-    emitStageChanged(String(order._id), String(order.recipientId), updated.stage);
-  }
-
-  return view;
+  return loadContextAndNotifyStageChange(updated);
 }
 
 /**
@@ -468,10 +494,11 @@ async function markDelivered(
 
   // After the commit, never inside it: an emit from within the callback would
   // announce a delivery that a later abort rolls back, and that announcement
-  // cannot be retracted.
-  emitStageChanged(orderId, recipientId, view.delivery.stage);
-  emitToUser(recipientId, 'delivery:delivered', { orderId, deliveredAt });
-  emitToOrder(orderId, 'delivery:delivered', { orderId, deliveredAt });
+  // cannot be retracted. Each notification is independently guarded (see
+  // `safeEmit`) so one failing to send doesn't stop the others from trying.
+  safeEmit(() => emitStageChanged(orderId, recipientId, view.delivery.stage));
+  safeEmit(() => emitToUser(recipientId, 'delivery:delivered', { orderId, deliveredAt }));
+  safeEmit(() => emitToOrder(orderId, 'delivery:delivered', { orderId, deliveredAt }));
 
   return view;
 }

@@ -265,6 +265,36 @@ describe('delivery.service', () => {
       expect(emittedDuringTransaction).toBe(false);
       expect(emitToUserMock).toHaveBeenCalled();
     });
+
+    it('still completes the Delivery when every post-commit notification fails', async () => {
+      preparePickedUpOrder('STRIPE');
+      findOrderByIdMock.mockResolvedValue({
+        _id: 'o1',
+        listingId: 'l1',
+        recipientId: 'r1',
+        paymentMethod: 'STRIPE',
+      });
+      emitToUserMock.mockImplementation(() => {
+        throw new Error('Socket.IO server has not been initialized.');
+      });
+      emitToOrderMock.mockImplementation(() => {
+        throw new Error('Socket.IO server has not been initialized.');
+      });
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      const result = await markDelivered('d1', 'c1', {});
+
+      expect(result.delivery).toMatchObject({ stage: 'DELIVERED' });
+      // All three post-commit emits are independently guarded, so one
+      // failing does not stop the others from being attempted.
+      expect(emitToUserMock).toHaveBeenCalledTimes(2);
+      expect(emitToOrderMock).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(3);
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('listForAdmin', () => {
@@ -551,6 +581,54 @@ describe('delivery.service', () => {
         orderId: 'o1',
         stage: 'PICKED_UP',
       });
+    });
+
+    it('still resolves the claim when the realtime notification fails', async () => {
+      claimIfAvailableMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'ASSIGNED',
+        createdAt: new Date(),
+      });
+      prepareOrder();
+      emitToUserMock.mockImplementationOnce(() => {
+        throw new Error('Socket.IO server has not been initialized.');
+      });
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      const result = await claimDelivery('d1', 'c1');
+
+      expect(result.delivery).toMatchObject({ stage: 'ASSIGNED' });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('still resolves the pickup when the realtime notification fails', async () => {
+      markPickedUpIfAssignedMock.mockResolvedValue({
+        _id: 'd1',
+        orderId: 'o1',
+        courierId: 'c1',
+        stage: 'PICKED_UP',
+        createdAt: new Date(),
+      });
+      prepareOrder();
+      emitToUserMock.mockImplementationOnce(() => {
+        throw new Error('Socket.IO server has not been initialized.');
+      });
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      const result = await markPickedUp('d1', 'c1');
+
+      expect(result.delivery).toMatchObject({ stage: 'PICKED_UP' });
+      expect(consoleErrorSpy).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
