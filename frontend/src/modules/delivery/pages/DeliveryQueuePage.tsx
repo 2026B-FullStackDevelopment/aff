@@ -1,20 +1,15 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { CourierTopNavigation } from '@/shared/components/CourierTopNavigation/CourierTopNavigation';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { getStoredUser } from '@/services/authStorage';
 import { QueueRow } from '../components/QueueRow';
 import { useDeliveryQueue } from '../hooks/useDeliveryQueue';
 
 export function DeliveryQueuePage() {
   const navigate = useNavigate();
   const queue = useDeliveryQueue();
-
-  const storedUser = getStoredUser();
-  const courier = storedUser?.role === 'COURIER' ? storedUser : null;
 
   useEffect(() => {
     if (queue.claimedId) {
@@ -29,11 +24,6 @@ export function DeliveryQueuePage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <CourierTopNavigation
-        avatarUrl={courier?.avatarUrl}
-        avatarAlt={courier ? `${courier.fullName} profile` : 'Courier profile'}
-      />
-
       <main>
         {queue.hasActiveDelivery === null || queue.isLoading ? (
           <LoadingSkeleton />

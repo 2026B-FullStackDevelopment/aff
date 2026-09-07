@@ -1,21 +1,16 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/Button/Button';
-import { CourierTopNavigation } from '@/shared/components/CourierTopNavigation/CourierTopNavigation';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
-import { getStoredUser } from '@/services/authStorage';
 import { CashConfirmation } from '../components/CashConfirmation';
 import { useActiveDelivery } from '../hooks/useActiveDelivery';
 
 export function ActiveDeliveryPage() {
   const navigate = useNavigate();
   const active = useActiveDelivery();
-
-  const storedUser = getStoredUser();
-  const courier = storedUser?.role === 'COURIER' ? storedUser : null;
 
   useEffect(() => {
     if (active.isComplete) {
@@ -26,10 +21,6 @@ export function ActiveDeliveryPage() {
   if (active.isLoading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <CourierTopNavigation
-          avatarUrl={courier?.avatarUrl}
-          avatarAlt={courier ? `${courier.fullName} profile` : 'Courier profile'}
-        />
         <main className="mx-auto max-w-3xl px-6 py-6">
           <LoadingSkeleton count={1} />
         </main>
@@ -56,11 +47,6 @@ export function ActiveDeliveryPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <CourierTopNavigation
-        avatarUrl={courier?.avatarUrl}
-        avatarAlt={courier ? `${courier.fullName} profile` : 'Courier profile'}
-      />
-
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-6">
         <Panel title={isPickedUp ? 'Deliver to' : 'Collect from'}>
           <div className="flex flex-col gap-4">

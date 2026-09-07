@@ -5,6 +5,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom';
+import { CourierLayout } from './CourierLayout';
 import { GuestRoute } from './GuestRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RootRedirect } from './RootRedirect';
@@ -201,24 +202,22 @@ export function AppRouter() {
         />
 
         <Route
-          path="/deliveries/queue"
-          element={
-            <ProtectedRoute
-              allowedRoles={['COURIER']}
-            >
-              <DeliveryQueuePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/deliveries/active"
           element={
             <ProtectedRoute allowedRoles={['COURIER']}>
-              <ActiveDeliveryPage />
+              <CourierLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route
+            path="/deliveries/queue"
+            element={<DeliveryQueuePage />}
+          />
+
+          <Route
+            path="/deliveries/active"
+            element={<ActiveDeliveryPage />}
+          />
+        </Route>
 
         <Route
           path="*"

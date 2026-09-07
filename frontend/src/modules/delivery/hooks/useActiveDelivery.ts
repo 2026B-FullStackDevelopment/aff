@@ -21,15 +21,17 @@ export function useActiveDelivery() {
     setIsLoading(true);
     const response = await deliveryService.getActive();
 
+    // Must run even if this component has unmounted: courierRealtimeService
+    // is a module-level singleton whose tracking lifetime is the delivery's,
+    // not the component's. Resumes broadcasting after a reload mid-delivery.
+    if (response.status === 200 && response.data && response.data.stage === 'PICKED_UP') {
+      courierRealtimeService.startTracking(() => setIsLocationDenied(true));
+    }
+
     if (!isMountedRef.current) return;
 
     if (response.status === 200 && response.data) {
       setDelivery(response.data);
-
-      // Resume broadcasting after a reload mid-delivery.
-      if (response.data.stage === 'PICKED_UP') {
-        courierRealtimeService.startTracking(() => setIsLocationDenied(true));
-      }
     } else {
       setIsGone(true);
     }
@@ -52,15 +54,22 @@ export function useActiveDelivery() {
     setActionError(null);
 
     const response = await deliveryService.pickup(delivery.id);
+    const isPickedUp = response.status === 200 && Boolean(response.data);
+
+    // Must run even if this component has unmounted: courierRealtimeService
+    // is a module-level singleton whose tracking lifetime is the delivery's,
+    // not the component's. Only after the stage actually advanced — a 409
+    // means it did not (E6).
+    if (isPickedUp) {
+      courierRealtimeService.startTracking(() => setIsLocationDenied(true));
+    }
 
     if (!isMountedRef.current) return;
 
     setIsSubmitting(false);
 
-    if (response.status === 200 && response.data) {
+    if (isPickedUp) {
       setDelivery(response.data);
-      // Only after the stage actually advanced — a 409 means it did not (E6).
-      courierRealtimeService.startTracking(() => setIsLocationDenied(true));
       return;
     }
 

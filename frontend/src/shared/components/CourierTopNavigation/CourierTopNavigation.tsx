@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import {
   PortalTopNavigation,
   type PortalNavItem,
 } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
 import { useCourierSession } from '@/modules/delivery/hooks/useCourierSession';
+import { useAuth } from '@/modules/auth/hooks/useAuth';
 
 const COURIER_NAV_ITEMS: readonly PortalNavItem[] = [
   {
@@ -12,10 +14,6 @@ const COURIER_NAV_ITEMS: readonly PortalNavItem[] = [
   {
     label: 'Active Delivery',
     to: '/deliveries/active',
-  },
-  {
-    label: 'Profile',
-    to: '/profile',
   },
 ];
 
@@ -29,6 +27,19 @@ export function CourierTopNavigation({
   avatarAlt = 'Courier profile',
 }: CourierTopNavigationProps) {
   useCourierSession();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  // `/profile` is guarded for RECIPIENT/DONOR/ADMIN only — ProfilePage
+  // branches on isDonor and has no Courier-shaped rendering (it would show a
+  // Recipient badge/nav for a Courier's plain UserResponseDto). There is
+  // deliberately no "Profile" nav item and no profile-linked avatar here, so
+  // sign-out — the only thing ProfilePage offered a Courier anyway — lives
+  // directly in this nav instead, reusing the same useAuth().logout() call.
+  async function handleSignOut() {
+    await logout();
+    navigate('/login');
+  }
 
   return (
     <PortalTopNavigation
@@ -38,7 +49,16 @@ export function CourierTopNavigation({
       navItems={COURIER_NAV_ITEMS}
       avatarUrl={avatarUrl}
       avatarAlt={avatarAlt}
-      profileTo="/profile"
+      profileTo="/deliveries/queue"
+      extraRightActions={
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          Sign out
+        </button>
+      }
     />
   );
 }
