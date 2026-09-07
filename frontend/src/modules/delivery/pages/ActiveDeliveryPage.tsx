@@ -7,6 +7,7 @@ import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { getStoredUser } from '@/services/authStorage';
+import { CashConfirmation } from '../components/CashConfirmation';
 import { useActiveDelivery } from '../hooks/useActiveDelivery';
 
 export function ActiveDeliveryPage() {
@@ -101,13 +102,11 @@ export function ActiveDeliveryPage() {
         ) : null}
 
         {isPickedUp ? (
-          <Button
-            type="button"
-            disabled={active.isSubmitting}
-            onClick={() => active.deliver()}
-          >
-            {active.isSubmitting ? 'Completing…' : 'Delivered'}
-          </Button>
+          <CashConfirmation
+            requiresCashCollection={delivery.requiresCashCollection}
+            isSubmitting={active.isSubmitting}
+            onDeliver={active.deliver}
+          />
         ) : (
           <Button
             type="button"
