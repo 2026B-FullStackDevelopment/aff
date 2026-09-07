@@ -1,6 +1,7 @@
-// Thin react-leaflet wrapper rendering a single Donor location marker.
+// Thin react-leaflet wrapper rendering a single location marker.
 // Per D8.md, placed under shared/components (not the browsing module)
-// since a later Courier story reuses this exact marker pattern.
+// since the Courier active-delivery screen reuses this exact marker pattern
+// to show the pickup pin before pickup and the destination pin after.
 // Requires `leaflet` + `react-leaflet` (+ `@types/leaflet` dev dep) —
 // not yet in frontend/package.json per D8.md's risk #3.
 import L from 'leaflet';
@@ -22,19 +23,19 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-interface DonorLocationMapProps {
+interface LocationMapProps {
   latitude: number;
   longitude: number;
   addressText: string;
   className?: string;
 }
 
-export function DonorLocationMap({
+export function LocationMap({
   latitude,
   longitude,
   addressText,
   className = 'h-48 w-full overflow-hidden rounded-lg',
-}: DonorLocationMapProps) {
+}: LocationMapProps) {
   return (
     <div className={className}>
       <MapContainer
@@ -54,4 +55,4 @@ export function DonorLocationMap({
   );
 }
 
-export default DonorLocationMap;
+export default LocationMap;
