@@ -112,6 +112,8 @@ describe('order.repository', () => {
           recipientId: 1,
           quantity: 1,
           deliveryAddressText: 1,
+          deliveryLocation: 1,
+          paymentMethod: 1,
           listingId: 1,
         },
       );

@@ -54,6 +54,8 @@ interface OrderJoinSummary {
   recipientId: Types.ObjectId;
   quantity: number;
   deliveryAddressText: string;
+  deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
+  paymentMethod?: 'STRIPE' | 'CASH';
   listingId: Types.ObjectId;
 }
 
@@ -268,6 +270,8 @@ async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> 
       recipientId: 1,
       quantity: 1,
       deliveryAddressText: 1,
+      deliveryLocation: 1,
+      paymentMethod: 1,
       listingId: 1,
     },
   ).lean<OrderJoinSummary[]>();

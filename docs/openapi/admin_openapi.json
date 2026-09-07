@@ -263,6 +263,20 @@
             "description": "Only populated while stage=PICKED_UP."
           },
           "createdAt": { "type": "string", "format": "date-time" },
+          "deliveryAddressText": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where the order is being delivered to — the Recipient's address."
+          },
+          "deliveryLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "nullable": true,
+            "description": "Coordinates of the delivery destination. The Courier's map re-centres here after pickup."
+          },
+          "requiresCashCollection": {
+            "type": "boolean",
+            "description": "Whether the Courier must collect cash on delivery. Derived server-side from the Order's payment method, which is never itself exposed — a Courier needs to know whether to collect money, not how the Recipient paid."
+          },
           "courier": {
             "type": "object",
             "nullable": true,

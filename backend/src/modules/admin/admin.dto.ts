@@ -6,7 +6,7 @@ import type { CourierDocument } from '../users/courier.model.js';
 import type { DeliveryDocument } from '../delivery/delivery.model.js';
 import type { UpdateListingStatusResponseDto, ListingResponseDto } from '../listings/listing.dto.js';
 import { toDeliveryResponseDto } from '../delivery/delivery.dto.js';
-import type { DeliveryResponseDto } from '../delivery/delivery.dto.js';
+import type { DeliveryResponseDto, DeliveryOrderSource } from '../delivery/delivery.dto.js';
 
 /** A Courier account as the Admin sees it: the shared account fields plus the Courier's name. */
 interface CourierResponseDto extends UserResponseDto {
@@ -47,8 +47,12 @@ interface AdminDeliveryResponseDto extends DeliveryResponseDto {
   order: { id: string; recipientId: string | null };
 }
 
-/** The Order fields the Admin Delivery table needs, joined by the caller. */
-interface AdminDeliveryOrderSummary {
+/**
+ * The Order fields the Admin Delivery table needs, joined by the caller.
+ * Extends `DeliveryOrderSource` so the same joined Order also drives the base
+ * `DeliveryResponseDto` fields (destination, `requiresCashCollection`).
+ */
+interface AdminDeliveryOrderSummary extends DeliveryOrderSource {
   _id: unknown;
   recipientId: unknown;
 }
@@ -105,6 +109,7 @@ function toAdminDeliveryResponseDto(
     ...toDeliveryResponseDto(delivery, {
       pickupAddressText: undefined,
       pickupAddressLocation: undefined,
+      order: relations.order,
     })!,
     courier: delivery.courierId
       ? {

@@ -13,8 +13,8 @@ import type {
   MarkDeliveredPayload,
   DeliveryQueueQuery,
 } from './delivery.schemas.js';
-import { toQueueDeliveryResponseDto } from './delivery.dto.js';
-import type { QueueDeliveryResponseDto } from './delivery.dto.js';
+import { toQueueDeliveryResponseDto, requiresCashCollection } from './delivery.dto.js';
+import type { QueueDeliveryResponseDto, DeliveryOrderSource } from './delivery.dto.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 /** A Delivery plus its resolved pickup address (E5). */
@@ -22,6 +22,9 @@ interface DeliveryWithPickupAddress {
   delivery: DeliveryDocument;
   pickupAddressText: string | undefined;
   pickupAddressLocation: GeoLocation | undefined;
+  // The Order fields the Courier's own Delivery response derives from (destination,
+  // requiresCashCollection) — null when the Order behind this Delivery could not be loaded.
+  order: DeliveryOrderSource | null;
 }
 
 /** One page of hydrated queue rows. */
@@ -169,6 +172,8 @@ async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> 
           ? {
               quantity: order.quantity,
               deliveryAddressText: order.deliveryAddressText,
+              deliveryLocation: order.deliveryLocation,
+              paymentMethod: order.paymentMethod,
             }
           : null,
         companyName: order
@@ -235,13 +240,14 @@ async function loadDeliveryContext(
         delivery,
         pickupAddressText: undefined,
         pickupAddressLocation: undefined,
+        order: null,
       },
       order: null,
     };
   }
 
   return {
-    view: { delivery, ...(await resolvePickupAddress(String(order.listingId))) },
+    view: { delivery, ...(await resolvePickupAddress(String(order.listingId))), order },
     order,
   };
 }
@@ -440,7 +446,7 @@ async function markDelivered(
         throw createHttpError(404, 'Order not found.');
       }
 
-      const isCashPayment = order.paymentMethod === 'CASH';
+      const isCashPayment = requiresCashCollection(order);
 
       if (isCashPayment && payload.cashConfirmed !== true) {
         throw createHttpError(
@@ -484,6 +490,7 @@ async function markDelivered(
         view: {
           delivery: updatedDelivery,
           ...(await resolvePickupAddress(String(order.listingId))),
+          order,
         },
         recipientId: String(order.recipientId),
         orderId: String(order._id),

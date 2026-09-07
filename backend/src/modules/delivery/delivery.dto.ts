@@ -12,6 +12,18 @@ interface DeliveryResponseDto {
   deliveredAt: Date | null;
   courierLastLocation: GeoLocation | null;
   createdAt: Date;
+  deliveryAddressText: string | null;
+  deliveryLocation: GeoLocation | null;
+  // A derived boolean, deliberately not the raw paymentMethod: a Courier needs
+  // to know whether to collect money, not how the Recipient paid (spec D5).
+  requiresCashCollection: boolean;
+}
+
+/** The Order fields every Delivery response derives from, joined by the caller. */
+interface DeliveryOrderSource {
+  deliveryAddressText?: string;
+  deliveryLocation?: GeoLocation;
+  paymentMethod?: 'STRIPE' | 'CASH';
 }
 
 interface ToDeliveryResponseDtoOptions {
@@ -23,6 +35,7 @@ interface ToDeliveryResponseDtoOptions {
   // Static — for a map marker, not live-updating. Unlike courierLastLocation, the Donor doesn't
   // move, so there's no tracking concept here, just a fixed pin.
   pickupAddressLocation: GeoLocation | undefined;
+  order: DeliveryOrderSource | null;
 }
 
 /** A queue row: the Delivery plus the minimum a Courier needs to decide (E2). */
@@ -37,8 +50,21 @@ interface QueueDeliveryResponseDto extends DeliveryResponseDto {
 
 /** The Order fields a queue row shows, joined by the caller. */
 interface QueueDeliveryRelations {
-  order: { quantity: number; deliveryAddressText: string } | null;
+  order: (DeliveryOrderSource & { quantity: number }) | null;
   companyName: string | null;
+}
+
+/**
+ * Whether a Courier must collect cash on this Delivery.
+ *
+ * This is the single definition of that rule. `markDelivered` gates its
+ * `cashConfirmed` requirement on the same predicate, so the checkbox the
+ * Courier sees appears exactly when the server will demand it. If the two ever
+ * diverged, a Courier would receive a 400 demanding confirmation with no
+ * control on screen to give it.
+ */
+function requiresCashCollection(order: DeliveryOrderSource | null | undefined): boolean {
+  return order?.paymentMethod === 'CASH';
 }
 
 function toDeliveryResponseDto(
@@ -58,6 +84,9 @@ function toDeliveryResponseDto(
     deliveredAt: delivery.deliveredAt ?? null,
     courierLastLocation: delivery.courierLastLocation ?? null,
     createdAt: delivery.createdAt,
+    deliveryAddressText: options.order?.deliveryAddressText ?? null,
+    deliveryLocation: options.order?.deliveryLocation ?? null,
+    requiresCashCollection: requiresCashCollection(options.order),
   };
 }
 
@@ -81,6 +110,7 @@ function toQueueDeliveryResponseDto(
     ...toDeliveryResponseDto(delivery, {
       pickupAddressText: undefined,
       pickupAddressLocation: undefined,
+      order: relations.order,
     })!,
     order: {
       id: String(delivery.orderId),
@@ -91,10 +121,11 @@ function toQueueDeliveryResponseDto(
   };
 }
 
-export { toDeliveryResponseDto, toQueueDeliveryResponseDto };
+export { toDeliveryResponseDto, toQueueDeliveryResponseDto, requiresCashCollection };
 export type {
   DeliveryResponseDto,
   ToDeliveryResponseDtoOptions,
   QueueDeliveryResponseDto,
   QueueDeliveryRelations,
+  DeliveryOrderSource,
 };

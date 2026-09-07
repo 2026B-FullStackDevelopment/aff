@@ -348,6 +348,35 @@ describe('delivery.service', () => {
       expect(result.total).toBe(2);
     });
 
+    it('carries the real cash flag and delivery location through to a queue row', async () => {
+      findQueueMock.mockResolvedValue({
+        items: [first],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
+      findOrdersByIdsMock.mockResolvedValue([
+        {
+          _id: 'o1',
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+          paymentMethod: 'CASH',
+          listingId: 'l1',
+        },
+      ]);
+      findDonorSummariesByListingIdsMock.mockResolvedValue([
+        { listingId: 'l1', companyName: 'Fresh Foods' },
+      ]);
+
+      const result = await listQueue({ page: 1, limit: 20 });
+
+      expect(result.items[0]).toMatchObject({
+        requiresCashCollection: true,
+        deliveryLocation: { latitude: 10.8, longitude: 106.6 },
+      });
+    });
+
     it('still lists a row whose Order could not be loaded', async () => {
       findQueueMock.mockResolvedValue({
         items: [first],

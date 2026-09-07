@@ -27,12 +27,12 @@ async function listQueue(req: Request, res: Response, next: NextFunction) {
 /** `GET /deliveries/active` — the Courier's in-flight Delivery, if any (E4). */
 async function getActiveDelivery(req: Request, res: Response, next: NextFunction) {
   try {
-    const { delivery, pickupAddressText, pickupAddressLocation } =
+    const { delivery, pickupAddressText, pickupAddressLocation, order } =
       await deliveryService.getActiveDelivery(req.user!.id);
 
     return ok(
       res,
-      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation, order }),
     );
   } catch (error) {
     return next(error);
@@ -44,12 +44,12 @@ async function claimDelivery(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(deliveryIdParamsSchema, req.params);
 
-    const { delivery, pickupAddressText, pickupAddressLocation } =
+    const { delivery, pickupAddressText, pickupAddressLocation, order } =
       await deliveryService.claimDelivery(id, req.user!.id);
 
     return ok(
       res,
-      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation, order }),
     );
   } catch (error) {
     return next(error);
@@ -61,7 +61,7 @@ async function getDeliveryById(req: Request, res: Response, next: NextFunction) 
   try {
     const { id } = parseBody(deliveryIdParamsSchema, req.params);
 
-    const { delivery, pickupAddressText, pickupAddressLocation } =
+    const { delivery, pickupAddressText, pickupAddressLocation, order } =
       await deliveryService.getDeliveryById(
         id,
         req.user!.id,
@@ -70,7 +70,7 @@ async function getDeliveryById(req: Request, res: Response, next: NextFunction) 
 
     return ok(
       res,
-      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation, order }),
     );
   } catch (error) {
     return next(error);
@@ -82,12 +82,12 @@ async function markPickedUp(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(deliveryIdParamsSchema, req.params);
 
-    const { delivery, pickupAddressText, pickupAddressLocation } =
+    const { delivery, pickupAddressText, pickupAddressLocation, order } =
       await deliveryService.markPickedUp(id, req.user!.id);
 
     return ok(
       res,
-      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation }),
+      toDeliveryResponseDto(delivery, { pickupAddressText, pickupAddressLocation, order }),
     );
   } catch (error) {
     return next(error);
@@ -101,7 +101,7 @@ async function markDelivered(req: Request, res: Response, next: NextFunction) {
     // payload is the validated data, sent by the client in req.body
     const payload = parseBody(markDeliveredSchema, req.body);
 
-    const { delivery, pickupAddressText, pickupAddressLocation } =
+    const { delivery, pickupAddressText, pickupAddressLocation, order } =
       await deliveryService.markDelivered(id, req.user!.id, payload);
 
     // HTTP 200 ok
@@ -110,6 +110,7 @@ async function markDelivered(req: Request, res: Response, next: NextFunction) {
       toDeliveryResponseDto(delivery, {
         pickupAddressText,
         pickupAddressLocation,
+        order,
       }),
     );
   } catch (error) {

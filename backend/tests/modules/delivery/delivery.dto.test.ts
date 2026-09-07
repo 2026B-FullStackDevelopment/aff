@@ -2,12 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
   toDeliveryResponseDto,
   toQueueDeliveryResponseDto,
+  requiresCashCollection,
 } from '../../../src/modules/delivery/delivery.dto.js';
 
 describe('toDeliveryResponseDto', () => {
   it('returns null when given null', () => {
     expect(
-      toDeliveryResponseDto(null, { pickupAddressText: undefined, pickupAddressLocation: undefined })
+      toDeliveryResponseDto(null, {
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+        order: null,
+      })
     ).toBeNull();
   });
 
@@ -26,7 +31,11 @@ describe('toDeliveryResponseDto', () => {
     const pickupAddressLocation = { latitude: 10.8, longitude: 106.6, updatedAt: createdAt };
 
     expect(
-      toDeliveryResponseDto(delivery, { pickupAddressText: '123 Main St', pickupAddressLocation })
+      toDeliveryResponseDto(delivery, {
+        pickupAddressText: '123 Main St',
+        pickupAddressLocation,
+        order: null,
+      })
     ).toEqual({
       id: 'd1',
       orderId: 'o1',
@@ -38,6 +47,9 @@ describe('toDeliveryResponseDto', () => {
       deliveredAt: null,
       courierLastLocation: { latitude: 21.0, longitude: 105.8, updatedAt: createdAt },
       createdAt,
+      deliveryAddressText: null,
+      deliveryLocation: null,
+      requiresCashCollection: false,
     });
   });
 
@@ -55,7 +67,11 @@ describe('toDeliveryResponseDto', () => {
     };
 
     expect(
-      toDeliveryResponseDto(delivery, { pickupAddressText: undefined, pickupAddressLocation: undefined })
+      toDeliveryResponseDto(delivery, {
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+        order: null,
+      })
     ).toEqual({
       id: 'd1',
       orderId: 'o1',
@@ -67,6 +83,86 @@ describe('toDeliveryResponseDto', () => {
       deliveredAt: null,
       courierLastLocation: null,
       createdAt,
+      deliveryAddressText: null,
+      deliveryLocation: null,
+      requiresCashCollection: false,
+    });
+  });
+
+  it('carries the destination and the cash flag from the Order', () => {
+    const delivery = {
+      _id: 'd1',
+      orderId: 'o1',
+      stage: 'ASSIGNED',
+      createdAt: new Date(),
+    };
+
+    const result = toDeliveryResponseDto(delivery, {
+      pickupAddressText: '1 Donor St',
+      pickupAddressLocation: undefined,
+      order: {
+        deliveryAddressText: '12 Le Loi',
+        deliveryLocation: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+        paymentMethod: 'CASH',
+      },
+    });
+
+    expect(result).toMatchObject({
+      deliveryAddressText: '12 Le Loi',
+      deliveryLocation: { latitude: 10.8, longitude: 106.6 },
+      requiresCashCollection: true,
+    });
+  });
+
+  it('never leaks the raw payment method to the client', () => {
+    const result = toDeliveryResponseDto(
+      { _id: 'd1', orderId: 'o1', stage: 'ASSIGNED', createdAt: new Date() },
+      {
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+        order: {
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
+          paymentMethod: 'CASH',
+        },
+      },
+    );
+
+    expect(result).not.toHaveProperty('paymentMethod');
+  });
+
+  it('degrades to nulls and false when no Order was supplied', () => {
+    const result = toDeliveryResponseDto(
+      { _id: 'd1', orderId: 'o1', stage: 'ASSIGNED', createdAt: new Date() },
+      {
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+        order: null,
+      },
+    );
+
+    expect(result).toMatchObject({
+      deliveryAddressText: null,
+      deliveryLocation: null,
+      requiresCashCollection: false,
+    });
+  });
+
+  describe('requiresCashCollection', () => {
+    it('is true only for a cash Order', () => {
+      expect(requiresCashCollection({ paymentMethod: 'CASH' })).toBe(true);
+    });
+
+    it('is false for a card Order', () => {
+      expect(requiresCashCollection({ paymentMethod: 'STRIPE' })).toBe(false);
+    });
+
+    it('is false for a free Order, which has no payment method at all', () => {
+      expect(requiresCashCollection({})).toBe(false);
+    });
+
+    it('is false when the Order could not be loaded', () => {
+      expect(requiresCashCollection(null)).toBe(false);
     });
   });
 
