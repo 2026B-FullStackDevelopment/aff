@@ -10,7 +10,7 @@ import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantitySte
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, shortCityLabel } from '@/shared/utils/listingFormatting';
 import { getStoredUser } from '@/services/authStorage';
 import type { ListingDetailDTO } from '@/types/api';
-import { ListingDetailHeader } from '../components/ListingDetailHeader';
+import { NavigationHeader } from '../../../shared/components/NavigationHeader/NavigationHeader';
 import { useListingDetail } from '../hooks/useListingDetail';
 import { useReserveListing } from '../hooks/useReserveListing';
 
@@ -20,7 +20,7 @@ export function ListingDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <ListingDetailHeader />
+      <NavigationHeader />
 
       <div className="mx-auto max-w-5xl px-6 py-6">
         {isLoading && <LoadingSkeleton count={1} />}
@@ -43,8 +43,7 @@ export function ListingDetailPage() {
 function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
   const user = getStoredUser();
   const navigate = useNavigate();
-  const { quantity, setQuantity, maxQuantity, isSubmitting, error, succeeded, reserve } =
-    useReserveListing(listing);
+  const { quantity, setQuantity, maxQuantity } = useReserveListing(listing);
 
   const isPerRequest = listing.unit === 'PER_REQUEST';
   const isActive = listing.status === 'ACTIVE';
@@ -56,7 +55,7 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
       navigate('/login');
       return;
     }
-    void reserve();
+    navigate(`/marketplace/${listing.id}/confirm?qty=${quantity}`);
   }
 
   return (
@@ -73,7 +72,8 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
         </div>
 
         {listing.description && (
-          <Panel contentClassName="p-5">
+          <Panel contentClassName="p-5" >
+            <h3 className="text-lg font-bold tracking-tight text-[#1B1C1C] pb-3">Description</h3>
             <p className="text-sm leading-6 text-[#414844]">{listing.description}</p>
           </Panel>
         )}
@@ -109,12 +109,12 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
             </span>
           </div>
 
-          <span className="flex items-center gap-1.5 py-1.5">
+          <span className="mt-1.5 flex items-center text-[#414844] gap-1.5 py-1.5">
             <Store className="size-4 shrink-0" aria-hidden="true" />
             Donated by {listing.donor.companyName}, {shortCityLabel(listing.city)}
           </span>
 
-          <span className="flex items-center gap-1.5 py-1.5">
+          <span className="mt-1.5 flex items-center text-[#414844] gap-1.5 py-1.5">
             <Calendar className="size-4 shrink-0" aria-hidden="true" />
             Posted {formatDate(listing.createdAt)}
           </span>
@@ -157,41 +157,30 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
             >
               {isSoldOut ? 'Sold Out' : 'Unavailable'}
             </Button>
-          ) : isWrongRole ? (
-            <p className="mt-4 text-sm text-[#6B7280]">Only Recipients can reserve items.</p>
-          ) : succeeded ? (
-            <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
-              Reservation confirmed!
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-3">
-              <div>
-                <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">Select Quantity</p>
-                <QuantityStepper
-                  value={quantity}
-                  max={maxQuantity}
-                  unitLabel={UNIT_LABELS[listing.unit]}
-                  theme="recipient"
-                  onChange={setQuantity}
-                />
+            ) : isWrongRole ? (
+              <p className="mt-4 text-sm text-[#6B7280]">Only Recipients can reserve items.</p>
+            ) : (
+              <div className="mt-4 flex flex-col gap-3">
+                <div>
+                  <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">Select Quantity</p>
+                  <QuantityStepper
+                    value={quantity}
+                    max={maxQuantity}
+                    unitLabel={UNIT_LABELS[listing.unit]}
+                    theme="recipient"
+                    onChange={setQuantity}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleReserveClick}
+                  className="h-11 w-full rounded-lg bg-[#3D6852] text-sm font-bold text-white transition-all duration-200 ease-out hover:bg-[#2E5A47] hover:shadow-md active:scale-[0.98]"
+                >
+                  Reserve
+                </Button>
               </div>
-
-              {error && (
-                <p className="text-xs font-semibold text-red-600" role="alert">
-                  {error}
-                </p>
-              )}
-
-              <Button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleReserveClick}
-                className="h-11 w-full rounded-lg bg-[#3D6852] text-sm font-bold text-white transition-all duration-200 ease-out hover:bg-[#2E5A47] hover:shadow-md active:scale-[0.98]"
-              >
-                {isSubmitting ? 'Reserving…' : 'Reserve'}
-              </Button>
-            </div>
-          )}
+            )}
         </Panel>
       </div>
     </div>

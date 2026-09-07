@@ -6,6 +6,9 @@ const deliveryInterface = {
   findProtectedOrderIds: deliveryService.findProtectedOrderIds,
   cancelAwaitingDeliveriesByOrderIds:
     deliveryService.cancelAwaitingDeliveriesByOrderIds,
+  findByOrderId: deliveryService.findByOrderId,
+  cancelAwaitingDeliveryForOrder:
+    deliveryService.cancelAwaitingDeliveryForOrder,
 };
 
 export { deliveryInterface };

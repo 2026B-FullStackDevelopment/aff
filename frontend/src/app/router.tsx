@@ -1,6 +1,7 @@
-﻿// Defines frontend routes and applies role guards to protected pages.
+// Defines frontend routes and applies role guards to protected pages.
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
 } from 'react-router-dom';
@@ -12,22 +13,24 @@ import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
 import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
-import { ListingDetailPage } from '@/modules/browsing/pages/ListingDetailPage';
+import { ListingDetailPage } from '../modules/browsing/pages/ListingDetailPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
 import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
 import { FoodListingCreationPage } from '../modules/donations/pages/FoodListingCreationPage';
 import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPage';
-import { MyReservationsPage } from '../modules/reservations/pages/MyReservationsPage';
+import { OrderTrackingPage } from '../modules/reservations/pages/OrderTrackingPage';
+import { ReservationConfirmPage } from '../modules/reservations/pages/ReservationConfirmPage';
+import { ReservationsPage } from '../modules/reservations/pages/ReservationsPage';
 import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPage';
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
-import { DonorSoldOutAlerts } from '../modules/donations/components/DonorSoldOutAlerts';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
+import { Toaster } from '@/shared/components/ui/sonner';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <DonorSoldOutAlerts />
+      <Toaster />
       <Routes>
         <Route
           path="/"
@@ -93,12 +96,28 @@ export function AppRouter() {
         />
 
         <Route
+          path="/marketplace/:id/confirm"
+          element={
+            <ProtectedRoute allowedRoles={['RECIPIENT']}>
+              <ReservationConfirmPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/orders/:id"
+          element={
+            <ProtectedRoute allowedRoles={['RECIPIENT']}>
+              <OrderTrackingPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/reservations"
           element={
-            <ProtectedRoute
-              allowedRoles={['RECIPIENT']}
-            >
-              <MyReservationsPage />
+            <ProtectedRoute allowedRoles={['RECIPIENT']}>
+              <ReservationsPage />
             </ProtectedRoute>
           }
         />
@@ -189,6 +208,11 @@ export function AppRouter() {
               <DeliveryQueuePage />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
         />
       </Routes>
     </BrowserRouter>

@@ -6,6 +6,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
+import { ACCEPTED_IMAGE_TYPES } from '@/shared/services/media.service';
 import { cn } from '@/shared/utils';
 
 interface ListingImageUploadProps {
@@ -20,12 +21,6 @@ interface ListingImageUploadProps {
   onFileSelected: (file: File) => void;
   onRemove: () => void;
 }
-
-const ACCEPTED_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-];
 
 // Displays and optionally updates a food listing image.
 export function ListingImageUpload({

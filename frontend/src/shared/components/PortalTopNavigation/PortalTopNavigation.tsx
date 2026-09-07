@@ -19,6 +19,14 @@ interface PortalTopNavigationProps {
   avatarAlt?: string;
   hasUnreadNotification?: boolean;
   onNotificationsClick?: () => void;
+  /**
+   * Rendered anchored beneath the bell button (e.g. the Premium upsell
+   * today, a live notification feed later per SRS 5.3.2). Content-agnostic
+   * — this component only provides the anchor point.
+   */
+  notificationPanel?: React.ReactNode;
+  /** For aria-expanded on the bell button only — open/closed state itself is owned by the caller. */
+  isNotificationPanelOpen?: boolean;
   profileTo?: string;
   extraRightActions?: React.ReactNode;
 }
@@ -77,6 +85,8 @@ export function PortalTopNavigation({
   avatarAlt = 'Profile',
   hasUnreadNotification = false,
   onNotificationsClick,
+  notificationPanel,
+  isNotificationPanelOpen = false,
   profileTo = '/profile',
   extraRightActions,
 }: PortalTopNavigationProps) {
@@ -84,24 +94,30 @@ export function PortalTopNavigation({
   const styles = VARIANT_STYLES[variant];
 
   const renderBell = () => (
-    <button
-      type="button"
-      aria-label={
-        hasUnreadNotification
-          ? 'Open notifications; unread notifications available'
-          : 'Open notifications'
-      }
-      onClick={onNotificationsClick}
-      className={`relative rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
-    >
-      <Bell aria-hidden="true" className="size-5" />
-      {hasUnreadNotification && (
-        <span
-          aria-hidden="true"
-          className="absolute right-1 top-1 size-2 rounded-full bg-red-500 ring-2 ring-white"
-        />
-      )}
-    </button>
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={
+          hasUnreadNotification
+            ? 'Open notifications; unread notifications available'
+            : 'Open notifications'
+        }
+        aria-haspopup={notificationPanel ? 'dialog' : undefined}
+        aria-expanded={notificationPanel ? isNotificationPanelOpen : undefined}
+        onClick={onNotificationsClick}
+        className={`relative rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
+      >
+        <Bell aria-hidden="true" className="size-5" />
+        {hasUnreadNotification && (
+          <span
+            aria-hidden="true"
+            className="absolute right-1 top-1 size-2 rounded-full bg-red-500 ring-2 ring-white"
+          />
+        )}
+      </button>
+
+      {notificationPanel}
+    </div>
   );
 
   const renderAvatar = () => (

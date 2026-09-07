@@ -7,9 +7,11 @@ const orderInterface = {
   verifyOrderOwnership: orderService.verifyOrderOwnership,
   findNonCancelledOrderIdsByListing:
     orderService.findNonCancelledOrderIdsByListing,
+  hasNonCancelledOrderForListing: orderService.hasNonCancelledOrderForListing,
   createOrder: orderService.createOrder,
   markOrderPaid: orderService.markOrderPaid,
   markOrderDelivered: orderService.markOrderDelivered,
+  markOrderRefunded: orderService.markOrderRefunded,
   cancelOrdersByIds: orderService.cancelOrdersByIds,
   listOrdersForListing: orderService.listOrdersForListing,
 };

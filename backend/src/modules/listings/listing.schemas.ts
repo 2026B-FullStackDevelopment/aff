@@ -2,6 +2,7 @@
 // Zod is a typescript library to validate data while app running
 
 import { z } from 'zod';
+import { locationSchema } from '../../shared/validation/common-fields.schemas.js';
 // Runtime values allowed by the LISTING measurement-unit enum.
 const measurementUnitSchema = z.enum(
   [
@@ -55,13 +56,13 @@ const positiveQuantitySchema = z
   .finite({ message: 'Quantity must be a finite number.' })
   .positive({ message: 'Quantity must be greater than 0.' });
 
-// Listing prices must be free or strictly greater than 1000 VND.
+// Listing prices must be free or greater than or equal to 15000 VND.
 const listingPriceSchema = z
   .number({ message: 'Price must be a number.' })
   .finite({ message: 'Price must be a finite number.' })
   .nonnegative({ message: 'Price cannot be negative.' })
-  .refine((price) => price === 0 || price > 1000, {
-    message: 'Price must be 0 or greater than 1000 VND.',
+  .refine((price) => price === 0 || price >= 15000, {
+    message: 'Price must be 0 or greater than or equal to 15000 VND.',
   });
 
 // Validates `POST /listings`, the http request to create a listing
@@ -297,6 +298,28 @@ const listingOrdersQuerySchema = paginationQuerySchema.strict();
 
 type ListingOrdersQuery = z.infer<typeof listingOrdersQuerySchema>;
 
+/**
+ * Validates `POST /listings/:id/reserve`.
+ *
+ * No price-based refinement here (e.g. requiring `paymentMethod` when the
+ * listing is priced) — that needs the listing's `price`, which this schema
+ * has no way to see. That check lives in `listingService.reserveListing`.
+ */
+const reserveListingSchema = z
+  .object({
+    quantity: positiveQuantitySchema,
+
+    deliveryAddressText: z
+      .string({ message: 'Delivery address is required.' })
+      .trim()
+      .min(1, { message: 'Delivery address is required.' }),
+
+    deliveryLocation: locationSchema,
+
+    paymentMethod: paymentMethodSchema.optional(),
+  })
+  .strict();
+
 export {
   measurementUnitSchema,
   foodCategorySchema,
@@ -312,6 +335,7 @@ export {
   updateListingStatusSchema,
   donorInitiatedDonationSchema,
   listingOrdersQuerySchema,
+  reserveListingSchema,
 };
 
 export type { MineListingsQuery, ListingsQuery, ListingOrdersQuery };

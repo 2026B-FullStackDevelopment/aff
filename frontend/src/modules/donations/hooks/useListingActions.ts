@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { toast } from '@/shared/components/ui/sonner';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import { listingService } from '../services/listing.service';
 import type {
     DonorListingStatusUpdate,
@@ -31,21 +33,6 @@ type PendingOrderCountResult =
         message: string;
     };
 
-function getResponseMessage(
-    data: unknown,
-    fallback: string,
-): string {
-    if (
-        typeof data === 'object'
-        && data !== null
-        && 'message' in data
-        && typeof data.message === 'string'
-    ) {
-        return data.message;
-    }
-
-    return fallback;
-}
 
 function isOrderAwaitingCancellation(
     order: ListingOrderDTO,
@@ -189,55 +176,42 @@ export function useListingActions({
                 );
 
             if (response.status === 501) {
-                setFeedback({
-                    variant: 'error',
-                    title: 'Backend work required',
-                    message:
-                        'Listing status updates are not implemented by the backend yet.',
+                toast.error('Backend work required', {
+                    description: 'Listing status updates are not implemented by the backend yet.',
                 });
                 return;
             }
 
             if (response.status === 409) {
-                setFeedback({
-                    variant: 'warning',
-                    title: 'Listing changed',
-                    message:
-                        'This listing changed elsewhere. Its latest status is being loaded.',
+                toast.warning('Listing changed', {
+                    description: 'This listing changed elsewhere. Its latest status is being loaded.',
                 });
                 onChanged();
                 return;
             }
 
             if (response.status === 403) {
-                setFeedback({
-                    variant: 'error',
-                    title: 'Action not allowed',
-                    message:
-                        'You do not have permission to update this listing.',
+                toast.error('Action not allowed', {
+                    description: 'You do not have permission to update this listing.',
                 });
                 return;
             }
 
             if (response.status === 404) {
-                setFeedback({
-                    variant: 'error',
-                    title: 'Listing not found',
-                    message:
-                        'This listing no longer exists.',
+                toast.error('Listing not found', {
+                    description: 'This listing no longer exists.',
                 });
                 onChanged();
                 return;
             }
 
             if (!response.ok || !response.data) {
-                setFeedback({
-                    variant: 'error',
-                    title: 'Unable to update listing',
-                    message: getResponseMessage(
-                        response.data,
-                        'The listing status could not be updated.',
-                    ),
+                const message = getResponseMessage(
+                    response.data,
+                    'The listing status could not be updated.',
+                );
+                toast.error('Unable to update listing', {
+                    description: message,
                 });
                 return;
             }
@@ -252,23 +226,20 @@ export function useListingActions({
             const cancelledOrderCount =
                 response.data.cancelledOrderCount;
 
-            setFeedback({
-                variant: 'success',
-                title: `Listing ${actionLabel}`,
-                message:
-                    status === 'CANCELLED'
-                        ? `${listing.name} was cancelled. ${cancelledOrderCount} pending ${cancelledOrderCount === 1 ? 'order was' : 'orders were'} also cancelled.`
-                        : `${listing.name} was ${actionLabel} successfully.`,
+            const successMsg =
+                status === 'CANCELLED'
+                    ? `${listing.name} was cancelled. ${cancelledOrderCount} pending ${cancelledOrderCount === 1 ? 'order was' : 'orders were'} also cancelled.`
+                    : `${listing.name} was ${actionLabel} successfully.`;
+
+            toast.success(`Listing ${actionLabel}`, {
+                description: successMsg,
             });
 
             setPendingCancellation(null);
             onChanged();
         } catch {
-            setFeedback({
-                variant: 'error',
-                title: 'Unable to reach AFF',
-                message:
-                    'Check your connection and try the action again.',
+            toast.error('Unable to reach AFF', {
+                description: 'Check your connection and try the action again.',
             });
         } finally {
             setBusyListingId(null);
@@ -279,7 +250,6 @@ export function useListingActions({
         listing: ManagedListingDTO,
     ) {
         setBusyListingId(listing.id);
-        setFeedback(null);
 
         try {
             const result = await countPendingOrders(
@@ -287,10 +257,8 @@ export function useListingActions({
             );
 
             if (result.ok === false) {
-                setFeedback({
-                    variant: 'error',
-                    title: 'Unable to prepare cancellation',
-                    message: result.message,
+                toast.error('Unable to prepare cancellation', {
+                    description: result.message,
                 });
                 return;
             }
@@ -300,11 +268,8 @@ export function useListingActions({
                 pendingOrderCount: result.count,
             });
         } catch {
-            setFeedback({
-                variant: 'error',
-                title: 'Unable to reach AFF',
-                message:
-                    'Pending orders could not be checked. The listing was not cancelled.',
+            toast.error('Unable to reach AFF', {
+                description: 'Pending orders could not be checked. The listing was not cancelled.',
             });
         } finally {
             setBusyListingId(null);

@@ -62,6 +62,31 @@ async function cancelAwaitingDeliveriesByOrderIds(
   );
 }
 
+/** Looks up the Delivery for a single Order, if one exists yet (D4). */
+async function findByOrderId(
+  orderId: string,
+  session?: ClientSession,
+) {
+  return deliveryRepository.findDeliveryByOrderId(orderId, session);
+}
+
+/**
+ * Atomically cancels a single Order's Delivery as part of the Recipient's
+ * own cancellation (D4). Returns `null` if the stage already moved past
+ * `AWAITING_COURIER` — the caller treats that as a claim-race 409.
+ */
+async function cancelAwaitingDeliveryForOrder(
+  orderId: string,
+  cancelledAt: Date,
+  session?: ClientSession,
+) {
+  return deliveryRepository.cancelAwaitingDeliveryForOrder(
+    orderId,
+    cancelledAt,
+    session,
+  );
+}
+
 /**
  * Completes a Delivery owned by the authenticated Courier. Cash Orders require
  * explicit receipt confirmation, and both Delivery and Order changes commit in
@@ -158,5 +183,7 @@ export {
   createForOrder,
   findProtectedOrderIds,
   cancelAwaitingDeliveriesByOrderIds,
+  findByOrderId,
+  cancelAwaitingDeliveryForOrder,
   markDelivered,
 };

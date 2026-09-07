@@ -7,6 +7,7 @@ const {
   findMyListingsWithStatsMock,
   updateListingStatusIfCurrentMock,
   decrementStockAtomicallyMock,
+  decrementStockForReserveAtomicallyMock,
   withTransactionMock,
   getUserByIdMock,
   getDonorByUserIdMock,
@@ -14,6 +15,7 @@ const {
   createOrderMock,
   createForOrderMock,
   findNonCancelledOrderIdsByListingMock,
+  hasNonCancelledOrderForListingMock,
   cancelOrdersByIdsMock,
   findProtectedOrderIdsMock,
   cancelAwaitingDeliveriesByOrderIdsMock,
@@ -25,6 +27,7 @@ const {
   findMyListingsWithStatsMock: vi.fn(),
   updateListingStatusIfCurrentMock: vi.fn(),
   decrementStockAtomicallyMock: vi.fn(),
+  decrementStockForReserveAtomicallyMock: vi.fn(),
   withTransactionMock: vi.fn(),
   getUserByIdMock: vi.fn(),
   getDonorByUserIdMock: vi.fn(),
@@ -32,6 +35,7 @@ const {
   createOrderMock: vi.fn(),
   createForOrderMock: vi.fn(),
   findNonCancelledOrderIdsByListingMock: vi.fn(),
+  hasNonCancelledOrderForListingMock: vi.fn(),
   cancelOrdersByIdsMock: vi.fn(),
   findProtectedOrderIdsMock: vi.fn(),
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
@@ -45,6 +49,7 @@ vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
   findMyListingsWithStats: findMyListingsWithStatsMock,
   updateListingStatusIfCurrent: updateListingStatusIfCurrentMock,
   decrementStockAtomically: decrementStockAtomicallyMock,
+  decrementStockForReserveAtomically: decrementStockForReserveAtomicallyMock,
   withTransaction: withTransactionMock,
 }));
 // replace real User module with test mocks, prevent tests from affecting database
@@ -61,6 +66,7 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
     createOrder: createOrderMock,
     findNonCancelledOrderIdsByListing:
       findNonCancelledOrderIdsByListingMock,
+    hasNonCancelledOrderForListing: hasNonCancelledOrderForListingMock,
     cancelOrdersByIds: cancelOrdersByIdsMock,
   },
 }));
@@ -87,6 +93,7 @@ import {
   cloneListing,
   updateListingStatus,
   createDonorInitiatedDonation,
+  reserveListing,
 } from '../../../src/modules/listings/listing.service.js';
 
 // reusable example location, one shared object keeps test data consistent
@@ -666,6 +673,213 @@ describe('listing.service', () => {
         'd1',
         'listing:sold_out',
         { listingId: 'l1', name: 'Bread' },
+      );
+    });
+  });
+
+  describe('reserveListing', () => {
+    const payload = {
+      quantity: 2,
+      deliveryAddressText: '1 Recipient Street',
+      deliveryLocation: {
+        latitude: 10.8,
+        longitude: 106.7,
+      },
+    };
+
+    function prepareReservation(options: {
+      price?: number;
+      unit?: 'UNIT' | 'PER_REQUEST';
+      status?: 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'SOLD_OUT';
+      quantityRemaining?: number;
+      rationLimitPerPerson?: number;
+      updatedStatus?: 'ACTIVE' | 'SOLD_OUT';
+      hasExistingOrder?: boolean;
+    } = {}) {
+      const listing = {
+        _id: 'l1',
+        donorId: 'd1',
+        name: 'Bread',
+        price: options.price ?? 0,
+        unit: options.unit ?? 'UNIT',
+        status: options.status ?? 'ACTIVE',
+        quantityRemaining: options.quantityRemaining ?? 10,
+        rationLimitPerPerson: options.rationLimitPerPerson,
+      };
+      const order = {
+        _id: 'o1',
+        recipientId: 'r1',
+        listingId: 'l1',
+        amount: listing.price * payload.quantity,
+      };
+
+      findListingByIdMock.mockResolvedValue(listing);
+      hasNonCancelledOrderForListingMock.mockResolvedValue(
+        options.hasExistingOrder ?? false,
+      );
+      decrementStockForReserveAtomicallyMock.mockResolvedValue({
+        ...listing,
+        quantityRemaining: listing.quantityRemaining - payload.quantity,
+        status: options.updatedStatus ?? 'ACTIVE',
+      });
+      createOrderMock.mockResolvedValue(order);
+      createForOrderMock.mockResolvedValue({ _id: 'delivery-1' });
+
+      return { listing, order };
+    }
+
+    it('creates a free Order with PREPARING status and creates a Delivery immediately', async () => {
+      prepareReservation();
+
+      const result = await reserveListing('l1', 'r1', payload);
+
+      expect(createOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipientId: 'r1',
+          listingId: 'l1',
+          intakePath: 'RESERVATION',
+          quantity: 2,
+          amount: 0,
+          paymentMethod: undefined,
+          paymentStatus: 'FREE',
+          orderStatus: 'PREPARING',
+          deliveryAddressText: '1 Recipient Street',
+        }),
+        databaseSession,
+      );
+      expect(createForOrderMock).toHaveBeenCalledWith('o1', databaseSession);
+      expect(result).toMatchObject({ _id: 'o1' });
+    });
+
+    it('creates a cash Order that enters the queue immediately despite pending payment', async () => {
+      prepareReservation({ price: 5000 });
+
+      await reserveListing('l1', 'r1', { ...payload, paymentMethod: 'CASH' });
+
+      expect(createOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: 'CASH',
+          paymentStatus: 'PAYMENT_PENDING',
+          orderStatus: 'PREPARING',
+        }),
+        databaseSession,
+      );
+      expect(createForOrderMock).toHaveBeenCalledWith('o1', databaseSession);
+    });
+
+    it('creates a Stripe Order that stays out of the Delivery queue until checkout completes', async () => {
+      prepareReservation({ price: 5000 });
+
+      await reserveListing('l1', 'r1', { ...payload, paymentMethod: 'STRIPE' });
+
+      expect(createOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentMethod: 'STRIPE',
+          paymentStatus: 'PAYMENT_PENDING',
+          orderStatus: 'PENDING_PAYMENT',
+        }),
+        databaseSession,
+      );
+      expect(createForOrderMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['PAUSED', 'CANCELLED', 'SOLD_OUT'] as const)(
+      'rejects a %s listing',
+      async (status) => {
+        prepareReservation({ status });
+
+        await expect(
+          reserveListing('l1', 'r1', payload),
+        ).rejects.toMatchObject({ statusCode: 422 });
+
+        expect(createOrderMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects PER_REQUEST listings', async () => {
+      prepareReservation({ unit: 'PER_REQUEST' });
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      expect(createOrderMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing payment method on a priced listing', async () => {
+      prepareReservation({ price: 5000 });
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({ statusCode: 400 });
+
+      expect(withTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate non-cancelled order on the same listing', async () => {
+      prepareReservation({ hasExistingOrder: true });
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      expect(withTransactionMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects quantities above the ration or available stock', async () => {
+      prepareReservation({ rationLimitPerPerson: 1 });
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      prepareReservation({ quantityRemaining: 1 });
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({ statusCode: 422 });
+      expect(createOrderMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request that loses the atomic stock race', async () => {
+      prepareReservation();
+      decrementStockForReserveAtomicallyMock.mockResolvedValue(null);
+
+      await expect(
+        reserveListing('l1', 'r1', payload),
+      ).rejects.toMatchObject({
+        statusCode: 422,
+        message: 'The requested stock is no longer available.',
+      });
+
+      expect(createOrderMock).not.toHaveBeenCalled();
+    });
+
+    it("emits the sold-out event to the listing's Donor when stock hits zero", async () => {
+      prepareReservation({ updatedStatus: 'SOLD_OUT' });
+
+      await reserveListing('l1', 'r1', payload);
+
+      expect(emitToUserMock).toHaveBeenCalledWith(
+        'd1',
+        'listing:sold_out',
+        { listingId: 'l1', name: 'Bread' },
+      );
+    });
+
+    it('notifies the Recipient when the reservation is priced', async () => {
+      prepareReservation({ price: 5000 });
+
+      await reserveListing('l1', 'r1', { ...payload, paymentMethod: 'CASH' });
+
+      expect(emitToUserMock).toHaveBeenCalledWith(
+        'r1',
+        'notification:payment_requested',
+        {
+          orderId: 'o1',
+          listingName: 'Bread',
+          amount: 10000,
+        },
       );
     });
   });

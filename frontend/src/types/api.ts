@@ -203,6 +203,7 @@ export interface OrderDTO {
     name?: string;
     imageUrl?: string | null;
     unit?: ListingUnit;
+    category?: FoodCategory;
   };
   intakePath: OrderIntakePath;
   quantity: number;
@@ -210,6 +211,7 @@ export interface OrderDTO {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  delivery: { stage: DeliveryStage } | null;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId: string | null;
@@ -218,6 +220,35 @@ export interface OrderDTO {
     createdAt: string;
   } | null;
   createdAt: string;
+}
+
+export interface RecipientOrderDTO extends OrderDTO {
+  donor: {
+    id: string;
+    companyName: string;
+  };
+}
+
+export interface SubmitFeedbackResponseDto {
+  feedback: {
+    comment: string;
+    createdAt: string;
+  };
+}
+
+export type RefundStatus = 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED';
+export type CancelOrderResponseDto = OrderDTO & { refundStatus: RefundStatus };
+
+export interface ReserveListingPayload {
+  quantity: number;
+  deliveryAddressText: string;
+  deliveryLocation: { latitude: number; longitude: number };
+  /** Required when listing.price > 0; must be omitted for a free listing. */
+  paymentMethod?: PaymentMethod;
+}
+
+export interface CheckoutSessionResponseDto {
+  checkoutUrl: string;
 }
 
 // --- Delivery ---

@@ -14,7 +14,6 @@ import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
 import { SwitchField } from '@/shared/components/SwitchField/SwitchField';
 import { TextareaField } from '@/shared/components/TextareaField/TextareaField';
-import { Toast } from '@/shared/components/Toast/Toast';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
 import { UNIT_OPTIONS } from '@/shared/constants/units';
@@ -83,18 +82,6 @@ export function CreateListingForm({
 
   return (
     <div className="space-y-4">
-      {createdListing && (
-        <Toast
-          variant="success"
-          title={getSuccessTitle(
-            submissionKind,
-          )}
-          message={`${createdListing.name} is now an independent active listing.`}
-          imageUrl={createdListing.imageUrl}
-          className="max-w-none"
-        />
-      )}
-
       <form
         onSubmit={handleSubmit}
         aria-busy={
@@ -266,7 +253,7 @@ export function CreateListingForm({
               value={form.price}
               onChange={updateField('price')}
               placeholder="0"
-              helperText="Enter 0 for free, or more than 1000 VND."
+              helperText="Enter 0 for free, or 15,000 VND and above."
               error={errors.price}
               theme="donor"
               className="h-12 border-[#C1C8C2] bg-[#FBF9F8]"

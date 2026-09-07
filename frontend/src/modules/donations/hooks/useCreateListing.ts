@@ -10,10 +10,13 @@ import type {
   ListingUnit,
 } from '@/types/api';
 import {
+  ACCEPTED_IMAGE_TYPES,
   mediaService,
   uploadFileToSignedUrl,
 } from '@/shared/services/media.service';
 import { listingService } from '../services/listing.service';
+import { getResponseMessage } from '@/shared/utils/apiError';
+import { toast } from '@/shared/components/ui/sonner';
 import type { CreateListingPayload } from '../types';
 
 export interface CreateListingFormState {
@@ -49,12 +52,6 @@ export type ListingSubmissionKind =
   | 'CREATED'
   | 'CLONED'
   | 'EDITED_COPY';
-
-const ACCEPTED_IMAGE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-];
 
 function getInitialForm(
   source?: ListingDTO | null,
@@ -101,21 +98,6 @@ function parseNumber(value: string): number | null {
     : null;
 }
 
-function getResponseMessage(
-  data: unknown,
-  fallback: string,
-): string {
-  if (
-    typeof data === 'object'
-    && data !== null
-    && 'message' in data
-    && typeof data.message === 'string'
-  ) {
-    return data.message;
-  }
-
-  return fallback;
-}
 
 function validateForm(
   form: CreateListingFormState,
@@ -169,10 +151,10 @@ function validateForm(
     errors.price = 'Price cannot be negative.';
   } else if (
     price !== 0
-    && price <= 1000
+    && price < 15000
   ) {
     errors.price =
-      'Price must be free (0) or strictly greater than 1000 VND.';
+      'Price must be 0 or 15,000 VND and above.';
   }
 
   if (
@@ -500,15 +482,24 @@ export function useCreateListing({
         return;
       }
 
-      setCreatedListing(response.data);
+      const kind = isExactClone
+        ? 'CLONED'
+        : cloneSource
+          ? 'EDITED_COPY'
+          : 'CREATED';
 
-      setSubmissionKind(
-        isExactClone
-          ? 'CLONED'
-          : cloneSource
-            ? 'EDITED_COPY'
-            : 'CREATED',
-      );
+      setSubmissionKind(kind);
+
+      const title =
+        kind === 'CLONED'
+          ? 'Listing duplicated'
+          : kind === 'EDITED_COPY'
+            ? 'Edited copy created'
+            : 'Listing created';
+
+      toast.success(title, {
+        description: `${response.data.name} is now an independent active listing.`,
+      });
     } catch {
       setSubmitError(
         'Unable to reach AFF. Check your connection and try again.',

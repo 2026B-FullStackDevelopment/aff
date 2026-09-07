@@ -7,7 +7,7 @@ import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
 import type { PayableType } from './payment.model.js';
-import type { Types } from 'mongoose';
+import type { ClientSession, Types } from 'mongoose';
 import type Stripe from 'stripe';
 
 function recipientNotFoundError(): Error {
@@ -29,22 +29,26 @@ function stripeApiError(message: string): Error {
 }
 
 /**
- * Returns the Recipient's Stripe Customer id, creating one on their first card checkout.
- * @param userId - the Recipient's USER._id
- * @throws {Error} with statusCode = 404 if no Recipient profile exists for userId
+ * True when a thrown Stripe SDK error means "the customer id we sent no longer exists on
+ * Stripe" (StripeInvalidRequestError, code=resource_missing, param=customer) — the shape Stripe
+ * returns when a saved stripeCustomerId was deleted/invalidated since it was last used.
+ */
+function isStripeMissingCustomerError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'resource_missing' &&
+    (error as { param?: unknown }).param === 'customer'
+  );
+}
+
+/**
+ * Creates a fresh Stripe Customer for a Recipient and saves it as their stripeCustomerId,
+ * overwriting whatever was there before (used both for first-time creation and for replacing a
+ * stale id Stripe has rejected).
  * @throws {Error} with statusCode = 502 if Stripe customer creation fails
  */
-async function getOrCreateStripeCustomer(userId: string | Types.ObjectId) {
-  const recipient = await userInterface.findRecipientByUserId(userId);
-
-  if (!recipient) {
-    throw recipientNotFoundError();
-  }
-
-  if (recipient.stripeCustomerId) {
-    return recipient.stripeCustomerId;
-  }
-
+async function createAndSaveStripeCustomer(userId: string | Types.ObjectId) {
   const user = await userInterface.getUserById(String(userId));
 
   let customer;
@@ -63,6 +67,26 @@ async function getOrCreateStripeCustomer(userId: string | Types.ObjectId) {
 }
 
 /**
+ * Returns the Recipient's Stripe Customer id, creating one on their first card checkout.
+ * @param userId - the Recipient's USER._id
+ * @throws {Error} with statusCode = 404 if no Recipient profile exists for userId
+ * @throws {Error} with statusCode = 502 if Stripe customer creation fails
+ */
+async function getOrCreateStripeCustomer(userId: string | Types.ObjectId) {
+  const recipient = await userInterface.findRecipientByUserId(userId);
+
+  if (!recipient) {
+    throw recipientNotFoundError();
+  }
+
+  if (recipient.stripeCustomerId) {
+    return recipient.stripeCustomerId;
+  }
+
+  return createAndSaveStripeCustomer(userId);
+}
+
+/**
  * Starts a one-off Stripe Checkout for a single payable (an order or a donor-initiated donation),
  * recording a PENDING Payment row so the webhook can later find it by session id.
  * @param payableType - what this payment is for ("ORDER" today; kept generic for future payables)
@@ -72,7 +96,12 @@ async function getOrCreateStripeCustomer(userId: string | Types.ObjectId) {
  * @param customerId - the paying Recipient's Stripe Customer id (from getOrCreateStripeCustomer)
  * @param successUrl - where Stripe redirects the browser after a successful payment
  * @param cancelUrl - where Stripe redirects the browser if the customer backs out
- * @throws {Error} with statusCode = 502 if Stripe checkout-session creation fails
+ * @param userId - the paying Recipient's USER._id. When Stripe rejects `customerId` because that
+ *   customer no longer exists (e.g. deleted from the Stripe dashboard, or stale from a prior
+ *   STRIPE_SECRET_KEY), this is used to mint a fresh customer, save it, and retry once. Omit only
+ *   for callers with no Recipient to self-heal against.
+ * @throws {Error} with statusCode = 502 if Stripe checkout-session creation fails (including a
+ *   failed self-heal retry)
  */
 async function startOneTimeCheckout({
   payableType,
@@ -82,6 +111,7 @@ async function startOneTimeCheckout({
   customerId,
   successUrl,
   cancelUrl,
+  userId,
 }: {
   payableType: PayableType;
   payableId: string | Types.ObjectId;
@@ -90,19 +120,35 @@ async function startOneTimeCheckout({
   customerId: string;
   successUrl: string;
   cancelUrl: string;
+  userId?: string | Types.ObjectId;
 }) {
-  let session;
-  try {
-    session = await paymentProvider.createCheckoutSession({
-      customerId,
+  const createSession = (forCustomerId: string) =>
+    paymentProvider.createCheckoutSession({
+      customerId: forCustomerId,
       amount,
       currency,
       successUrl,
       cancelUrl,
       metadata: { payableType, payableId: String(payableId) },
     });
+
+  let session;
+  try {
+    session = await createSession(customerId);
   } catch (error) {
-    throw stripeApiError(error instanceof Error ? error.message : 'Failed to create Stripe checkout session.');
+    if (!userId || !isStripeMissingCustomerError(error)) {
+      throw stripeApiError(error instanceof Error ? error.message : 'Failed to create Stripe checkout session.');
+    }
+
+    const freshCustomerId = await createAndSaveStripeCustomer(userId);
+
+    try {
+      session = await createSession(freshCustomerId);
+    } catch (retryError) {
+      throw stripeApiError(
+        retryError instanceof Error ? retryError.message : 'Failed to create Stripe checkout session.',
+      );
+    }
   }
 
   if (!session.checkoutUrl) {
@@ -275,6 +321,22 @@ async function refundOrderPayment(orderId: string | Types.ObjectId) {
 }
 
 /**
+ * Cancels a still-PENDING Payment tied to a cancelled Order's abandoned Stripe Checkout Session
+ * (D4 — cancelling a Stripe order before checkout completed). DB-only: unlike `refundOrderPayment`,
+ * there is nothing to call Stripe for — a Checkout Session simply expires on its own — this just
+ * stops a late `checkout.session.completed` webhook from resurrecting the cancelled Order (see
+ * `handlePaymentCheckoutCompleted`'s `payment.status !== 'PENDING'` guard above). No-op if no
+ * PENDING Payment row exists (free/cash orders, or a Stripe order whose checkout was never
+ * started).
+ */
+async function cancelPendingOrderPayment(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return paymentRepository.cancelPendingPaymentByPayable('ORDER', orderId, session);
+}
+
+/**
  * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
  * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
  * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and emitting
@@ -306,8 +368,19 @@ async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
     refundedAt: new Date(),
   });
 
-  // TODO(D4 - Cancel Order Before Courier Claim): flip ORDER.paymentStatus=REFUNDED and emit
-  // payment:refunded (docs/api_design.md §8/§12).
+  if (payment.payableType !== 'ORDER') {
+    return;
+  }
+
+  const updatedOrder = await orderInterface.markOrderRefunded(
+    String(payment.payableId),
+  );
+
+  if (updatedOrder) {
+    emitToUser(String(updatedOrder.recipientId), 'payment:refunded', {
+      orderId: String(updatedOrder._id),
+    });
+  }
 }
 
 /**
@@ -355,5 +428,5 @@ async function processWebhookEvent(event: Stripe.Event) {
 }
 
 export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout,
-  refundOrderPayment, processWebhookEvent,
+  refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
 };

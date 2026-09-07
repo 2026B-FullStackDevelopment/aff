@@ -156,7 +156,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 **C1. Create Listing** (`4.1.1`)
 > As a Donor, I want to create a food listing with name, description, unit, category, vegetarian flag, donation limit, and price.
 - UI: creation form; selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
-- API: `POST /listings` validates unit/category enums and price rule (free or > 1000 VND).
+- API: `POST /listings` validates unit/category enums and price rule (free or >= 15000 VND).
 - Data: creates `LISTING` (status=ACTIVE, quantityRemaining=donationLimit).
 
 **C2. Clone Listing** (`4.1.3`)

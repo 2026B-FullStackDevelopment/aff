@@ -34,6 +34,7 @@ import {
   updatePaymentEvent,
   markPaymentPaidIfPending,
   markPaymentRefundPending,
+  cancelPendingPaymentByPayable,
 } from '../../../src/modules/payments/payment.repository.js';
 
 describe('payment.repository', () => {
@@ -170,5 +171,28 @@ describe('payment.repository', () => {
       { new: true },
     );
     expect(result).toEqual({ _id: 'p1', status: 'REFUND_PENDING', stripeRefundId: 're_123' });
+  });
+
+  describe('cancelPendingPaymentByPayable', () => {
+    it('cancels a PENDING payment for the given payable', async () => {
+      leanMock.mockResolvedValue({ _id: 'p1', status: 'CANCELLED' });
+
+      const result = await cancelPendingPaymentByPayable('ORDER', 'o1');
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        { payableType: 'ORDER', payableId: 'o1', status: 'PENDING' },
+        { $set: { status: 'CANCELLED' } },
+        { new: true, session: undefined },
+      );
+      expect(result).toEqual({ _id: 'p1', status: 'CANCELLED' });
+    });
+
+    it('no-ops (returns null) when no PENDING payment exists for the payable', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await cancelPendingPaymentByPayable('ORDER', 'o1');
+
+      expect(result).toBeNull();
+    });
   });
 });

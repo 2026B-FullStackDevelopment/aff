@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AnyUserDTO, UpdateProfilePayload } from '@/types/api';
 import { validateUsername, validatePassword } from '@/shared/utils/validation';
+import { getResponseMessage } from '@/shared/utils/apiError';
 import { userService } from '../services/user.service';
 import { clearSession, updateStoredUser } from '@/services/authStorage';
 import { useAvatarUpload } from './useAvatarUpload';
@@ -198,8 +199,7 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
 
         if (!response.ok) {
           setSubmitError(
-            (response.data as any)?.message ||
-              'Failed to update profile. Please try again.'
+            getResponseMessage(response.data, 'Failed to update profile. Please try again.')
           );
           return;
         }
@@ -215,8 +215,7 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
 
         if (!response.ok) {
           setSubmitError(
-            (response.data as any)?.message ||
-              'Failed to update email. Please try again.'
+            getResponseMessage(response.data, 'Failed to update email. Please try again.')
           );
           return;
         }
@@ -234,8 +233,7 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
 
         if (!response.ok) {
           setSubmitError(
-            (response.data as any)?.message ||
-              'Failed to update password. Please try again.'
+            getResponseMessage(response.data, 'Failed to update password. Please try again.')
           );
           return;
         }

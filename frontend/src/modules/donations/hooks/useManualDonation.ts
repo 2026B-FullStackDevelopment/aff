@@ -9,6 +9,8 @@ import type {
 import type { OrderDTO } from '@/types/api';
 import { listingService } from '../services/listing.service';
 import { recipientService } from '../services/recipient.service';
+import { getResponseMessage } from '@/shared/utils/apiError';
+import { toast } from '@/shared/components/ui/sonner';
 import type {
     ManagedListingDTO,
     RecipientSearchResult,
@@ -45,21 +47,6 @@ const INITIAL_FORM: ManualDonationFormState = {
     deliveryLocation: null,
 };
 
-function getResponseMessage(
-    data: unknown,
-    fallback: string,
-): string {
-    if (
-        typeof data === 'object'
-        && data !== null
-        && 'message' in data
-        && typeof data.message === 'string'
-    ) {
-        return data.message;
-    }
-
-    return fallback;
-}
 
 function parseQuantity(
     value: string,
@@ -697,6 +684,17 @@ export function useManualDonation() {
             });
 
             setCreatedOrder(response.data);
+
+            const isFree = selectedListing.price === 0;
+            if (isFree) {
+                toast.success('Donation recorded', {
+                    description: `${selectedListing.name} is recorded and ready for delivery processing.`,
+                });
+            } else {
+                toast.warning('Recipient payment required', {
+                    description: `${selectedListing.name} is recorded. The Recipient must now complete payment.`,
+                });
+            }
 
             setListings((current) =>
                 current.flatMap((listing) => {

@@ -10,6 +10,18 @@ export const UNIT_LABELS: Record<string, string> = Object.fromEntries(
   UNIT_OPTIONS.map((option) => [option.value, option.label]),
 );
 
+export function formatCategory(category?: string | null): string {
+  if (!category) return '';
+  return (
+    CATEGORY_LABELS[category] ??
+    category
+      .toLowerCase()
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  );
+}
+
 export function shortCityLabel(city: string): string {
   return city.replace(/^(Thành phố|Tỉnh)\s+/i, '');
 }

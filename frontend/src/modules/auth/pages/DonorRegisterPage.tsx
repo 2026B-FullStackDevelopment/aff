@@ -34,7 +34,7 @@ export function DonorRegisterPage() {
   const { registerDonor } = useAuth();
 
   const {
-    form, setForm, errors, setErrors, isSubmitting, submitError, progressPercent, updateField, handleSubmit,
+    form, setForm, errors, setErrors, isSubmitting, submitError, updateField, handleSubmit,
   } = useRegistrationForm<FormState>({
     initialState: {
       companyName: '', taxCode: '', address: '', city: '',
@@ -145,6 +145,7 @@ export function DonorRegisterPage() {
                 value={form.address}
                 onSelect={handleAddressSelect}
                 error={errors.address}
+                theme="donor"
               />
 
               <SelectField

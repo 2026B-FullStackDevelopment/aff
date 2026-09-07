@@ -8,6 +8,7 @@ import {
 import { Button } from '@/shared/components/Button/Button';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice } from '@/shared/utils/listingFormatting';
+import { ListingDetailField } from './ListingDetailField';
 import type {
     DonorListingStatusUpdate,
     ManagedListingDTO,
@@ -24,11 +25,6 @@ interface DonorListingCardProps {
         listing: ManagedListingDTO,
         status: DonorListingStatusUpdate,
     ) => void;
-}
-
-interface ListingFieldProps {
-    label: string;
-    value: string;
 }
 
 function formatQuantity(
@@ -55,23 +51,6 @@ function getStatusMessage(
         case 'CANCELLED':
             return 'Cancelled listings cannot accept reservations.';
     }
-}
-
-function ListingField({
-    label,
-    value,
-}: ListingFieldProps) {
-    return (
-        <div className="min-w-0">
-            <dt className="text-[0.68rem] font-bold uppercase tracking-wider text-[#6B7280]">
-                {label}
-            </dt>
-
-            <dd className="mt-1 break-words text-sm font-medium text-[#1B1C1C]">
-                {value}
-            </dd>
-        </div>
-    );
 }
 
 // Distinct from formatPrice: revenue of 0 means "0 VND earned", not "Free".
@@ -113,43 +92,39 @@ export function DonorListingCard({
                 />
             </header>
 
-            <dl className="mt-6 grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
-                <ListingField
+            <dl className="mt-6 grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
+                <ListingDetailField
                     label="Measurement unit"
                     value={
                         listing.unit === 'PER_REQUEST'
                             ? 'Per Request'
                             : UNIT_LABELS[listing.unit] ?? listing.unit
                     }
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Food category"
                     value={CATEGORY_LABELS[listing.category] ?? listing.category}
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Vegetarian"
                     value={listing.isVegetarian ? 'Yes' : 'No'}
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Donation limit"
                     value={formatQuantity(
                         listing.donationLimit,
                         listing.unit,
                     )}
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
-                    label="Remaining"
-                    value={formatQuantity(
-                        listing.quantityRemaining,
-                        listing.unit,
-                    )}
-                />
-
-                <ListingField
+                <ListingDetailField
                     label="Ration per person"
                     value={
                         listing.rationLimitPerPerson === null
@@ -159,14 +134,16 @@ export function DonorListingCard({
                                 listing.unit,
                             )
                     }
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Price"
                     value={formatPrice(listing.price)}
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Donated quantity"
                     value={
                         isTracked
@@ -176,15 +153,17 @@ export function DonorListingCard({
                             )
                             : 'Not tracked'
                     }
+                    valueClassName="font-medium"
                 />
 
-                <ListingField
+                <ListingDetailField
                     label="Revenue"
                     value={
                         isTracked
                             ? formatRevenue(listing.revenue)
                             : 'Not tracked'
                     }
+                    valueClassName="font-medium"
                 />
             </dl>
 

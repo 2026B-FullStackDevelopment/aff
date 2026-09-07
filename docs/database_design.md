@@ -102,7 +102,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | unit | MeasurementUnit (enum) | | KILOGRAM, GRAM, LITER, MILLILITER, UNIT, PER_REQUEST |
 | category | FoodCategory (enum) | | FRUIT, VEGETABLE, MEAT, COOKED_DISH, BAKED_GOODS, DRINK |
 | isVegetarian | boolean | | |
-| price | number | | Free or > 1000 VND |
+| price | number | | Free or >= 15000 VND |
 | city | string | | |
 | status | ListingStatus (enum) | | ACTIVE, PAUSED, CANCELLED, SOLD_OUT |
 | donationLimit | number | | Total quantity offered |

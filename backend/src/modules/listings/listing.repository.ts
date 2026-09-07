@@ -448,7 +448,108 @@ function decrementStockAtomically(
         },
       },
     ],
-    { new: true, session },
+    // Mongoose 9 requires this explicit opt-in before it will accept an
+    // array (aggregation pipeline) as an update document — otherwise it
+    // throws "Cannot pass an array to query updates unless the
+    // `updatePipeline` option is set" instead of running the update.
+    { new: true, session, updatePipeline: true },
+  ).lean<ListingDocument>();
+}
+
+/**
+ * Same atomic guard/decrement as `decrementStockAtomically`, but without the
+ * `donorId` filter — a Recipient reserving a listing doesn't own it.
+ */
+function decrementStockForReserveAtomically(
+  listingId: string | Types.ObjectId,
+  quantity: number,
+  session?: ClientSession,
+) {
+  const soldOutAt = new Date();
+
+  return Listing.findOneAndUpdate(
+    {
+      _id: listingId,
+      status: 'ACTIVE',
+      unit: { $ne: 'PER_REQUEST' },
+      quantityRemaining: { $gte: quantity },
+    },
+    [
+      {
+        $set: {
+          quantityRemaining: {
+            $subtract: ['$quantityRemaining', quantity],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              'SOLD_OUT',
+              '$status',
+            ],
+          },
+          closedAt: {
+            $cond: [
+              { $eq: ['$quantityRemaining', 0] },
+              soldOutAt,
+              '$closedAt',
+            ],
+          },
+        },
+      },
+    ],
+    // See the matching comment in `decrementStockAtomically` above.
+    { new: true, session, updatePipeline: true },
+  ).lean<ListingDocument>();
+}
+
+/**
+ * Restores stock on a cancelled Order's Listing (D4) — the literal inverse
+ * of `decrementStockForReserveAtomically`: `$add` instead of `$subtract`,
+ * and flips `SOLD_OUT` back to `ACTIVE` (clearing `closedAt`) only when the
+ * Listing was `SOLD_OUT`; a `PAUSED`/`CANCELLED` Listing's status is left
+ * untouched, only its count restored. No `donorId` filter (a Recipient
+ * cancelling an order doesn't own the Listing) and no stock-floor guard
+ * needed, since this only ever adds.
+ */
+function restoreStockAtomically(
+  listingId: string | Types.ObjectId,
+  quantity: number,
+  session?: ClientSession,
+) {
+  return Listing.findOneAndUpdate(
+    { _id: listingId },
+    [
+      {
+        $set: {
+          quantityRemaining: {
+            $add: ['$quantityRemaining', quantity],
+          },
+        },
+      },
+      {
+        $set: {
+          status: {
+            $cond: [
+              { $eq: ['$status', 'SOLD_OUT'] },
+              'ACTIVE',
+              '$status',
+            ],
+          },
+          closedAt: {
+            $cond: [
+              { $eq: ['$status', 'SOLD_OUT'] },
+              null,
+              '$closedAt',
+            ],
+          },
+        },
+      },
+    ],
+    { new: true, session, updatePipeline: true },
   ).lean<ListingDocument>();
 }
 
@@ -478,5 +579,7 @@ export {
   updateListing,
   updateListingStatusIfCurrent,
   decrementStockAtomically,
+  decrementStockForReserveAtomically,
+  restoreStockAtomically,
   withTransaction,
 };

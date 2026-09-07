@@ -1,0 +1,542 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Orders API",
+    "version": "0.1.0",
+    "description": "The Recipient-facing Order read/cancel/feedback endpoints (Epic D). Reflects backend/src/modules/orders/order.controller.ts::listMyOrders, ::getOrder, ::cancelOrder, and ::submitFeedback as implemented. GET /orders/mine is paginated and enriched with donor/listing/live-delivery-stage per row (D5, Order/Delivery History); GET /orders/{id} and DELETE /orders/{id} return the base Order shape only — listing.name/imageUrl/unit stay omitted there, and neither returns a donor field (D5 scoped enrichment to the list endpoint only). POST /orders/{id}/feedback is one-shot per Order, only after orderStatus=DELIVERED (D7). checkout-session and payment-choice (D2/D3) are not documented here, to keep this file scoped to the read/cancel/feedback surface.",
+    "contact": { "name": "AFF Backend" }
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Recipient Orders", "description": "View, cancel, and leave feedback on the authenticated Recipient's own Orders (D4, D7)" }
+  ],
+  "paths": {
+    "/orders/mine": {
+      "get": {
+        "tags": ["Recipient Orders"],
+        "operationId": "listMyOrders",
+        "summary": "List the authenticated Recipient's Orders, paginated and enriched (D5)",
+        "description": "Always implicitly scoped to req.user.id as recipientId — there is no parameter to query anyone else's orders. Sorted newest-first (createdAt descending, no client-controlled sort). Each item embeds the donating Listing's name/imageUrl/unit, the Donor's id/companyName, and the Order's live Delivery stage (null when no Delivery exists yet, e.g. a Stripe Order still PENDING_PAYMENT) — all joined server-side so the client never needs a second call per row.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the Recipient's Orders",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedRecipientOrdersResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "tags": ["Recipient Orders"],
+        "operationId": "getOrder",
+        "summary": "Get a single Order, including its live Delivery stage",
+        "description": "Supports the order-tracking page. Ownership: the Order must belong to req.user.id. Never distinguishes a nonexistent Order from one owned by someone else — both are 404 — so this endpoint can't be used to probe for another Recipient's order ids. delivery is null when no Delivery exists yet (e.g. a Stripe Order still PENDING_PAYMENT); otherwise it reflects the Delivery's current stage, which is exactly what the client uses to decide whether to show the Cancel Order action (D4): eligible when delivery is null or stage is AWAITING_COURIER.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/OrderId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Order, with its current Delivery stage embedded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OrderResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "404": { "$ref": "#/components/responses/OrderNotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Recipient Orders"],
+        "operationId": "cancelOrder",
+        "summary": "Cancel my own Order before a Courier claims it (D4)",
+        "description": "Atomically checks the associated Delivery's stage. If no Delivery exists yet, or stage=AWAITING_COURIER, cancellation proceeds: ORDER.orderStatus=CANCELLED, cancelledByUserId=req.user.id, cancelledAt=now, and LISTING.quantityRemaining is restored. If stage has moved to ASSIGNED, PICKED_UP, or DELIVERED — including a Courier claim that wins the race between this endpoint's own pre-check and its atomic update — the request is rejected with 409 and the Order is left untouched; this is the same atomic-update guarantee PATCH /deliveries/{id}/claim relies on, so a claim racing a cancellation can never leave both operations believing they won. Automatic Stripe refund: if the cancelled Order has paymentMethod=STRIPE and paymentStatus=PAID, cancellation additionally triggers a synchronous stripe.refunds.create() call against PAYMENT.stripePaymentIntentId. On success, paymentStatus becomes REFUND_PENDING (not REFUNDED yet — that's confirmed later by the charge.refunded webhook, which emits payment:refunded over Socket.IO) and the response reports refundStatus=REFUND_PENDING. If the Stripe call itself errors, cancellation still commits (never blocked on Stripe reachability) and the response reports refundStatus=FAILED. Free, cash, and Stripe-but-never-paid (PENDING_PAYMENT) Orders get refundStatus=NOT_APPLICABLE and no Stripe call at all. Idempotent on the refund side: a Payment already REFUND_PENDING or REFUNDED is not refunded again.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/OrderId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Order was cancelled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CancelOrderResponse" },
+                "examples": {
+                  "notApplicable": {
+                    "summary": "Free/cash/never-paid Order — no refund to make",
+                    "value": {
+                      "data": {
+                        "id": "507f1f77bcf86cd799439011",
+                        "recipientId": "507f191e810c19729de860ea",
+                        "listing": { "id": "l1" },
+                        "intakePath": "RESERVATION",
+                        "quantity": 2,
+                        "amount": 0,
+                        "paymentStatus": "FREE",
+                        "orderStatus": "CANCELLED",
+                        "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                        "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009, "updatedAt": "2026-01-01T00:00:00.000Z" },
+                        "cancelledByUserId": "507f191e810c19729de860ea",
+                        "feedback": null,
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "delivery": null,
+                        "refundStatus": "NOT_APPLICABLE"
+                      }
+                    }
+                  },
+                  "refundPending": {
+                    "summary": "Stripe-paid Order — refund started synchronously",
+                    "value": {
+                      "data": {
+                        "id": "507f1f77bcf86cd799439011",
+                        "recipientId": "507f191e810c19729de860ea",
+                        "listing": { "id": "l1" },
+                        "intakePath": "RESERVATION",
+                        "quantity": 1,
+                        "amount": 50000,
+                        "paymentMethod": "STRIPE",
+                        "paymentStatus": "REFUND_PENDING",
+                        "orderStatus": "CANCELLED",
+                        "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                        "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009, "updatedAt": "2026-01-01T00:00:00.000Z" },
+                        "cancelledByUserId": "507f191e810c19729de860ea",
+                        "feedback": null,
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "delivery": null,
+                        "refundStatus": "REFUND_PENDING"
+                      }
+                    }
+                  },
+                  "refundFailed": {
+                    "summary": "Stripe-paid Order — cancelled, but the refund attempt itself errored",
+                    "value": {
+                      "data": {
+                        "id": "507f1f77bcf86cd799439011",
+                        "recipientId": "507f191e810c19729de860ea",
+                        "listing": { "id": "l1" },
+                        "intakePath": "RESERVATION",
+                        "quantity": 1,
+                        "amount": 50000,
+                        "paymentMethod": "STRIPE",
+                        "paymentStatus": "PAID",
+                        "orderStatus": "CANCELLED",
+                        "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
+                        "deliveryLocation": { "latitude": 10.7769, "longitude": 106.7009, "updatedAt": "2026-01-01T00:00:00.000Z" },
+                        "cancelledByUserId": "507f191e810c19729de860ea",
+                        "feedback": null,
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "delivery": null,
+                        "refundStatus": "FAILED"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "404": { "$ref": "#/components/responses/OrderNotFound" },
+          "409": { "$ref": "#/components/responses/OrderNoLongerCancellable" }
+        }
+      }
+    },
+    "/orders/{id}/feedback": {
+      "post": {
+        "tags": ["Recipient Orders"],
+        "operationId": "submitFeedback",
+        "summary": "Leave feedback on my own delivered Order (D7)",
+        "description": "Ownership: the Order must belong to req.user.id, same non-distinguishing 404 as GET/DELETE /orders/{id}. Only allowed once orderStatus=DELIVERED; rejected with 409 otherwise. One-shot per Order: a second attempt is rejected with 409 and the response body echoes the existing feedback (data.feedback on success is exactly what was persisted, so the client never needs to re-fetch the Order to render it) so the client can render it instead of an empty form, even if it bypassed the UI's own DELIVERED gate.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/OrderId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitFeedbackRequest" },
+              "example": { "comment": "Great donation, thank you!" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Feedback was persisted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SubmitFeedbackResponse" },
+                "example": {
+                  "data": {
+                    "feedback": {
+                      "comment": "Great donation, thank you!",
+                      "createdAt": "2026-01-01T00:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/FeedbackValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "404": { "$ref": "#/components/responses/OrderNotFound" },
+          "409": { "$ref": "#/components/responses/FeedbackConflict" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "OrderId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Order MongoDB ObjectId",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        },
+        "example": "507f1f77bcf86cd799439011"
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "GeoLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["latitude", "longitude", "updatedAt"],
+        "properties": {
+          "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Feedback": {
+        "type": "object",
+        "required": ["comment", "createdAt"],
+        "properties": {
+          "comment": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrderListingSummary": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "imageUrl": { "type": "string", "format": "uri", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "unit": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" },
+          "category": { "type": "string", "description": "Populated on GET /orders/mine rows; omitted on GET/DELETE /orders/{id}" }
+        }
+      },
+      "DeliveryStage": {
+        "type": "string",
+        "enum": ["AWAITING_COURIER", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"]
+      },
+      "OrderDelivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage"],
+        "properties": {
+          "stage": { "$ref": "#/components/schemas/DeliveryStage" }
+        },
+        "description": "null when no Delivery exists yet for this Order (e.g. a Stripe Order still PENDING_PAYMENT)"
+      },
+      "RefundStatus": {
+        "type": "string",
+        "enum": ["NOT_APPLICABLE", "REFUND_PENDING", "FAILED"],
+        "description": "NOT_APPLICABLE: free/cash/never-paid Order, no Stripe call made. REFUND_PENDING: the synchronous stripe.refunds.create() call succeeded, awaiting the charge.refunded webhook for final confirmation (see payment:refunded, docs/api_design.md §12). FAILED: the Stripe refund call itself errored — cancellation still proceeded regardless. This is a response-only field, distinct from the persisted paymentStatus enum — NOT_APPLICABLE and FAILED never appear as ORDER.paymentStatus."
+      },
+      "Order": {
+        "type": "object",
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt", "delivery"],
+        "properties": {
+          "id": { "type": "string" },
+          "recipientId": { "type": "string" },
+          "listing": { "$ref": "#/components/schemas/OrderListingSummary" },
+          "intakePath": {
+            "type": "string",
+            "enum": ["RESERVATION", "DONOR_INITIATED"]
+          },
+          "quantity": { "type": "number" },
+          "amount": { "type": "number" },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["STRIPE", "CASH"],
+            "description": "Omitted for a free (FREE paymentStatus) Order"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": ["FREE", "PAYMENT_PENDING", "PAID", "REFUND_PENDING", "REFUNDED"]
+          },
+          "orderStatus": {
+            "type": "string",
+            "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"]
+          },
+          "deliveryAddressText": { "type": "string" },
+          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "cancelledByUserId": { "type": "string", "nullable": true },
+          "feedback": {
+            "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
+            "nullable": true
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "delivery": {
+            "allOf": [{ "$ref": "#/components/schemas/OrderDelivery" }],
+            "nullable": true
+          }
+        }
+      },
+      "CancelOrderResult": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Order" },
+          {
+            "type": "object",
+            "required": ["refundStatus"],
+            "properties": {
+              "refundStatus": { "$ref": "#/components/schemas/RefundStatus" }
+            }
+          }
+        ]
+      },
+      "OrderResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Order" }
+        }
+      },
+      "RecipientDonorSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "companyName"],
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" }
+        }
+      },
+      "RecipientOrderListItem": {
+        "description": "GET /orders/mine returns Order plus the donating Donor's summary — not returned by GET/DELETE /orders/{id}, so it's kept as its own schema rather than added to the shared Order schema.",
+        "allOf": [
+          { "$ref": "#/components/schemas/Order" },
+          {
+            "type": "object",
+            "required": ["donor"],
+            "properties": {
+              "donor": { "$ref": "#/components/schemas/RecipientDonorSummary" }
+            }
+          }
+        ]
+      },
+      "PaginatedRecipientOrdersResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecipientOrderListItem" }
+              },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "CancelOrderResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/CancelOrderResult" }
+        }
+      },
+      "SubmitFeedbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["comment"],
+        "properties": {
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Trimmed server-side before length validation"
+          }
+        }
+      },
+      "SubmitFeedbackResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["feedback"],
+        "properties": {
+          "feedback": { "$ref": "#/components/schemas/Feedback" }
+        }
+      },
+      "SubmitFeedbackResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/SubmitFeedbackResult" }
+        },
+        "description": "A bare feedback object, not a full Order — matches docs/api_design.md §7's documented 201 shape."
+      },
+      "FeedbackErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" },
+          "feedback": {
+            "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
+            "description": "Only present when the cause is \"feedback already submitted\" — the Recipient's existing feedback, so the client can render it instead of an empty form."
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Query validation failed. mineOrdersQuerySchema is .strict(), so an unrecognized query parameter is also rejected.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "badPage": { "value": { "message": "Page must be at least 1." } },
+              "badLimit": { "value": { "message": "Limit cannot be greater than 100." } }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Authentication is required." } },
+              "invalid": { "value": { "message": "Your session is invalid or has expired." } }
+            }
+          }
+        }
+      },
+      "RecipientRoleRequired": {
+        "description": "The authenticated account is not a Recipient",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "OrderNotFound": {
+        "description": "The Order does not exist, or exists but belongs to a different Recipient — the two are never distinguished",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Order not found." }
+          }
+        }
+      },
+      "OrderNoLongerCancellable": {
+        "description": "The Order's Delivery has already moved to ASSIGNED, PICKED_UP, or DELIVERED — including a Courier claim that won the race against this cancellation. The Order is left untouched.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "This order can no longer be cancelled." }
+          }
+        }
+      },
+      "FeedbackValidationError": {
+        "description": "Request body validation failed. submitFeedbackSchema is .strict(): comment is required, trimmed, and capped at 500 characters.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "empty": { "value": { "message": "Feedback comment is required." } },
+              "tooLong": { "value": { "message": "Feedback comment cannot exceed 500 characters." } }
+            }
+          }
+        }
+      },
+      "FeedbackConflict": {
+        "description": "Either the Order hasn't been delivered yet, or feedback was already submitted for it — in the latter case the existing feedback is echoed back in the error body so the client can render it instead of an empty form.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/FeedbackErrorResponse" },
+            "examples": {
+              "notDelivered": {
+                "summary": "Order hasn't been delivered yet",
+                "value": { "message": "This order hasn't been delivered yet." }
+              },
+              "alreadySubmitted": {
+                "summary": "Feedback already submitted — existing feedback echoed back",
+                "value": {
+                  "message": "Feedback has already been submitted for this order.",
+                  "feedback": {
+                    "comment": "Great donation, thank you!",
+                    "createdAt": "2026-01-01T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  }
+}

@@ -6,6 +6,7 @@ const paymentInterface = {
   startOneTimeCheckout: paymentsService.startOneTimeCheckout,
   startSubscriptionCheckout: paymentsService.startSubscriptionCheckout,
   refundOrderPayment: paymentsService.refundOrderPayment,
+  cancelPendingOrderPayment: paymentsService.cancelPendingOrderPayment,
 };
 
 export { paymentInterface };

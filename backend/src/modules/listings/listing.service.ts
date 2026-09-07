@@ -18,6 +18,7 @@ import type {
   ListingOrderDtoSource,
   UpdateListingStatusRequestDto,
   CreateDonorInitiatedDonationRequestDto,
+  ReserveListingRequestDto,
 } from './listing.dto.js';
 
 import type {
@@ -242,6 +243,15 @@ async function getListingById(id: string): Promise<ListingDtoSource> {
   return enrichListing(listing);
 }
 
+/** Restores stock on a cancelled Order's Listing (D4). */
+async function restoreStock(
+  listingId: string,
+  quantity: number,
+  session?: ClientSession,
+) {
+  return listingRepository.restoreStockAtomically(listingId, quantity, session);
+}
+
 async function cloneListing(
   listingId: string,
   donorId: string,
@@ -380,6 +390,7 @@ async function listListingOrders(
         name: listing.name,
         imageUrl: listing.imageUrl,
         unit: listing.unit,
+        category: listing.category,
       },
     })),
     page: result.page,
@@ -509,13 +520,140 @@ async function createDonorInitiatedDonation(
   return result.order;
 }
 
+/**
+ * Creates a Recipient-initiated reservation Order on an active listing.
+ * Stock decrement, Order creation, and free/cash Delivery creation commit
+ * together inside one transaction; Stripe orders get their Delivery later,
+ * once the payment webhook confirms checkout (see payments.service.ts).
+ */
+async function reserveListing(
+  listingId: string,
+  recipientId: string,
+  payload: ReserveListingRequestDto,
+) {
+  const listing = await listingRepository.findListingById(listingId);
+
+  if (
+    !listing ||
+    listing.status !== 'ACTIVE' ||
+    listing.unit === 'PER_REQUEST'
+  ) {
+    throw createHttpError(422, 'This listing is not available to reserve.');
+  }
+
+  if (listing.price > 0 && !payload.paymentMethod) {
+    throw createHttpError(
+      400,
+      'A payment method is required for a priced listing.',
+    );
+  }
+
+  if (
+    await orderInterface.hasNonCancelledOrderForListing(
+      listingId,
+      recipientId,
+    )
+  ) {
+    throw createHttpError(
+      422,
+      'You already have an order for this listing.',
+    );
+  }
+
+  if (
+    listing.rationLimitPerPerson != null &&
+    payload.quantity > listing.rationLimitPerPerson
+  ) {
+    throw createHttpError(422, 'Quantity exceeds the ration limit.');
+  }
+
+  if (payload.quantity > listing.quantityRemaining) {
+    throw createHttpError(422, 'Quantity exceeds the remaining stock.');
+  }
+
+  const result = await listingRepository.withTransaction(async (session) => {
+    const updatedListing =
+      await listingRepository.decrementStockForReserveAtomically(
+        listingId,
+        payload.quantity,
+        session,
+      );
+
+    if (!updatedListing) {
+      throw createHttpError(
+        422,
+        'The requested stock is no longer available.',
+      );
+    }
+
+    const isFree = listing.price === 0;
+    const paymentMethod = payload.paymentMethod;
+    const paymentStatus = isFree ? 'FREE' : 'PAYMENT_PENDING';
+    const orderStatus =
+      !isFree && paymentMethod === 'STRIPE' ? 'PENDING_PAYMENT' : 'PREPARING';
+
+    const order = await orderInterface.createOrder(
+      {
+        recipientId,
+        listingId: listing._id,
+        intakePath: 'RESERVATION',
+        quantity: payload.quantity,
+        amount: listing.price * payload.quantity,
+        paymentMethod,
+        paymentStatus,
+        orderStatus,
+        deliveryAddressText: payload.deliveryAddressText,
+        deliveryLocation: {
+          ...payload.deliveryLocation,
+          updatedAt: new Date(),
+        },
+      },
+      session,
+    );
+
+    // Stripe orders don't join the delivery queue until the payment webhook
+    // confirms checkout — see payments.service.ts#handlePaymentCheckoutCompleted.
+    if (isFree || paymentMethod === 'CASH') {
+      await deliveryInterface.createForOrder(String(order._id), session);
+    }
+
+    return {
+      order,
+      listingName: listing.name,
+      donorId: String(listing.donorId),
+      becameSoldOut: updatedListing.status === 'SOLD_OUT',
+      isFree,
+    };
+  });
+
+  // Emit only after the database transaction has committed successfully.
+  if (result.becameSoldOut) {
+    emitToUser(result.donorId, 'listing:sold_out', {
+      listingId,
+      name: result.listingName,
+    });
+  }
+
+  if (!result.isFree) {
+    emitToUser(recipientId, 'notification:payment_requested', {
+      orderId: String(result.order._id),
+      listingName: result.listingName,
+      amount: result.order.amount,
+    });
+  }
+
+  return result.order;
+}
+
 export {
   listMyListings,
   listAvailableListings,
   createListing,
   getListingById,
+  restoreStock,
   cloneListing,
   updateListingStatus,
   listListingOrders,
   createDonorInitiatedDonation,
+  reserveListing,
 };

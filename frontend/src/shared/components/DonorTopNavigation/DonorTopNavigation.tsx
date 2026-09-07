@@ -2,6 +2,7 @@ import {
   PortalTopNavigation,
   type PortalNavItem,
 } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
+import { useSoldOutNotifications } from '@/modules/donations/hooks/useSoldOutNotifications';
 
 const DONOR_NAV_ITEMS:
   readonly PortalNavItem[] = [
@@ -45,6 +46,8 @@ export function DonorTopNavigation({
   hasUnreadNotifications = false,
   onNotificationsClick,
 }: DonorTopNavigationProps) {
+  useSoldOutNotifications();
+
   return (
     <PortalTopNavigation
       variant="donor"

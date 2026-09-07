@@ -18,7 +18,6 @@ export interface NominatimSearchOptions {
 }
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
-const DEFAULT_USER_AGENT = 'AFF-App-Registration/1.0';
 
 export const nominatimService = {
   /**
@@ -45,7 +44,6 @@ export const nominatimService = {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'User-Agent': DEFAULT_USER_AGENT,
       },
       signal: options.signal,
     });
@@ -73,7 +71,6 @@ export const nominatimService = {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'User-Agent': DEFAULT_USER_AGENT,
       },
       signal,
     });

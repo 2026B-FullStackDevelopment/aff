@@ -1,6 +1,12 @@
-﻿import { API_ROUTES } from '@/config/apiRoutes';
+import { API_ROUTES } from '@/config/apiRoutes';
 import { httpClient } from '@/services/httpClient';
 import type { UploadMediaPurpose, UploadUrlResponseDto } from '@/types/api';
+ 
+export const ACCEPTED_IMAGE_TYPES: readonly string[] = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
 
 export const mediaService = {
   /**

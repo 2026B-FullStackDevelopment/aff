@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Award, AlertCircle } from 'lucide-react';
+import { Award } from 'lucide-react';
 import AvatarUpload, { ThemeRole } from '@/shared/components/AvatarUpload/AvatarUpload';
 import AddressAutocomplete from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
@@ -9,6 +9,7 @@ import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordS
 import { SelectField } from '@/shared/components/SelectField/SelectField';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { cn } from '@/shared/utils';
+import WarningCallout from '@/shared/components/WarningCallout/WarningCallout';
 
 interface ProfileEditFormProps {
   profile: any;
@@ -138,12 +139,10 @@ export function ProfileEditForm({
 
         {/* Password Warning Banner */}
         {!!form.password?.trim() && (
-          <div className="mt-2 rounded-lg bg-amber-50 p-3.5 border border-amber-200 flex items-start gap-3 text-amber-800 text-xs sm:text-sm">
-            <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
-            <span>
-              <strong>Note:</strong> Changing your password will end your active session. You will be redirected to the login page to sign in with your new password.
-            </span>
-          </div>
+          <WarningCallout
+            title="Changing your password will end your active session."
+            children="If you change your password, you will be redirected to the login page to sign in with the new one."
+          />
         )}
 
         <div className="pt-2">
@@ -192,6 +191,7 @@ export function ProfileEditForm({
               value={form.addressText}
               onSelect={handleAddressSelect}
               error={errors.addressText}
+              theme={theme}
             />
           </div>
         )}

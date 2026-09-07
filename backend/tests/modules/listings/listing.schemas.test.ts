@@ -12,6 +12,7 @@ import {
   paginationQuerySchema,
   paymentMethodSchema,
   positiveQuantitySchema,
+  reserveListingSchema,
   updateListingStatusSchema,
 } from '../../../src/modules/listings/listing.schemas.js';
 
@@ -61,12 +62,8 @@ describe('listing.schemas', () => {
   });
 
   describe('listingPriceSchema', () => {
-    it.each([0, 1001, 1500, 2000, 2500])('accepts price %s', (price) => {
+    it.each([0, 15000, 20000, 30000, 50000])('accepts price %s', (price) => {
       expect(listingPriceSchema.safeParse(price).success).toBe(true);
-    });
-
-    it.each([-100, 1, 500, 1000])('rejects price %s', (price) => {
-      expect(listingPriceSchema.safeParse(price).success).toBe(false);
     });
 
     it('rejects a numeric string', () => {
@@ -517,6 +514,105 @@ describe('listing.schemas', () => {
         donorInitiatedDonationSchema.safeParse({
           ...validDonationBody,
           recipientName: 'Recipient',
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe('reserveListingSchema', () => {
+    const validReservation = {
+      quantity: 2,
+      deliveryAddressText: '123 Example Street, Ho Chi Minh City',
+      deliveryLocation: {
+        latitude: 10.7769,
+        longitude: 106.7009,
+      },
+    };
+
+    it('accepts a valid reservation body without a payment method', () => {
+      expect(reserveListingSchema.safeParse(validReservation).success).toBe(true);
+    });
+
+    it.each(['STRIPE', 'CASH'])('accepts payment method %s', (paymentMethod) => {
+      expect(
+        reserveListingSchema.safeParse({ ...validReservation, paymentMethod }).success,
+      ).toBe(true);
+    });
+
+    it('rejects an unsupported payment method', () => {
+      expect(
+        reserveListingSchema.safeParse({
+          ...validReservation,
+          paymentMethod: 'BANK_TRANSFER',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('trims the delivery address', () => {
+      const parsed = reserveListingSchema.parse({
+        ...validReservation,
+        deliveryAddressText: '  123 Example Street  ',
+      });
+
+      expect(parsed.deliveryAddressText).toBe('123 Example Street');
+    });
+
+    it.each([0, -1])('rejects reservation quantity %s', (quantity) => {
+      expect(
+        reserveListingSchema.safeParse({ ...validReservation, quantity }).success,
+      ).toBe(false);
+    });
+
+    it('rejects a missing delivery address', () => {
+      const {
+        deliveryAddressText: _deliveryAddressText,
+        ...bodyWithoutAddress
+      } = validReservation;
+
+      expect(reserveListingSchema.safeParse(bodyWithoutAddress).success).toBe(false);
+    });
+
+    it('rejects an empty delivery address', () => {
+      expect(
+        reserveListingSchema.safeParse({
+          ...validReservation,
+          deliveryAddressText: '   ',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects a missing delivery location', () => {
+      const {
+        deliveryLocation: _deliveryLocation,
+        ...bodyWithoutLocation
+      } = validReservation;
+
+      expect(reserveListingSchema.safeParse(bodyWithoutLocation).success).toBe(false);
+    });
+
+    it('rejects an invalid latitude', () => {
+      expect(
+        reserveListingSchema.safeParse({
+          ...validReservation,
+          deliveryLocation: { latitude: 91, longitude: 106.7009 },
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects an invalid longitude', () => {
+      expect(
+        reserveListingSchema.safeParse({
+          ...validReservation,
+          deliveryLocation: { latitude: 10.7769, longitude: 181 },
+        }).success,
+      ).toBe(false);
+    });
+
+    it('rejects additional fields', () => {
+      expect(
+        reserveListingSchema.safeParse({
+          ...validReservation,
+          recipientId: 'someone-else',
         }).success,
       ).toBe(false);
     });

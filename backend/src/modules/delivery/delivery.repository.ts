@@ -81,6 +81,36 @@ async function cancelAwaitingDeliveriesByOrderIds(
   return result.modifiedCount;
 }
 
+/**
+ * Atomically cancels a single Delivery still awaiting a Courier, as part of
+ * a Recipient's own order cancellation (D4). Returns `null` if the stage has
+ * already moved past `AWAITING_COURIER` — the claim-race guard: a claim
+ * racing a cancellation can never leave both operations believing they won.
+ */
+function cancelAwaitingDeliveryForOrder(
+  orderId: string | Types.ObjectId,
+  cancelledAt: Date,
+  session?: ClientSession,
+) {
+  return Delivery.findOneAndUpdate(
+    {
+      orderId,
+      stage: 'AWAITING_COURIER',
+    },
+    {
+      $set: {
+        stage: 'CANCELLED',
+        cancelledAt,
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<DeliveryDocument>();
+}
+
 /** Atomically claims the one-way `PICKED_UP` to `DELIVERED` transition. */
 function markDeliveredIfPickedUp(
   deliveryId: string | Types.ObjectId,
@@ -133,6 +163,7 @@ export {
   findOrCreateForOrder,
   findProtectedOrderIds,
   cancelAwaitingDeliveriesByOrderIds,
+  cancelAwaitingDeliveryForOrder,
   markDeliveredIfPickedUp,
   withTransaction,
 };

@@ -1,5 +1,5 @@
 // DEVIATION NOTE: the original FoodFilter was just the search input. The
-// Marketplace mock needs a search box + a "Filters" toggle sitting on the
+// Marketplace page needs a search box + a "Filters" toggle sitting on the
 // same toolbar row, with everything below (city/category/price/sort)
 // living in a separate slide-in panel — see FoodFilterPanel.tsx. Splitting
 // it this way keeps this file matching its original single concern

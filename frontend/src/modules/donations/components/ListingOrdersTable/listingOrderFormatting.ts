@@ -1,3 +1,5 @@
+import { formatUnit } from '@/shared/constants/units';
+import { formatDate, formatPrice } from '@/shared/utils/listingFormatting';
 import type {
   ListingUnit,
   OrderDTO,
@@ -5,15 +7,6 @@ import type {
 import type {
   ListingOrderDTO,
 } from '../../types';
-
-const UNIT_LABELS: Record<ListingUnit, string> = {
-  KILOGRAM: 'kg',
-  GRAM: 'g',
-  LITER: 'L',
-  MILLILITER: 'mL',
-  UNIT: 'units',
-  PER_REQUEST: 'per request',
-};
 
 export interface DeliveryStatusDisplay {
   status: string;
@@ -31,19 +24,7 @@ export function formatOrderIntakePath(
 export function formatOrderDate(
   value: string,
 ): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Unknown date';
-  }
-
-  return new Intl.DateTimeFormat(
-    'en-GB',
-    {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    },
-  ).format(date);
+  return formatDate(value, { withTime: true });
 }
 
 export function formatOrderQuantity(
@@ -58,22 +39,13 @@ export function formatOrderQuantity(
       },
     );
 
-  return (
-    `${formattedQuantity} `
-    + UNIT_LABELS[unit]
-  );
+  return `${formattedQuantity} ${formatUnit(unit)}`;
 }
 
 export function formatOrderAmount(
   order: OrderDTO,
 ): string {
-  if (order.paymentStatus === 'FREE') {
-    return 'Free';
-  }
-
-  return `${order.amount.toLocaleString(
-    'en-US',
-  )} VND`;
+  return formatPrice(order.amount);
 }
 
 export function formatPaymentMethod(
