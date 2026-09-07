@@ -267,10 +267,25 @@ export interface DeliveryDTO {
   stage: DeliveryStage;
   pickupAddressText: string;
   pickupAddressLocation: GeoLocation;
+  deliveryAddressText: string | null;
+  deliveryLocation: GeoLocation | null;
+  // Derived server-side. The Courier is told whether to collect money, never
+  // how the Recipient paid.
+  requiresCashCollection: boolean;
   pickedUpAt: string | null;
   deliveredAt: string | null;
   courierLastLocation: GeoLocation | null;
   createdAt: string;
+}
+
+/** A queue row: the Delivery plus the minimum a Courier needs to decide (E2). */
+export interface QueueDeliveryDTO extends DeliveryDTO {
+  order: {
+    id: string;
+    quantity: number | null;
+    deliveryAddressText: string | null;
+  };
+  donor: { companyName: string | null };
 }
 
 // --- Subscriptions (api_design.md §3, §10) ---

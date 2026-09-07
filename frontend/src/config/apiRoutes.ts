@@ -56,6 +56,13 @@ export const API_ROUTES = {
     me: '/subscriptions/me',
     checkoutSession: '/subscriptions/checkout-session',
   },
+  deliveries: {
+    queue: '/deliveries/queue',
+    active: '/deliveries/active',
+    claim: (deliveryId: string) => `/deliveries/${deliveryId}/claim`,
+    pickup: (deliveryId: string) => `/deliveries/${deliveryId}/pickup`,
+    deliver: (deliveryId: string) => `/deliveries/${deliveryId}/deliver`,
+  },
   admin: {
     dashboard: '/admin/dashboard',
   },
