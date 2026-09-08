@@ -1,7 +1,41 @@
+import { useEffect, useState } from 'react';
 import type { DeliveryStage, GeoLocation, OrderDTO } from '@/types/api';
 import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { DeliveryStepper } from './DeliveryStepper';
 import { DeliveredConfirmation } from './DeliveredConfirmation';
+
+function formatRelativeTime(updatedAt: string, now: number): string {
+  const elapsedSeconds = Math.max(0, Math.floor((now - new Date(updatedAt).getTime()) / 1000));
+
+  if (elapsedSeconds < 5) return 'just now';
+  if (elapsedSeconds < 60) return `${elapsedSeconds}s ago`;
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  return new Date(updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Ticking "Updated Xs ago" label under the live map, so the Recipient can
+ * tell the courier's position is still fresh. `aria-hidden` because this
+ * sits inside the panel's `aria-live="polite"` region — without it, a
+ * screen reader would re-announce the whole region every second.
+ */
+function LastUpdated({ updatedAt }: { updatedAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <p aria-hidden="true" className="text-xs text-[#6B7280]">
+      Updated {formatRelativeTime(updatedAt, now)}
+    </p>
+  );
+}
 
 interface DeliveryTrackingPanelProps {
   order: OrderDTO;
@@ -54,12 +88,15 @@ export function DeliveryTrackingPanel({
 
       {stage === 'PICKED_UP' && (
         courierPosition ? (
-          <LocationMap
-            latitude={courierPosition.latitude}
-            longitude={courierPosition.longitude}
-            addressText="Your courier is on the way"
-            recenter
-          />
+          <>
+            <LocationMap
+              latitude={courierPosition.latitude}
+              longitude={courierPosition.longitude}
+              addressText="Your courier is on the way"
+              recenter
+            />
+            <LastUpdated updatedAt={courierPosition.updatedAt} />
+          </>
         ) : (
           <p className="text-sm text-[#6B7280]">Waiting for the courier's position…</p>
         )
