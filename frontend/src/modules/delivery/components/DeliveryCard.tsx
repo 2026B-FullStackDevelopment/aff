@@ -26,7 +26,12 @@ export function DeliveryCard({
       </h2>
 
       <div className="mt-3 flex flex-col gap-2">
+        <DeliveryDetailRow label="Item" value={delivery.listing.name ?? '—'} />
         <DeliveryDetailRow label="Quantity" value={delivery.order.quantity ?? '—'} />
+        <DeliveryDetailRow
+          label="Collect from"
+          value={delivery.pickupAddressText ?? '—'}
+        />
         <DeliveryDetailRow
           label="Deliver to"
           value={delivery.order.deliveryAddressText ?? '—'}

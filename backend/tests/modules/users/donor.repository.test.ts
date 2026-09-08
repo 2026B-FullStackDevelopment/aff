@@ -107,16 +107,22 @@ describe('donor.repository', () => {
   });
 
   describe('findDonorsByUserIds', () => {
-    it('loads the requested Donor profiles in one query, projecting only the company name', async () => {
-      leanMock.mockResolvedValue([{ userId: 'd1', companyName: 'Fresh Foods' }]);
+    it('loads the requested Donor profiles in one query, projecting the fields a queue join needs', async () => {
+      const donor = {
+        userId: 'd1',
+        companyName: 'Fresh Foods',
+        addressText: '12 Trần Hưng Đạo, Hà Nội',
+        location: { latitude: 21.0278, longitude: 105.8342, updatedAt: new Date() },
+      };
+      leanMock.mockResolvedValue([donor]);
 
       const result = await findDonorsByUserIds(['d1', 'd2']);
 
       expect(findMock).toHaveBeenCalledWith(
         { userId: { $in: ['d1', 'd2'] } },
-        { userId: 1, companyName: 1 },
+        { userId: 1, companyName: 1, addressText: 1, location: 1 },
       );
-      expect(result).toEqual([{ userId: 'd1', companyName: 'Fresh Foods' }]);
+      expect(result).toEqual([donor]);
     });
 
     it('skips the database entirely when asked for nothing', async () => {

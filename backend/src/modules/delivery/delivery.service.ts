@@ -139,7 +139,8 @@ async function cancelAwaitingDeliveryForOrder(
  * lookup per row, so a page costs a constant number of queries regardless of
  * its size — resolving each row individually would cost three queries each.
  * The calls are sequential rather than parallel because the Listing ids come
- * from the Orders.
+ * from the Orders. The Donor summary carries the pickup address/location too,
+ * so showing where the food is collected costs no extra query (E2/E5).
  */
 async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> {
   const page = await deliveryRepository.findQueue(query);
@@ -158,14 +159,17 @@ async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> 
     distinctIds(orders.map((order) => order.listingId)),
   );
 
-  const companyNameByListingId = new Map(
-    donorSummaries.map((summary) => [summary.listingId, summary.companyName]),
+  const donorSummaryByListingId = new Map(
+    donorSummaries.map((summary) => [summary.listingId, summary]),
   );
 
   return {
     ...page,
     items: page.items.map((delivery) => {
       const order = orderById.get(String(delivery.orderId));
+      const donorSummary = order
+        ? donorSummaryByListingId.get(String(order.listingId))
+        : undefined;
 
       return toQueueDeliveryResponseDto(delivery, {
         order: order
@@ -176,9 +180,10 @@ async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> 
               paymentMethod: order.paymentMethod,
             }
           : null,
-        companyName: order
-          ? companyNameByListingId.get(String(order.listingId)) ?? null
-          : null,
+        listingName: donorSummary?.listingName ?? null,
+        companyName: donorSummary?.companyName ?? null,
+        pickupAddressText: donorSummary?.addressText,
+        pickupAddressLocation: donorSummary?.location,
       });
     }),
   };

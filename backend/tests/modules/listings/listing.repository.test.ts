@@ -370,16 +370,16 @@ describe('listing.repository', () => {
   });
 
   describe('findListingsByIds', () => {
-    it('loads the requested Listings in one query, projecting only the donor', async () => {
-      leanMock.mockResolvedValue([{ _id: 'l1', donorId: 'd1' }]);
+    it('loads the requested Listings in one query, projecting the donor and name', async () => {
+      leanMock.mockResolvedValue([{ _id: 'l1', donorId: 'd1', name: 'Sourdough loaves' }]);
 
       const result = await findListingsByIds(['l1', 'l2']);
 
       expect(findMock).toHaveBeenCalledWith(
         { _id: { $in: ['l1', 'l2'] } },
-        { _id: 1, donorId: 1 },
+        { _id: 1, donorId: 1, name: 1 },
       );
-      expect(result).toEqual([{ _id: 'l1', donorId: 'd1' }]);
+      expect(result).toEqual([{ _id: 'l1', donorId: 'd1', name: 'Sourdough loaves' }]);
     });
 
     it('skips the database entirely when asked for nothing', async () => {

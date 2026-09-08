@@ -174,23 +174,36 @@ describe('toDeliveryResponseDto', () => {
       createdAt: new Date('2026-08-02T09:00:00.000Z'),
     };
 
+    const pickupAddressLocation = {
+      latitude: 21.03,
+      longitude: 105.85,
+      updatedAt: new Date('2026-08-02T09:00:00.000Z'),
+    };
+
     it('carries what a Courier needs to decide whether to claim', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
         order: { quantity: 3, deliveryAddressText: '12 Le Loi' },
+        listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
+        pickupAddressText: '5 Hang Bac',
+        pickupAddressLocation,
       });
 
       expect(result).toMatchObject({
         id: 'd1',
         stage: 'AWAITING_COURIER',
         order: { id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi' },
+        listing: { name: 'Sourdough loaves' },
         donor: { companyName: 'Fresh Foods' },
+        pickupAddressText: '5 Hang Bac',
+        pickupAddressLocation,
       });
     });
 
-    it('omits the pickup address, which the queue never shows', () => {
+    it('leaves the pickup address undefined when the caller could not resolve it', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
         order: { quantity: 3, deliveryAddressText: '12 Le Loi' },
+        listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
       });
 
@@ -198,15 +211,17 @@ describe('toDeliveryResponseDto', () => {
       expect(result.pickupAddressLocation).toBeUndefined();
     });
 
-    it('degrades a row whose Order or Donor could not be loaded rather than dropping it', () => {
+    it('degrades a row whose Order, Listing or Donor could not be loaded rather than dropping it', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
         order: null,
+        listingName: null,
         companyName: null,
       });
 
       expect(result).toMatchObject({
         id: 'd1',
         order: { id: 'o1', quantity: null, deliveryAddressText: null },
+        listing: { name: null },
         donor: { companyName: null },
       });
     });

@@ -12,6 +12,7 @@ import type {
   ListingStatus,
 } from './listing.model.js';
 import type {
+  GeoLocation,
   ListingDonorData,
   ListingDtoSource,
   ListingWithStatsDtoSource,
@@ -67,10 +68,18 @@ interface AvailableListingsServiceResult {
   total: number;
 }
 
-/** One Listing's Donor company name, for callers joining against Listings. */
+/**
+ * One Listing's summary, for callers joining against Listings — the listing
+ * name, plus the Donor's company name and the pickup address/location
+ * denormalised from the Donor profile (the Courier queue shows all of these,
+ * E2/E5).
+ */
 interface ListingDonorSummaryByListing {
   listingId: string;
+  listingName: string;
   companyName: string;
+  addressText: string;
+  location: GeoLocation;
 }
 
 type RequestedListingStatus = UpdateListingStatusRequestDto['status'];
@@ -280,16 +289,24 @@ async function findDonorSummariesByListingIds(
   const donorIds = [...new Set(listings.map((listing) => String(listing.donorId)))];
   const donors = await userInterface.findDonorsByUserIds(donorIds);
 
-  const companyNameByDonorId = new Map(
-    donors.map((donor) => [String(donor.userId), donor.companyName]),
+  const donorById = new Map(
+    donors.map((donor) => [String(donor.userId), donor]),
   );
 
   return listings.flatMap((listing) => {
-    const companyName = companyNameByDonorId.get(String(listing.donorId));
+    const donor = donorById.get(String(listing.donorId));
 
-    return companyName === undefined
+    return donor === undefined
       ? []
-      : [{ listingId: String(listing._id), companyName }];
+      : [
+          {
+            listingId: String(listing._id),
+            listingName: listing.name,
+            companyName: donor.companyName,
+            addressText: donor.addressText,
+            location: donor.location,
+          },
+        ];
   });
 }
 

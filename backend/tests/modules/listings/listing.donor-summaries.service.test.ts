@@ -33,32 +33,48 @@ describe('listing.service.findDonorSummariesByListingIds', () => {
     vi.clearAllMocks();
   });
 
-  it('maps each Listing to its Donor company name', async () => {
+  const donorFixture = (userId: string, companyName: string) => ({
+    userId,
+    companyName,
+    addressText: `${companyName} warehouse`,
+    location: { latitude: 21, longitude: 105, updatedAt: new Date() },
+  });
+
+  it('maps each Listing to its name, Donor company name and pickup address/location', async () => {
     findListingsByIdsMock.mockResolvedValue([
-      { _id: 'l1', donorId: 'd1' },
-      { _id: 'l2', donorId: 'd2' },
+      { _id: 'l1', donorId: 'd1', name: 'Sourdough loaves' },
+      { _id: 'l2', donorId: 'd2', name: 'Canned soup' },
     ]);
-    findDonorsByUserIdsMock.mockResolvedValue([
-      { userId: 'd2', companyName: 'Second Donor' },
-      { userId: 'd1', companyName: 'First Donor' },
-    ]);
+    const first = donorFixture('d1', 'First Donor');
+    const second = donorFixture('d2', 'Second Donor');
+    findDonorsByUserIdsMock.mockResolvedValue([second, first]);
 
     const result = await findDonorSummariesByListingIds(['l1', 'l2']);
 
     expect(result).toEqual([
-      { listingId: 'l1', companyName: 'First Donor' },
-      { listingId: 'l2', companyName: 'Second Donor' },
+      {
+        listingId: 'l1',
+        listingName: 'Sourdough loaves',
+        companyName: 'First Donor',
+        addressText: first.addressText,
+        location: first.location,
+      },
+      {
+        listingId: 'l2',
+        listingName: 'Canned soup',
+        companyName: 'Second Donor',
+        addressText: second.addressText,
+        location: second.location,
+      },
     ]);
   });
 
   it('asks for each Donor once when several Listings share one', async () => {
     findListingsByIdsMock.mockResolvedValue([
-      { _id: 'l1', donorId: 'd1' },
-      { _id: 'l2', donorId: 'd1' },
+      { _id: 'l1', donorId: 'd1', name: 'Sourdough loaves' },
+      { _id: 'l2', donorId: 'd1', name: 'Canned soup' },
     ]);
-    findDonorsByUserIdsMock.mockResolvedValue([
-      { userId: 'd1', companyName: 'First Donor' },
-    ]);
+    findDonorsByUserIdsMock.mockResolvedValue([donorFixture('d1', 'First Donor')]);
 
     await findDonorSummariesByListingIds(['l1', 'l2']);
 
@@ -66,7 +82,9 @@ describe('listing.service.findDonorSummariesByListingIds', () => {
   });
 
   it('omits a Listing whose Donor profile is missing', async () => {
-    findListingsByIdsMock.mockResolvedValue([{ _id: 'l1', donorId: 'd1' }]);
+    findListingsByIdsMock.mockResolvedValue([
+      { _id: 'l1', donorId: 'd1', name: 'Sourdough loaves' },
+    ]);
     findDonorsByUserIdsMock.mockResolvedValue([]);
 
     const result = await findDonorSummariesByListingIds(['l1']);

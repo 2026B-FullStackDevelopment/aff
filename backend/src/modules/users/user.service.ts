@@ -211,7 +211,7 @@ async function findCourierProfilesByUserIds(userIds: string[]) {
 /**
  * Loads a set of Donor profiles by user id, for a caller joining against
  * Donors — currently the Courier queue (E2), which needs each Donor's
- * company name.
+ * company name and pickup address/location.
  */
 async function findDonorsByUserIds(userIds: string[]) {
   if (userIds.length === 0) return [];

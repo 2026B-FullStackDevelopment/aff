@@ -395,6 +395,7 @@
         "required": ["id", "orderId", "courierId", "stage", "createdAt"]
       },
       "QueueDelivery": {
+        "description": "A queue row is a full Delivery plus its joined order/listing/donor summary. listing.name, donor.companyName, and pickupAddressText/pickupAddressLocation (from Delivery) all come from one bulk Listing→Donor join, populated pre-claim so a Courier can see the load and weigh the collection point before claiming; the name/companyName go null and the pickup fields absent only on a failed join.",
         "allOf": [
           { "$ref": "#/components/schemas/Delivery" },
           {
@@ -417,6 +418,17 @@
                 },
                 "required": ["id", "quantity", "deliveryAddressText"]
               },
+              "listing": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "The food listing's name. Null only if the Listing or Donor profile could not be loaded."
+                  }
+                },
+                "required": ["name"]
+              },
               "donor": {
                 "type": "object",
                 "properties": {
@@ -429,7 +441,7 @@
                 "required": ["companyName"]
               }
             },
-            "required": ["order", "donor"]
+            "required": ["order", "listing", "donor"]
           }
         ]
       }

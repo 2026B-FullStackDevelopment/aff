@@ -199,8 +199,8 @@ Referenced by multiple endpoints below; defined once here.
 | orderId | string |
 | courierId | string \| null |
 | stage | `AWAITING_COURIER`\|`ASSIGNED`\|`PICKED_UP`\|`DELIVERED`\|`CANCELLED` |
-| pickupAddressText | string (denormalized from the order's Donor) |
-| pickupAddressLocation | GeoLocation (denormalized from `DONOR.location` — static, for a map marker; not live-updating, unlike `courierLastLocation`) |
+| pickupAddressText | string \| null (denormalized from the order's Donor; `null` only when the Listing/Donor profile could not be loaded) |
+| pickupAddressLocation | GeoLocation \| null (denormalized from `DONOR.location` — static, for a map marker; not live-updating, unlike `courierLastLocation`; `null` only on a failed Donor join) |
 | pickedUpAt | datetime \| null |
 | deliveredAt | datetime \| null |
 | courierLastLocation | GeoLocation \| null |
@@ -477,7 +477,7 @@ Response: `200` (always, once the event is durably processed or recognized as a 
 **Auth:** `COURIER`
 
 Query params: pagination (default sort is fixed — oldest-first, not client-selectable).
-Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note — each entry including `order: { id, quantity, deliveryAddressText }` and `donor: { companyName }`.
+Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note — each entry including `order: { id, quantity, deliveryAddressText }`, `listing: { name }`, and `donor: { companyName }`. `listing.name`, `companyName`, and `pickupAddressText`/`pickupAddressLocation` all come from one bulk Listing→Donor join, so no extra query per row — a Courier can see what the load is and weigh the collection point against the drop-off before claiming. `listing.name` and `companyName` are `null`, and the pickup fields absent, only when that join fails for a row. The Donor's address is already public via `GET /listings/:id` (§6) for every listing, so surfacing it pre-claim exposes nothing new; see E5.
 
 ### `GET /deliveries/active` — *(new)*
 **Auth:** `COURIER`

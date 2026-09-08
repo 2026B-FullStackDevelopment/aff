@@ -73,7 +73,7 @@ export function ActiveDeliveryPage() {
     : delivery.pickupAddressLocation?.longitude;
   const mapLabel = isPickedUp
     ? (delivery.deliveryAddressText ?? 'Delivery destination')
-    : delivery.pickupAddressText;
+    : (delivery.pickupAddressText ?? 'Pickup location');
 
   return (
     <div className="min-h-screen bg-courier-bg">
@@ -93,7 +93,7 @@ export function ActiveDeliveryPage() {
                 once the map below has switched to the destination pin (E5). */}
             <DeliveryDetailRow
               label="Collect from"
-              value={delivery.pickupAddressText}
+              value={delivery.pickupAddressText ?? '—'}
             />
             <DeliveryDetailRow
               label="Deliver to"

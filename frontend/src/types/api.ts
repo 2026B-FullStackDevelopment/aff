@@ -265,8 +265,10 @@ export interface DeliveryDTO {
   orderId: string;
   courierId: string | null;
   stage: DeliveryStage;
-  pickupAddressText: string;
-  pickupAddressLocation: GeoLocation;
+  // Denormalised from the Order's Donor. Null only when the Listing or Donor
+  // profile could not be loaded — a queue row is still shown without a pin.
+  pickupAddressText: string | null;
+  pickupAddressLocation: GeoLocation | null;
   deliveryAddressText: string | null;
   deliveryLocation: GeoLocation | null;
   // Derived server-side. The Courier is told whether to collect money, never
@@ -285,6 +287,8 @@ export interface QueueDeliveryDTO extends DeliveryDTO {
     quantity: number | null;
     deliveryAddressText: string | null;
   };
+  // Name is null only if the Listing or Donor profile could not be loaded.
+  listing: { name: string | null };
   donor: { companyName: string | null };
 }
 

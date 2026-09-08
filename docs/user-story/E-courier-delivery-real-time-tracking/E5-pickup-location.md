@@ -3,12 +3,21 @@ title: "[STORY][COURIER] Pickup Location"
 labels: user-story
 ---
 
-**Traceability:** PRD `E5` (revised — was text-only; now includes a map) · API: `GET /deliveries/active`, `PATCH /deliveries/:id/claim` (`docs/api_design.md` §9)
+**Traceability:** PRD `E5` (revised — was text-only; now includes a map) · API: `GET /deliveries/queue`, `GET /deliveries/active`, `PATCH /deliveries/:id/claim` (`docs/api_design.md` §9)
 
 ## User Story
 As a **Courier**,
 I can **see the Donor's pickup address as text and a map marker right after claiming a delivery**
 so that **I know where to go to pick up the order and can actually navigate there, not just read an address**.
+
+> **Amended 2026-09-08:** `pickupAddressText`/`pickupAddressLocation` are also
+> included on the pre-claim `GET /deliveries/queue` rows (E2) so a Courier can
+> judge the collection point before claiming. This does not weaken the
+> "own delivery only" scenario below: that scenario is about not leaking
+> *another Courier's assigned delivery* via `/active` or a claim attempt. The
+> queue lists only unclaimed (`AWAITING_COURIER`) deliveries, and the Donor's
+> address is already public via `GET /listings/:id` (§6) for every listing, so
+> there is nothing private to protect there.
 
 ## Acceptance Criteria
 
@@ -22,10 +31,10 @@ so that **I know where to go to pick up the order and can actually navigate ther
   - **When** any time passes, including while I'm en route to the Donor
   - **Then** the marker never moves — `pickupAddressLocation` is a fixed pin on the Donor's registered location, not a live-updating position; there is no tracking concept for the pickup leg, since the Donor doesn't move
 
-- [ ] **Scenario:** A Courier only ever sees pickup details for their own delivery
+- [ ] **Scenario:** A Courier never sees another Courier's *claimed* delivery
   - **Given** a delivery is `ASSIGNED` to a different Courier
   - **When** I (a different Courier) attempt to claim it or query my own active delivery
-  - **Then** I never see that delivery's `pickupAddressText`/`pickupAddressLocation` — claim ownership is enforced atomically (E3), and `GET /deliveries/active` only ever returns *my own* active delivery, never another Courier's
+  - **Then** I never see that delivery's `pickupAddressText`/`pickupAddressLocation` — claim ownership is enforced atomically (E3), and `GET /deliveries/active` only ever returns *my own* active delivery, never another Courier's. (Unclaimed `AWAITING_COURIER` deliveries are a different case: their pickup address is shown to every Courier on the shared queue — see E2 — since it is already public listing data.)
 
 - [ ] **Scenario:** Pickup address and map persist through the rest of the delivery lifecycle
   - **Given** my delivery progresses from `ASSIGNED` through `PICKED_UP` to `DELIVERED`
@@ -39,7 +48,7 @@ so that **I know where to go to pick up the order and can actually navigate ther
 
 ## Implementation Flow
 
-1. **Read `pickupAddressText`/`pickupAddressLocation` straight off the `DeliveryDTO` returned by `claim` (or `GET /deliveries/active` on reload)** — both are already denormalized from the order's Donor server-side; don't make a separate call to fetch Donor details, and don't call `GET /deliveries/:id` for it — that endpoint no longer accepts `COURIER` callers at all (§9). A Courier never needs to look up a delivery by arbitrary ID: `/active` and the claim/pickup/deliver responses already cover every case a Courier's client needs.
+1. **Read `pickupAddressText`/`pickupAddressLocation` straight off the `DeliveryDTO` returned by `claim` (or `GET /deliveries/active` on reload, or already on the `GET /deliveries/queue` row pre-claim)** — all are the same field, denormalized from the order's Donor server-side; don't make a separate call to fetch Donor details, and don't call `GET /deliveries/:id` for it — that endpoint no longer accepts `COURIER` callers at all (§9). A Courier never needs to look up a delivery by arbitrary ID: the queue, `/active`, and the claim/pickup/deliver responses already cover every case a Courier's client needs. Treat both fields as nullable — a row whose Listing/Donor join failed omits them.
 2. **Render the map with Leaflet against `pickupAddressLocation`, reusing D8's marker component** (`donor.location` on the listing detail page uses the same shape) rather than building a second, parallel marker implementation. Show `pickupAddressText` alongside it, e.g. as a label or popup on the marker — text isn't replaced by the map, the two are shown together.
 3. **This is a static marker, not a live map.** Don't wire a WebSocket subscription or a `watchPosition` loop here — the Donor's location doesn't change, so there's nothing to subscribe to. That distinguishes this map from E6/E9's live Courier-position tracking, which only exists for the delivery leg once `stage=PICKED_UP`.
 4. **This view is the natural landing screen right after E3's successful claim, and also after a page reload/re-login while a claim is already in progress** — in the claim case, route here directly using the `id` from the claim response; in the reload case, this is exactly what E4's `GET /deliveries/active` call resolves to (its `id` is this same delivery). Either way, keep the "Picked Up" action (E6) visible from the same screen so the flow from claim → pickup confirmation is one continuous view, not a multi-page hop.

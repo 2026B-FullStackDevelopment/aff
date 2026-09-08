@@ -45,13 +45,22 @@ interface QueueDeliveryResponseDto extends DeliveryResponseDto {
     quantity: number | null;
     deliveryAddressText: string | null;
   };
+  listing: { name: string | null };
   donor: { companyName: string | null };
 }
 
-/** The Order fields a queue row shows, joined by the caller. */
+/** The Order, Listing and Donor fields a queue row shows, joined by the caller. */
 interface QueueDeliveryRelations {
   order: (DeliveryOrderSource & { quantity: number }) | null;
+  // The listing's name, and the Donor's company name. `null` when the Listing
+  // or Donor profile could not be loaded — the row is still listed.
+  listingName: string | null;
   companyName: string | null;
+  // Denormalised from the Order's Donor, same as the post-claim DeliveryDTO.
+  // `undefined` when the Listing or Donor profile could not be loaded — the row
+  // is still listed, just without a pickup pin.
+  pickupAddressText?: string;
+  pickupAddressLocation?: GeoLocation;
 }
 
 /**
@@ -93,10 +102,11 @@ function toDeliveryResponseDto(
 /**
  * Maps a Delivery plus its joined Order and Donor to a queue row.
  *
- * `pickupAddressText`/`pickupAddressLocation` are left undefined: the queue
- * shows where the food is going, not where it is collected, and resolving the
- * Donor address per row would cost a lookup per row for data E2 never asks
- * for. A Courier gets those on claim (E5).
+ * `pickupAddressText`/`pickupAddressLocation` carry the Donor's collection
+ * address so a Courier can judge the trip before claiming (E2/E5). The caller's
+ * Donor-summary join already resolves them in bulk, so this costs no extra
+ * query per row. They fall back to undefined when the Listing or Donor profile
+ * could not be loaded.
  *
  * A row whose Order or Donor could not be loaded is degraded to nulls rather
  * than dropped, so `items.length` stays consistent with `total` and a
@@ -108,8 +118,8 @@ function toQueueDeliveryResponseDto(
 ): QueueDeliveryResponseDto {
   return {
     ...toDeliveryResponseDto(delivery, {
-      pickupAddressText: undefined,
-      pickupAddressLocation: undefined,
+      pickupAddressText: relations.pickupAddressText,
+      pickupAddressLocation: relations.pickupAddressLocation,
       order: relations.order,
     })!,
     order: {
@@ -117,6 +127,7 @@ function toQueueDeliveryResponseDto(
       quantity: relations.order?.quantity ?? null,
       deliveryAddressText: relations.order?.deliveryAddressText ?? null,
     },
+    listing: { name: relations.listingName },
     donor: { companyName: relations.companyName },
   };
 }
