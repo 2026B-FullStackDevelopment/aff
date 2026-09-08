@@ -1,4 +1,5 @@
 import type { QueueDeliveryDTO } from '@/types/api';
+import { formatPrice } from '@/shared/utils/listingFormatting';
 import { CourierButton } from './CourierButton';
 import { DeliveryDetailRow } from './DeliveryDetailRow';
 
@@ -28,6 +29,10 @@ export function DeliveryCard({
       <div className="mt-3 flex flex-col gap-2">
         <DeliveryDetailRow label="Item" value={delivery.listing.name ?? '—'} />
         <DeliveryDetailRow label="Quantity" value={delivery.order.quantity ?? '—'} />
+        <DeliveryDetailRow
+          label="Amount"
+          value={delivery.order.amount !== null ? formatPrice(delivery.order.amount) : '—'}
+        />
         <DeliveryDetailRow
           label="Collect from"
           value={delivery.listing.pickupAddressText ?? '—'}

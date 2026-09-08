@@ -274,6 +274,7 @@ export interface DeliveryDTO {
   // Derived server-side. The Courier is told whether to collect money, never
   // how the Recipient paid.
   requiresCashCollection: boolean;
+  amount: number | null;
   pickedUpAt: string | null;
   deliveredAt: string | null;
   courierLastLocation: GeoLocation | null;
@@ -297,6 +298,7 @@ export interface QueueDeliveryDTO {
     quantity: number | null;
     deliveryAddressText: string | null;
     deliveryLocation: GeoLocation | null;
+    amount: number | null;
   };
   donor: { companyName: string | null };
 }

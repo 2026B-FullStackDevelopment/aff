@@ -7,6 +7,7 @@ import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkel
 import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
+import { formatPrice } from '@/shared/utils/listingFormatting';
 import { cn } from '@/shared/utils';
 import { CashConfirmation } from '../components/CashConfirmation';
 import { CourierButton } from '../components/CourierButton';
@@ -98,6 +99,10 @@ export function ActiveDeliveryPage() {
             <DeliveryDetailRow
               label="Deliver to"
               value={delivery.deliveryAddressText ?? '—'}
+            />
+            <DeliveryDetailRow
+              label="Amount"
+              value={delivery.amount !== null ? formatPrice(delivery.amount) : '—'}
             />
 
             {mapLatitude !== undefined && mapLongitude !== undefined ? (
