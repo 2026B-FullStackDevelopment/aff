@@ -25,7 +25,6 @@ import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkel
 import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
 import { formatUnit } from '@/shared/constants/units';
-import { PaymentMethodSelector } from '@/modules/reservations/components/PaymentMethodSelector';
 import { useManualDonation } from '../hooks/useManualDonation';
 
 const VND_FORMATTER =
@@ -68,7 +67,6 @@ export function ManualDonationForm() {
     clearRecipientSelection,
     setListingId,
     setQuantity,
-    setPaymentMethod,
     setCashReceivedAmount,
     setDeliveryAddressInput,
     selectDeliveryAddress,
@@ -193,6 +191,7 @@ export function ManualDonationForm() {
 
             <div className="relative">
               <IconField
+                // input field
                 id="manualDonationRecipientEmail"
                 name="recipientEmail"
                 type="email"
@@ -205,7 +204,7 @@ export function ManualDonationForm() {
                     event.target.value,
                   );
                   setIsRecipientFieldFocused(
-                    true,
+                    true, // keeps the dropdown list to choose recipient in place
                   );
                 }}
                 onFocus={() =>
@@ -604,40 +603,40 @@ export function ManualDonationForm() {
               <div className="flex flex-col gap-4">
                 {isPriced ? (
                   <>
-                    <PaymentMethodSelector
-                      value={form.paymentMethod}
-                      isFree={false}
-                      onChange={setPaymentMethod}
+                    <div className="flex items-center gap-3 rounded-xl border border-[#D5B77D] bg-[#FFF6E3] p-4">
+                      <span className="flex size-10 items-center justify-center rounded-full bg-white text-[#805300]">
+                        {/* cash icon component */}
+                        <Banknote className="size-5" aria-hidden="true" /> 
+                      </span>
+
+                      <div>
+                        <p className="font-bold text-[#1B1C1C]">Cash</p>
+                        <p className="text-xs text-[#694400]">
+                          Payment will be confirmed by the Courier upon delivery.
+                        </p>
+                      </div>                                            
+                    </div>
+
+                    {/* input field to input cash received */}
+                    <IconField
+                      id="manualDonationCashReceived"
+                      name="cashReceivedAmount"
+                      type="number"
+                      label="Cash received"
+                      required
+                      icon={Banknote}
+                      min={orderTotal}
+                      step="1"
+                      inputMode="numeric"
+                      value={form.cashReceivedAmount}
+                      onChange={(event) =>
+                        setCashReceivedAmount(event.target.value)
+                      }
+                      placeholder={String(orderTotal)}
+                      error={fieldErrors.cashReceivedAmount}
+                      helperText="Enter the cash amount the Courier will receive in VND."
                       theme="donor"
                     />
-
-                    {fieldErrors.paymentMethod && (
-                      <p role="alert" className="text-xs font-semibold text-red-600">
-                        {fieldErrors.paymentMethod}
-                      </p>
-                    )}
-
-                    {form.paymentMethod === 'CASH' && (
-                      <IconField
-                        id="manualDonationCashReceived"
-                        name="cashReceivedAmount"
-                        type="number"
-                        label="Money received"
-                        required
-                        icon={Banknote}
-                        min={orderTotal}
-                        step="1"
-                        inputMode="numeric"
-                        value={form.cashReceivedAmount}
-                        onChange={(event) =>
-                          setCashReceivedAmount(event.target.value)
-                        }
-                        placeholder={String(orderTotal)}
-                        error={fieldErrors.cashReceivedAmount}
-                        helperText="Enter the amount received from the Recipient in VND."
-                        theme="donor"
-                      />
-                    )}
                   </>
                 ) : (
                   <p className="text-sm text-[#6B7280]">
@@ -656,8 +655,9 @@ export function ManualDonationForm() {
                         : '—'}
                     </dd>
                   </div>
-
-                  {form.paymentMethod === 'CASH' && (
+                  
+                  {/* if the listing is not free */}
+                  {isPriced && (
                     <div className="flex items-center justify-between gap-4" aria-live="polite">
                       <dt className="font-semibold text-[#414844]">Change</dt>
                       <dd className="text-base font-extrabold text-[#805300]">
@@ -668,12 +668,6 @@ export function ManualDonationForm() {
                     </div>
                   )}
                 </dl>
-
-                {form.paymentMethod === 'STRIPE' && (
-                  <p className="rounded-lg border border-[#D5B77D] bg-[#FFF6E3] p-3 text-xs leading-5 text-[#694400]">
-                    The Recipient will complete Stripe Checkout before this donation enters the delivery queue.
-                  </p>
-                )}
 
                 <FormErrorAlert message={submitError} />
 
