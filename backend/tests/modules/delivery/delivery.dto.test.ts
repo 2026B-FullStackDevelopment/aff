@@ -208,7 +208,13 @@ describe('toDeliveryResponseDto', () => {
 
     it('carries what a Courier needs to decide whether to claim', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
-        order: { quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation, amount: 50000 },
+        order: {
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation,
+          amount: 50000,
+          paymentMethod: 'CASH',
+        },
         listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
         pickupAddressText: '5 Hang Bac',
@@ -228,9 +234,25 @@ describe('toDeliveryResponseDto', () => {
           deliveryAddressText: '12 Le Loi',
           deliveryLocation,
           amount: 50000,
+          requiresCashCollection: true,
         },
         donor: { companyName: 'Fresh Foods' },
       });
+    });
+
+    it('is false for a card-paid queue row', () => {
+      const result = toQueueDeliveryResponseDto(delivery, {
+        order: {
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          amount: 50000,
+          paymentMethod: 'STRIPE',
+        },
+        listingName: 'Sourdough loaves',
+        companyName: 'Fresh Foods',
+      });
+
+      expect(result.order.requiresCashCollection).toBe(false);
     });
 
     it('nulls the pickup address when the caller could not resolve it', () => {
@@ -255,7 +277,13 @@ describe('toDeliveryResponseDto', () => {
         id: 'd1',
         createdAt,
         listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
-        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null, amount: null },
+        order: {
+          quantity: null,
+          deliveryAddressText: null,
+          deliveryLocation: null,
+          amount: null,
+          requiresCashCollection: false,
+        },
         donor: { companyName: null },
       });
     });

@@ -339,8 +339,16 @@ describe('delivery.service', () => {
           deliveryLocation,
           listingId: 'l1',
           amount: 50000,
+          paymentMethod: 'CASH',
         },
-        { _id: 'o2', quantity: 1, deliveryAddressText: '9 Tran Phu', listingId: 'l1', amount: 0 },
+        {
+          _id: 'o2',
+          quantity: 1,
+          deliveryAddressText: '9 Tran Phu',
+          listingId: 'l1',
+          amount: 0,
+          paymentMethod: 'STRIPE',
+        },
       ]);
       findDonorSummariesByListingIdsMock.mockResolvedValue([
         {
@@ -369,6 +377,7 @@ describe('delivery.service', () => {
           deliveryAddressText: '12 Le Loi',
           deliveryLocation,
           amount: 50000,
+          requiresCashCollection: true,
         },
         donor: { companyName: 'Fresh Foods' },
       });
@@ -392,7 +401,13 @@ describe('delivery.service', () => {
         id: 'd1',
         createdAt: first.createdAt,
         listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
-        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null, amount: null },
+        order: {
+          quantity: null,
+          deliveryAddressText: null,
+          deliveryLocation: null,
+          amount: null,
+          requiresCashCollection: false,
+        },
         donor: { companyName: null },
       });
     });

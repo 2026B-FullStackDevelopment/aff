@@ -495,7 +495,8 @@ Response `200`: paginated **`QueueDeliveryDTO[]`** where `stage=AWAITING_COURIER
     "quantity": "number | null",
     "deliveryAddressText": "string | null",
     "deliveryLocation": "GeoLocation | null",
-    "amount": "number | null"
+    "amount": "number | null",
+    "requiresCashCollection": "boolean"                    // same rule as DeliveryDTO — known before claiming, not just after
   },
   "donor": { "companyName": "string | null" }
 }

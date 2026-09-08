@@ -444,9 +444,19 @@
                 "nullable": true,
                 "description": "Coordinates of the delivery destination."
               },
-              "amount": { "type": "number", "nullable": true }
+              "amount": { "type": "number", "nullable": true },
+              "requiresCashCollection": {
+                "type": "boolean",
+                "description": "Same rule as Delivery.requiresCashCollection — known before claiming, not just after."
+              }
             },
-            "required": ["quantity", "deliveryAddressText", "deliveryLocation", "amount"],
+            "required": [
+              "quantity",
+              "deliveryAddressText",
+              "deliveryLocation",
+              "amount",
+              "requiresCashCollection"
+            ],
             "description": "Null throughout only if the Order row could not be loaded."
           },
           "donor": {

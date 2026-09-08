@@ -178,6 +178,7 @@ async function listQueue(query: DeliveryQueueQuery): Promise<QueueDeliveryPage> 
               deliveryAddressText: order.deliveryAddressText,
               deliveryLocation: order.deliveryLocation,
               amount: order.amount,
+              paymentMethod: order.paymentMethod,
             }
           : null,
         listingName: donorSummary?.listingName ?? null,

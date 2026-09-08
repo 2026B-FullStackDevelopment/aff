@@ -62,6 +62,9 @@ interface QueueDeliveryResponseDto {
     deliveryAddressText: string | null;
     deliveryLocation: GeoLocation | null;
     amount: number | null;
+    // See `requiresCashCollection` — the same single rule as the active
+    // Delivery response, so a Courier knows before claiming, not just after.
+    requiresCashCollection: boolean;
   };
   donor: { companyName: string | null };
 }
@@ -73,6 +76,7 @@ interface QueueDeliveryRelations {
     deliveryAddressText?: string;
     deliveryLocation?: GeoLocation;
     amount: number;
+    paymentMethod?: 'STRIPE' | 'CASH';
   } | null;
   // The listing's name, and the Donor's company name. `null` when the Listing
   // or Donor profile could not be loaded — the row is still listed.
@@ -151,6 +155,7 @@ function toQueueDeliveryResponseDto(
       deliveryAddressText: relations.order?.deliveryAddressText ?? null,
       deliveryLocation: relations.order?.deliveryLocation ?? null,
       amount: relations.order?.amount ?? null,
+      requiresCashCollection: requiresCashCollection(relations.order),
     },
     donor: { companyName: relations.companyName },
   };
