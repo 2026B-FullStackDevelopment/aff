@@ -53,7 +53,6 @@ export function ManualDonationForm() {
     loadError,
     submitError,
     createdOrder,
-    submittedListing,
     isLoading,
     isSubmitting,
     isRecipientSearching,
@@ -475,7 +474,7 @@ export function ManualDonationForm() {
                   </div>
 
                   {selectedListing && (
-                    <dl className="grid grid-cols-1 gap-3 rounded-xl border border-[#E4E2E1] bg-[#FBF9F8] p-4 text-sm sm:grid-cols-3">
+                    <dl className="grid grid-cols-1 gap-4 rounded-xl border border-[#E4E2E1] bg-[#FBF9F8] p-4 text-sm sm:grid-cols-3">
                       <div>
                         <dt className="font-semibold text-[#6B7280]">
                           Remaining
@@ -495,7 +494,7 @@ export function ManualDonationForm() {
                       <div
                         className={
                           isOverRationLimit
-                            ? 'rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 -mx-3 -my-2'
+                            ? 'rounded-lg border border-amber-300 bg-amber-50 px-3 py-2'
                             : undefined
                         }
                       >

@@ -6,7 +6,7 @@ import {
 import type {
     LocationData,
 } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
-import type { OrderDTO, PaymentMethod } from '@/types/api';
+import type { OrderDTO } from '@/types/api'; // remove paymentMethod import, only cash
 import { listingService } from '../services/listing.service';
 import { recipientService } from '../services/recipient.service';
 import { getResponseMessage } from '@/shared/utils/apiError';
@@ -21,7 +21,6 @@ export interface ManualDonationFieldErrors {
     listingId?: string;
     quantity?: string;
     deliveryAddressText?: string;
-    paymentMethod?: string;
     cashReceivedAmount?: string;
 }
 
@@ -29,7 +28,6 @@ interface ManualDonationFormState {
     recipientQuery: string;
     listingId: string;
     quantity: string;
-    paymentMethod: PaymentMethod | null;
     cashReceivedAmount: string;
     deliveryAddressText: string;
     deliveryLocation: {
@@ -47,12 +45,17 @@ const INITIAL_FORM: ManualDonationFormState = {
     recipientQuery: '',
     listingId: '',
     quantity: '1',
-    paymentMethod: null,
     cashReceivedAmount: '',
     deliveryAddressText: '',
     deliveryLocation: null,
 };
 
+// format money to VND
+const VND_FORMATTER = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+});
 
 function parseQuantity(
     value: string,
@@ -149,27 +152,23 @@ function validateForm(
             'Select an address suggestion so AFF can save its location.';
     }
 
-    if (selectedListing && selectedListing.price > 0) {
-        if (!form.paymentMethod) {
-            errors.paymentMethod =
-                'Select Cash or Credit Card.';
-        } else if (form.paymentMethod === 'CASH') {
-            const cashReceivedAmount =
-                parseCashReceivedAmount(
-                    form.cashReceivedAmount,
-                );
+    // cash received logic
+    if (
+        selectedListing
+        && selectedListing.price > 0
+        && quantity !== null
+    ) {
+        const cashReceivedAmount =
+            parseCashReceivedAmount(form.cashReceivedAmount);
+        const orderTotal =
+            selectedListing.price * quantity;
 
-            if (cashReceivedAmount === null) {
-                errors.cashReceivedAmount =
-                    'Enter the whole VND amount received.';
-            } else if (
-                quantity !== null
-                && cashReceivedAmount
-                    < selectedListing.price * quantity
-            ) {
-                errors.cashReceivedAmount =
-                    'Money received must cover the order total.';
-            }
+        if (cashReceivedAmount === null) {
+            errors.cashReceivedAmount =
+                'Enter the whole VND amount received.';
+        } else if (cashReceivedAmount < orderTotal) {
+            errors.cashReceivedAmount =
+                'Money received must cover the order total.';
         }
     }
 
@@ -420,7 +419,7 @@ export function useManualDonation() {
     const parsedCashReceivedAmount =
         parseCashReceivedAmount(form.cashReceivedAmount);
     const cashChange =
-        form.paymentMethod === 'CASH'
+        isPriced
         && parsedCashReceivedAmount !== null
         && parsedCashReceivedAmount >= orderTotal
             ? parsedCashReceivedAmount - orderTotal
@@ -468,8 +467,10 @@ export function useManualDonation() {
         setRecipientSearchError(null);
         setHasRecipientSearchRun(false);
 
+        // setForm React local state update function
         setForm((current) => ({
             ...current,
+            // find the recipient.email with input
             recipientQuery: recipient.email,
         }));
 
@@ -492,19 +493,16 @@ export function useManualDonation() {
         clearSubmissionOutcome();
     }
 
-    function setListingId(
-        nextListingId: string,
-    ) {
+    // runs when Donor selects another listing
+    function setListingId(nextListingId: string) {
         setForm((current) => ({
             ...current,
             listingId: nextListingId,
-            paymentMethod: null,
             cashReceivedAmount: '',
         }));
 
         clearFieldError('listingId');
         clearFieldError('quantity');
-        clearFieldError('paymentMethod');
         clearFieldError('cashReceivedAmount');
         clearSubmissionOutcome();
     }
@@ -518,23 +516,6 @@ export function useManualDonation() {
         }));
 
         clearFieldError('quantity');
-        clearFieldError('cashReceivedAmount');
-        clearSubmissionOutcome();
-    }
-
-    function setPaymentMethod(
-        paymentMethod: PaymentMethod,
-    ) {
-        setForm((current) => ({
-            ...current,
-            paymentMethod,
-            cashReceivedAmount:
-                paymentMethod === 'CASH'
-                    ? current.cashReceivedAmount
-                    : '',
-        }));
-
-        clearFieldError('paymentMethod');
         clearFieldError('cashReceivedAmount');
         clearSubmissionOutcome();
     }
@@ -673,10 +654,7 @@ export function useManualDonation() {
                     form.deliveryAddressText.trim(),
                 deliveryLocation:
                     form.deliveryLocation,
-                ...(isPriced && form.paymentMethod
-                    ? { paymentMethod: form.paymentMethod }
-                    : {}),
-                ...(form.paymentMethod === 'CASH'
+                ...(isPriced
                     ? {
                         cashReceivedAmount:
                             parseCashReceivedAmount(
@@ -795,13 +773,12 @@ export function useManualDonation() {
                 toast.success('Donation recorded', {
                     description: `${selectedListing.name} is recorded and ready for delivery processing.`,
                 });
-            } else if (form.paymentMethod === 'CASH') {
-                toast.success('Cash donation recorded', {
-                    description: `${selectedListing.name} is recorded with ${cashChange === null ? 'no' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(cashChange)} change.`,
-                });
             } else {
-                toast.warning('Recipient payment required', {
-                    description: `${selectedListing.name} is recorded. The Recipient must now complete Stripe Checkout.`,
+                // temporary success notification
+                toast.success('Cash donation recorded', {
+                    description: `${selectedListing.name} is recorded with ${
+                        VND_FORMATTER.format(cashChange ?? 0)
+                    } change.`,
                 });
             }
 
@@ -902,7 +879,6 @@ export function useManualDonation() {
         clearRecipientSelection,
         setListingId,
         setQuantity,
-        setPaymentMethod,
         setCashReceivedAmount,
         setDeliveryAddressInput,
         selectDeliveryAddress,
