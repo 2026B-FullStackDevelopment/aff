@@ -299,6 +299,7 @@ export interface QueueDeliveryDTO {
     deliveryAddressText: string | null;
     deliveryLocation: GeoLocation | null;
     amount: number | null;
+    requiresCashCollection: boolean;
   };
   donor: { companyName: string | null };
 }
