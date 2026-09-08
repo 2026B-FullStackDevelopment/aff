@@ -280,15 +280,24 @@ export interface DeliveryDTO {
   createdAt: string;
 }
 
-/** A queue row: the Delivery plus the minimum a Courier needs to decide (E2). */
-export interface QueueDeliveryDTO extends DeliveryDTO {
+/**
+ * A queue row (E2): a deliberately lean shape, NOT a `DeliveryDTO`. An
+ * unclaimed row has no courier, no timestamps and a constant stage, so those
+ * are not sent. Each block nulls as a unit when its join could not be loaded.
+ */
+export interface QueueDeliveryDTO {
+  id: string;
+  createdAt: string;
+  listing: {
+    name: string | null;
+    pickupAddressText: string | null;
+    pickupAddressLocation: GeoLocation | null;
+  };
   order: {
-    id: string;
     quantity: number | null;
     deliveryAddressText: string | null;
+    deliveryLocation: GeoLocation | null;
   };
-  // Name is null only if the Listing or Donor profile could not be loaded.
-  listing: { name: string | null };
   donor: { companyName: string | null };
 }
 

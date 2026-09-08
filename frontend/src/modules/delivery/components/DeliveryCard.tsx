@@ -30,7 +30,7 @@ export function DeliveryCard({
         <DeliveryDetailRow label="Quantity" value={delivery.order.quantity ?? '—'} />
         <DeliveryDetailRow
           label="Collect from"
-          value={delivery.pickupAddressText ?? '—'}
+          value={delivery.listing.pickupAddressText ?? '—'}
         />
         <DeliveryDetailRow
           label="Deliver to"

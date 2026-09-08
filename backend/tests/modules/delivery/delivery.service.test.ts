@@ -323,7 +323,8 @@ describe('delivery.service', () => {
 
     const pickupLocation = { latitude: 21.03, longitude: 105.85, updatedAt: new Date() };
 
-    it('hydrates each row with its Order, listing name, Donor company name and pickup address', async () => {
+    it('hydrates each row with its listing, both ends of the trip, and the Donor company name', async () => {
+      const deliveryLocation = { latitude: 10.8, longitude: 106.6, updatedAt: new Date() };
       findQueueMock.mockResolvedValue({
         items: [first, second],
         page: 1,
@@ -331,7 +332,7 @@ describe('delivery.service', () => {
         total: 2,
       });
       findOrdersByIdsMock.mockResolvedValue([
-        { _id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi', listingId: 'l1' },
+        { _id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation, listingId: 'l1' },
         { _id: 'o2', quantity: 1, deliveryAddressText: '9 Tran Phu', listingId: 'l1' },
       ]);
       findDonorSummariesByListingIdsMock.mockResolvedValue([
@@ -348,53 +349,25 @@ describe('delivery.service', () => {
 
       expect(findOrdersByIdsMock).toHaveBeenCalledWith(['o1', 'o2']);
       expect(findDonorSummariesByListingIdsMock).toHaveBeenCalledWith(['l1']);
-      expect(result.items[0]).toMatchObject({
+      expect(result.items[0]).toEqual({
         id: 'd1',
-        order: { id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi' },
-        listing: { name: 'Sourdough loaves' },
+        createdAt: first.createdAt,
+        listing: {
+          name: 'Sourdough loaves',
+          pickupAddressText: '5 Hang Bac',
+          pickupAddressLocation: pickupLocation,
+        },
+        order: {
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation,
+        },
         donor: { companyName: 'Fresh Foods' },
-        pickupAddressText: '5 Hang Bac',
-        pickupAddressLocation: pickupLocation,
       });
       expect(result.total).toBe(2);
     });
 
-    it('carries the real cash flag and delivery location through to a queue row', async () => {
-      findQueueMock.mockResolvedValue({
-        items: [first],
-        page: 1,
-        limit: 20,
-        total: 1,
-      });
-      findOrdersByIdsMock.mockResolvedValue([
-        {
-          _id: 'o1',
-          quantity: 3,
-          deliveryAddressText: '12 Le Loi',
-          deliveryLocation: { latitude: 10.8, longitude: 106.6, updatedAt: new Date() },
-          paymentMethod: 'CASH',
-          listingId: 'l1',
-        },
-      ]);
-      findDonorSummariesByListingIdsMock.mockResolvedValue([
-        {
-          listingId: 'l1',
-          listingName: 'Sourdough loaves',
-          companyName: 'Fresh Foods',
-          addressText: '5 Hang Bac',
-          location: pickupLocation,
-        },
-      ]);
-
-      const result = await listQueue({ page: 1, limit: 20 });
-
-      expect(result.items[0]).toMatchObject({
-        requiresCashCollection: true,
-        deliveryLocation: { latitude: 10.8, longitude: 106.6 },
-      });
-    });
-
-    it('still lists a row whose Order could not be loaded, with no pickup pin', async () => {
+    it('still lists a row whose Order could not be loaded, every block nulled', async () => {
       findQueueMock.mockResolvedValue({
         items: [first],
         page: 1,
@@ -407,16 +380,16 @@ describe('delivery.service', () => {
       const result = await listQueue({ page: 1, limit: 20 });
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toMatchObject({
-        order: { id: 'o1', quantity: null },
-        listing: { name: null },
+      expect(result.items[0]).toEqual({
+        id: 'd1',
+        createdAt: first.createdAt,
+        listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
+        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null },
         donor: { companyName: null },
       });
-      expect(result.items[0].pickupAddressText).toBeUndefined();
-      expect(result.items[0].pickupAddressLocation).toBeUndefined();
     });
 
-    it('degrades the pickup pin when the Donor summary is missing but the Order loaded', async () => {
+    it('nulls the listing block when the Donor summary is missing but the Order loaded', async () => {
       findQueueMock.mockResolvedValue({
         items: [first],
         page: 1,
@@ -431,12 +404,10 @@ describe('delivery.service', () => {
       const result = await listQueue({ page: 1, limit: 20 });
 
       expect(result.items[0]).toMatchObject({
-        order: { id: 'o1', quantity: 3 },
-        listing: { name: null },
+        order: { quantity: 3, deliveryAddressText: '12 Le Loi' },
+        listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
         donor: { companyName: null },
       });
-      expect(result.items[0].pickupAddressText).toBeUndefined();
-      expect(result.items[0].pickupAddressLocation).toBeUndefined();
     });
 
     it('skips both hydration queries when the queue is empty', async () => {

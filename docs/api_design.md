@@ -478,7 +478,28 @@ Response: `200` (always, once the event is durably processed or recognized as a 
 **Auth:** `COURIER`
 
 Query params: pagination (default sort is fixed — oldest-first, not client-selectable).
-Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note — each entry including `order: { id, quantity, deliveryAddressText }`, `listing: { name }`, and `donor: { companyName }`. `listing.name`, `companyName`, and `pickupAddressText`/`pickupAddressLocation` all come from one bulk Listing→Donor join, so no extra query per row — a Courier can see what the load is and weigh the collection point against the drop-off before claiming. `listing.name` and `companyName` are `null`, and the pickup fields absent, only when that join fails for a row. The Donor's address is already public via `GET /listings/:id` (§6) for every listing, so surfacing it pre-claim exposes nothing new; see E5.
+
+Response `200`: paginated **`QueueDeliveryDTO[]`** where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note. This is a deliberately lean shape, **not** a `DeliveryDTO`: an unclaimed row has no courier, no pickup/deliver timestamps and a constant stage, so none of that is sent.
+
+```jsonc
+{
+  "id": "string",                       // DELIVERY id — the value passed to /claim
+  "createdAt": "datetime",              // became claimable; the sort key
+  "listing": {
+    "name": "string | null",
+    "pickupAddressText": "string | null",
+    "pickupAddressLocation": "GeoLocation | null"
+  },
+  "order": {
+    "quantity": "number | null",
+    "deliveryAddressText": "string | null",
+    "deliveryLocation": "GeoLocation | null"
+  },
+  "donor": { "companyName": "string | null" }
+}
+```
+
+`listing.*`, `order.*`, and `donor.*` each come from one bulk join (Listing→Donor, and the Orders) — no per-row query — and each block degrades to `null` as a unit when its join fails for a row, rather than the row being dropped. A Courier can see what the load is and weigh both ends of the trip before claiming. The Donor's address is already public via `GET /listings/:id` (§6) for every listing, so surfacing it pre-claim exposes nothing new; see E5.
 
 ### `GET /deliveries/active` — *(new)*
 **Auth:** `COURIER`

@@ -38,27 +38,44 @@ interface ToDeliveryResponseDtoOptions {
   order: DeliveryOrderSource | null;
 }
 
-/** A queue row: the Delivery plus the minimum a Courier needs to decide (E2). */
-interface QueueDeliveryResponseDto extends DeliveryResponseDto {
+/**
+ * A queue row (E2): a deliberately lean shape, NOT a `DeliveryResponseDto`.
+ *
+ * An `AWAITING_COURIER` row has no courier, no pickup/deliver timestamps and a
+ * constant `stage`, so none of that is sent. What remains is what a Courier
+ * weighs before claiming: the listing and both ends of the trip (text +
+ * coordinates), grouped by where each field comes from so a failed join nulls
+ * that whole block rather than scattering nulls across the row.
+ */
+interface QueueDeliveryResponseDto {
+  id: string;
+  createdAt: Date;
+  listing: {
+    name: string | null;
+    pickupAddressText: string | null;
+    pickupAddressLocation: GeoLocation | null;
+  };
   order: {
-    id: string;
     quantity: number | null;
     deliveryAddressText: string | null;
+    deliveryLocation: GeoLocation | null;
   };
-  listing: { name: string | null };
   donor: { companyName: string | null };
 }
 
 /** The Order, Listing and Donor fields a queue row shows, joined by the caller. */
 interface QueueDeliveryRelations {
-  order: (DeliveryOrderSource & { quantity: number }) | null;
+  order: {
+    quantity: number;
+    deliveryAddressText?: string;
+    deliveryLocation?: GeoLocation;
+  } | null;
   // The listing's name, and the Donor's company name. `null` when the Listing
   // or Donor profile could not be loaded — the row is still listed.
   listingName: string | null;
   companyName: string | null;
-  // Denormalised from the Order's Donor, same as the post-claim DeliveryDTO.
-  // `undefined` when the Listing or Donor profile could not be loaded — the row
-  // is still listed, just without a pickup pin.
+  // Denormalised from the listing's Donor (E5). `undefined` when the Listing or
+  // Donor profile could not be loaded — the row is still listed, without a pin.
   pickupAddressText?: string;
   pickupAddressLocation?: GeoLocation;
 }
@@ -100,34 +117,35 @@ function toDeliveryResponseDto(
 }
 
 /**
- * Maps a Delivery plus its joined Order and Donor to a queue row.
+ * Maps a Delivery plus its joined Order, Listing and Donor to a queue row.
  *
- * `pickupAddressText`/`pickupAddressLocation` carry the Donor's collection
- * address so a Courier can judge the trip before claiming (E2/E5). The caller's
- * Donor-summary join already resolves them in bulk, so this costs no extra
- * query per row. They fall back to undefined when the Listing or Donor profile
- * could not be loaded.
+ * Built field by field rather than derived from `toDeliveryResponseDto`: a
+ * queue row is a lean shape, not a `DeliveryResponseDto`. Pickup and delivery
+ * text/coordinates all come from joins the caller already does in bulk (the
+ * Listing→Donor summary, the Order), so this costs no extra query per row.
  *
- * A row whose Order or Donor could not be loaded is degraded to nulls rather
- * than dropped, so `items.length` stays consistent with `total` and a
- * claimable Delivery is never silently hidden from the queue.
+ * Each `listing`/`order`/`donor` block degrades to nulls as a unit when its
+ * join could not be loaded, rather than the row being dropped — so
+ * `items.length` stays consistent with `total` and a claimable Delivery is
+ * never silently hidden from the queue.
  */
 function toQueueDeliveryResponseDto(
   delivery: DeliveryDocument,
   relations: QueueDeliveryRelations,
 ): QueueDeliveryResponseDto {
   return {
-    ...toDeliveryResponseDto(delivery, {
-      pickupAddressText: relations.pickupAddressText,
-      pickupAddressLocation: relations.pickupAddressLocation,
-      order: relations.order,
-    })!,
+    id: String(delivery._id),
+    createdAt: delivery.createdAt,
+    listing: {
+      name: relations.listingName,
+      pickupAddressText: relations.pickupAddressText ?? null,
+      pickupAddressLocation: relations.pickupAddressLocation ?? null,
+    },
     order: {
-      id: String(delivery.orderId),
       quantity: relations.order?.quantity ?? null,
       deliveryAddressText: relations.order?.deliveryAddressText ?? null,
+      deliveryLocation: relations.order?.deliveryLocation ?? null,
     },
-    listing: { name: relations.listingName },
     donor: { companyName: relations.companyName },
   };
 }

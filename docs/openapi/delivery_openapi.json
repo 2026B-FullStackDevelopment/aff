@@ -395,55 +395,63 @@
         "required": ["id", "orderId", "courierId", "stage", "createdAt"]
       },
       "QueueDelivery": {
-        "description": "A queue row is a full Delivery plus its joined order/listing/donor summary. listing.name, donor.companyName, and pickupAddressText/pickupAddressLocation (from Delivery) all come from one bulk Listing→Donor join, populated pre-claim so a Courier can see the load and weigh the collection point before claiming; the name/companyName go null and the pickup fields absent only on a failed join.",
-        "allOf": [
-          { "$ref": "#/components/schemas/Delivery" },
-          {
+        "type": "object",
+        "description": "A deliberately lean queue row (E2) — NOT a Delivery. An unclaimed row has no courier, no pickup/deliver timestamps and a constant stage, so none of that is sent. listing.*, order.* and donor.* each come from one bulk join (Listing→Donor, the Orders); each block degrades to null as a unit on a failed join rather than the row being dropped.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The DELIVERY id — the value passed to PATCH /deliveries/{id}/claim."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the Delivery became claimable. The queue's sort key (ascending)."
+          },
+          "listing": {
             "type": "object",
             "properties": {
-              "order": {
-                "type": "object",
-                "properties": {
-                  "id": { "type": "string" },
-                  "quantity": {
-                    "type": "number",
-                    "nullable": true,
-                    "description": "Null only if the Order row could not be loaded — the queue row is degraded rather than dropped."
-                  },
-                  "deliveryAddressText": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "Where the food is going. Null only if the Order row could not be loaded."
-                  }
-                },
-                "required": ["id", "quantity", "deliveryAddressText"]
+              "name": { "type": "string", "nullable": true },
+              "pickupAddressText": {
+                "type": "string",
+                "nullable": true,
+                "description": "The Donor's registered address, denormalised at read time."
               },
-              "listing": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "The food listing's name. Null only if the Listing or Donor profile could not be loaded."
-                  }
-                },
-                "required": ["name"]
-              },
-              "donor": {
-                "type": "object",
-                "properties": {
-                  "companyName": {
-                    "type": "string",
-                    "nullable": true,
-                    "description": "Null only if the Listing or Donor profile could not be loaded."
-                  }
-                },
-                "required": ["companyName"]
+              "pickupAddressLocation": {
+                "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+                "nullable": true,
+                "description": "A fixed pin on the Donor's registered location — static, not live-updating."
               }
             },
-            "required": ["order", "listing", "donor"]
+            "required": ["name", "pickupAddressText", "pickupAddressLocation"],
+            "description": "Null throughout only if the Listing or Donor profile could not be loaded."
+          },
+          "order": {
+            "type": "object",
+            "properties": {
+              "quantity": { "type": "number", "nullable": true },
+              "deliveryAddressText": {
+                "type": "string",
+                "nullable": true,
+                "description": "Where the food is going — the Recipient's address."
+              },
+              "deliveryLocation": {
+                "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+                "nullable": true,
+                "description": "Coordinates of the delivery destination."
+              }
+            },
+            "required": ["quantity", "deliveryAddressText", "deliveryLocation"],
+            "description": "Null throughout only if the Order row could not be loaded."
+          },
+          "donor": {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string", "nullable": true }
+            },
+            "required": ["companyName"]
           }
-        ]
+        },
+        "required": ["id", "createdAt", "listing", "order", "donor"]
       }
     },
     "responses": {

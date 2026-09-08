@@ -167,48 +167,60 @@ describe('toDeliveryResponseDto', () => {
   });
 
   describe('toQueueDeliveryResponseDto', () => {
+    const createdAt = new Date('2026-08-02T09:00:00.000Z');
     const delivery = {
       _id: 'd1',
       orderId: 'o1',
       stage: 'AWAITING_COURIER',
-      createdAt: new Date('2026-08-02T09:00:00.000Z'),
+      createdAt,
     };
 
     const pickupAddressLocation = {
       latitude: 21.03,
       longitude: 105.85,
-      updatedAt: new Date('2026-08-02T09:00:00.000Z'),
+      updatedAt: createdAt,
+    };
+    const deliveryLocation = {
+      latitude: 10.8,
+      longitude: 106.6,
+      updatedAt: createdAt,
     };
 
     it('carries what a Courier needs to decide whether to claim', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
-        order: { quantity: 3, deliveryAddressText: '12 Le Loi' },
+        order: { quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation },
         listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
         pickupAddressText: '5 Hang Bac',
         pickupAddressLocation,
       });
 
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         id: 'd1',
-        stage: 'AWAITING_COURIER',
-        order: { id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi' },
-        listing: { name: 'Sourdough loaves' },
+        createdAt,
+        listing: {
+          name: 'Sourdough loaves',
+          pickupAddressText: '5 Hang Bac',
+          pickupAddressLocation,
+        },
+        order: {
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation,
+        },
         donor: { companyName: 'Fresh Foods' },
-        pickupAddressText: '5 Hang Bac',
-        pickupAddressLocation,
       });
     });
 
-    it('leaves the pickup address undefined when the caller could not resolve it', () => {
+    it('nulls the pickup address when the caller could not resolve it', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
         order: { quantity: 3, deliveryAddressText: '12 Le Loi' },
         listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
       });
 
-      expect(result.pickupAddressText).toBeUndefined();
-      expect(result.pickupAddressLocation).toBeUndefined();
+      expect(result.listing.pickupAddressText).toBeNull();
+      expect(result.listing.pickupAddressLocation).toBeNull();
     });
 
     it('degrades a row whose Order, Listing or Donor could not be loaded rather than dropping it', () => {
@@ -218,10 +230,11 @@ describe('toDeliveryResponseDto', () => {
         companyName: null,
       });
 
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         id: 'd1',
-        order: { id: 'o1', quantity: null, deliveryAddressText: null },
-        listing: { name: null },
+        createdAt,
+        listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
+        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null },
         donor: { companyName: null },
       });
     });
