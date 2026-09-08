@@ -211,7 +211,7 @@ export interface OrderDTO {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  delivery: { stage: DeliveryStage } | null;
+  delivery: { stage: DeliveryStage; id: string | null } | null;
   deliveryAddressText: string;
   deliveryLocation: GeoLocation;
   cancelledByUserId: string | null;
