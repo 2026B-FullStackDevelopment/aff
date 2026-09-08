@@ -89,15 +89,22 @@ export function useDeliveryTracking(
     if (initialStage !== 'PICKED_UP' && initialStage !== 'DELIVERED') return;
 
     async function hydrate() {
-      const response = await reservationService.getDeliveryById(initialDeliveryId as string);
-      if (!isMountedRef.current) return;
-      if (!response.data) return;
+      try {
+        const response = await reservationService.getDeliveryById(initialDeliveryId as string);
+        if (!isMountedRef.current) return;
+        if (!response.ok || !response.data) return;
 
-      if (response.data.courierLastLocation) {
-        setCourierPosition(response.data.courierLastLocation);
-      }
-      if (response.data.deliveredAt) {
-        setDeliveredAt(response.data.deliveredAt);
+        if (response.data.courierLastLocation) {
+          setCourierPosition(response.data.courierLastLocation);
+        }
+        if (response.data.deliveredAt) {
+          setDeliveredAt(response.data.deliveredAt);
+        }
+      } catch (error) {
+        // I4 — `httpClient`'s underlying `fetch` rejects on network failure
+        // (not just non-2xx). Degrade silently: a live `delivery:location`/
+        // `delivery:delivered` event can still arrive later over the socket.
+        console.warn('Failed to hydrate delivery tracking state', error);
       }
     }
 
