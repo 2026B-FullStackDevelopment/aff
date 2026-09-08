@@ -57,6 +57,7 @@ interface OrderJoinSummary {
   deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
   paymentMethod?: 'STRIPE' | 'CASH';
   listingId: Types.ObjectId;
+  amount: number;
 }
 
 interface RecipientOrderListingSummary {
@@ -258,7 +259,8 @@ async function hasNonCancelledOrderForListing(
 /**
  * Loads a set of Orders by id, projecting only what a caller joining against
  * Orders needs: the Admin Delivery table (E11) uses `recipientId`, and the
- * Courier queue (E2) uses `quantity`, `deliveryAddressText` and `listingId`.
+ * Courier queue (E2) uses `quantity`, `deliveryAddressText`, `listingId` and
+ * `amount`.
  */
 async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> {
   if (orderIds.length === 0) return [];
@@ -273,6 +275,7 @@ async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> 
       deliveryLocation: 1,
       paymentMethod: 1,
       listingId: 1,
+      amount: 1,
     },
   ).lean<OrderJoinSummary[]>();
 }

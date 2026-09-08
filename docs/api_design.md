@@ -209,6 +209,7 @@ Referenced by multiple endpoints below; defined once here.
 | deliveryAddressText | string \| null (where the order is being delivered to — the Recipient's address, from `ORDER.deliveryAddressText`) |
 | deliveryLocation | GeoLocation \| null (delivery destination coordinates, from `ORDER.deliveryLocation`; the Courier's map re-centres here after pickup) |
 | requiresCashCollection | boolean — derived server-side from `ORDER.paymentMethod === 'CASH'`; `paymentMethod` itself is never exposed on this DTO. A Courier needs to know whether to collect money, not how the Recipient paid. |
+| amount | number \| null — `ORDER.amount`; `null` only when the Order behind this Delivery could not be loaded |
 
 **SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, cancelAtPeriodEnd: boolean, createdAt: datetime }`
 (`cancelAtPeriodEnd` is `true` after `DELETE /subscriptions/me` — the subscription stays `ACTIVE` and the tier stays `PREMIUM` until `currentPeriodEnd`, then the `customer.subscription.deleted` webhook flips `status` to `CANCELLED`.)
@@ -493,7 +494,8 @@ Response `200`: paginated **`QueueDeliveryDTO[]`** where `stage=AWAITING_COURIER
   "order": {
     "quantity": "number | null",
     "deliveryAddressText": "string | null",
-    "deliveryLocation": "GeoLocation | null"
+    "deliveryLocation": "GeoLocation | null",
+    "amount": "number | null"
   },
   "donor": { "companyName": "string | null" }
 }

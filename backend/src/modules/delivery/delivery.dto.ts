@@ -17,6 +17,7 @@ interface DeliveryResponseDto {
   // A derived boolean, deliberately not the raw paymentMethod: a Courier needs
   // to know whether to collect money, not how the Recipient paid (spec D5).
   requiresCashCollection: boolean;
+  amount: number | null;
 }
 
 /** The Order fields every Delivery response derives from, joined by the caller. */
@@ -24,6 +25,7 @@ interface DeliveryOrderSource {
   deliveryAddressText?: string;
   deliveryLocation?: GeoLocation;
   paymentMethod?: 'STRIPE' | 'CASH';
+  amount?: number;
 }
 
 interface ToDeliveryResponseDtoOptions {
@@ -59,6 +61,7 @@ interface QueueDeliveryResponseDto {
     quantity: number | null;
     deliveryAddressText: string | null;
     deliveryLocation: GeoLocation | null;
+    amount: number | null;
   };
   donor: { companyName: string | null };
 }
@@ -69,6 +72,7 @@ interface QueueDeliveryRelations {
     quantity: number;
     deliveryAddressText?: string;
     deliveryLocation?: GeoLocation;
+    amount: number;
   } | null;
   // The listing's name, and the Donor's company name. `null` when the Listing
   // or Donor profile could not be loaded — the row is still listed.
@@ -113,6 +117,7 @@ function toDeliveryResponseDto(
     deliveryAddressText: options.order?.deliveryAddressText ?? null,
     deliveryLocation: options.order?.deliveryLocation ?? null,
     requiresCashCollection: requiresCashCollection(options.order),
+    amount: options.order?.amount ?? null,
   };
 }
 
@@ -145,6 +150,7 @@ function toQueueDeliveryResponseDto(
       quantity: relations.order?.quantity ?? null,
       deliveryAddressText: relations.order?.deliveryAddressText ?? null,
       deliveryLocation: relations.order?.deliveryLocation ?? null,
+      amount: relations.order?.amount ?? null,
     },
     donor: { companyName: relations.companyName },
   };

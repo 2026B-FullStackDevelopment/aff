@@ -332,8 +332,15 @@ describe('delivery.service', () => {
         total: 2,
       });
       findOrdersByIdsMock.mockResolvedValue([
-        { _id: 'o1', quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation, listingId: 'l1' },
-        { _id: 'o2', quantity: 1, deliveryAddressText: '9 Tran Phu', listingId: 'l1' },
+        {
+          _id: 'o1',
+          quantity: 3,
+          deliveryAddressText: '12 Le Loi',
+          deliveryLocation,
+          listingId: 'l1',
+          amount: 50000,
+        },
+        { _id: 'o2', quantity: 1, deliveryAddressText: '9 Tran Phu', listingId: 'l1', amount: 0 },
       ]);
       findDonorSummariesByListingIdsMock.mockResolvedValue([
         {
@@ -361,6 +368,7 @@ describe('delivery.service', () => {
           quantity: 3,
           deliveryAddressText: '12 Le Loi',
           deliveryLocation,
+          amount: 50000,
         },
         donor: { companyName: 'Fresh Foods' },
       });
@@ -384,7 +392,7 @@ describe('delivery.service', () => {
         id: 'd1',
         createdAt: first.createdAt,
         listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
-        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null },
+        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null, amount: null },
         donor: { companyName: null },
       });
     });

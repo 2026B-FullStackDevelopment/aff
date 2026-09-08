@@ -50,6 +50,7 @@ describe('toDeliveryResponseDto', () => {
       deliveryAddressText: null,
       deliveryLocation: null,
       requiresCashCollection: false,
+      amount: null,
     });
   });
 
@@ -86,6 +87,7 @@ describe('toDeliveryResponseDto', () => {
       deliveryAddressText: null,
       deliveryLocation: null,
       requiresCashCollection: false,
+      amount: null,
     });
   });
 
@@ -112,6 +114,23 @@ describe('toDeliveryResponseDto', () => {
       deliveryLocation: { latitude: 10.8, longitude: 106.6 },
       requiresCashCollection: true,
     });
+  });
+
+  it('carries the order amount so a Courier can see it', () => {
+    const result = toDeliveryResponseDto(
+      { _id: 'd1', orderId: 'o1', stage: 'ASSIGNED', createdAt: new Date() },
+      {
+        pickupAddressText: undefined,
+        pickupAddressLocation: undefined,
+        order: {
+          deliveryAddressText: '12 Le Loi',
+          paymentMethod: 'CASH',
+          amount: 50000,
+        },
+      },
+    );
+
+    expect(result).toMatchObject({ amount: 50000 });
   });
 
   it('never leaks the raw payment method to the client', () => {
@@ -145,6 +164,7 @@ describe('toDeliveryResponseDto', () => {
       deliveryAddressText: null,
       deliveryLocation: null,
       requiresCashCollection: false,
+      amount: null,
     });
   });
 
@@ -188,7 +208,7 @@ describe('toDeliveryResponseDto', () => {
 
     it('carries what a Courier needs to decide whether to claim', () => {
       const result = toQueueDeliveryResponseDto(delivery, {
-        order: { quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation },
+        order: { quantity: 3, deliveryAddressText: '12 Le Loi', deliveryLocation, amount: 50000 },
         listingName: 'Sourdough loaves',
         companyName: 'Fresh Foods',
         pickupAddressText: '5 Hang Bac',
@@ -207,6 +227,7 @@ describe('toDeliveryResponseDto', () => {
           quantity: 3,
           deliveryAddressText: '12 Le Loi',
           deliveryLocation,
+          amount: 50000,
         },
         donor: { companyName: 'Fresh Foods' },
       });
@@ -234,7 +255,7 @@ describe('toDeliveryResponseDto', () => {
         id: 'd1',
         createdAt,
         listing: { name: null, pickupAddressText: null, pickupAddressLocation: null },
-        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null },
+        order: { quantity: null, deliveryAddressText: null, deliveryLocation: null, amount: null },
         donor: { companyName: null },
       });
     });

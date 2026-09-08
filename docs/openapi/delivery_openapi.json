@@ -390,9 +390,14 @@
           "requiresCashCollection": {
             "type": "boolean",
             "description": "Whether the Courier must collect cash on delivery. Derived server-side from the Order's payment method, which is never itself exposed — a Courier needs to know whether to collect money, not how the Recipient paid."
+          },
+          "amount": {
+            "type": "number",
+            "nullable": true,
+            "description": "The Order's amount. Null only when the Order behind this Delivery could not be loaded."
           }
         },
-        "required": ["id", "orderId", "courierId", "stage", "createdAt"]
+        "required": ["id", "orderId", "courierId", "stage", "createdAt", "amount"]
       },
       "QueueDelivery": {
         "type": "object",
@@ -438,9 +443,10 @@
                 "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
                 "nullable": true,
                 "description": "Coordinates of the delivery destination."
-              }
+              },
+              "amount": { "type": "number", "nullable": true }
             },
-            "required": ["quantity", "deliveryAddressText", "deliveryLocation"],
+            "required": ["quantity", "deliveryAddressText", "deliveryLocation", "amount"],
             "description": "Null throughout only if the Order row could not be loaded."
           },
           "donor": {

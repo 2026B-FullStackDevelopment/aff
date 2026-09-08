@@ -115,6 +115,7 @@ describe('order.repository', () => {
           deliveryLocation: 1,
           paymentMethod: 1,
           listingId: 1,
+          amount: 1,
         },
       );
       expect(result).toEqual([{ _id: 'o1', recipientId: 'r1' }]);
