@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Truck } from 'lucide-react';
+import { buttonVariants } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
+import { cn } from '@/shared/utils';
 import { DeliveryCard } from '../components/DeliveryCard';
 import { useDeliveryQueue } from '../hooks/useDeliveryQueue';
 
@@ -17,9 +20,31 @@ export function DeliveryQueuePage() {
     }
   }, [queue.claimedId, navigate]);
 
-  // `replace` matters: without it, Back bounces between the two screens.
+  // Shown in place rather than a silent redirect, so a Courier who lands
+  // here mid-job sees why, instead of bouncing straight to /deliveries/active.
   if (queue.hasActiveDelivery) {
-    return <Navigate to="/deliveries/active" replace />;
+    return (
+      <div className="min-h-screen bg-courier-bg">
+        <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
+          <EmptyState
+            icon={Truck}
+            title="You have an active delivery"
+            description="Finish your current delivery before claiming another one from the queue."
+            action={
+              <Link
+                to="/deliveries/active"
+                className={cn(
+                  buttonVariants({ variant: 'default' }),
+                  'bg-courier-primary text-courier-on-primary hover:bg-courier-primary-hover transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98] focus-visible:ring-courier-primary/40',
+                )}
+              >
+                Go to Active Delivery
+              </Link>
+            }
+          />
+        </main>
+      </div>
+    );
   }
 
   return (
