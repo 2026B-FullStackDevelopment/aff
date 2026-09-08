@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Truck } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
+import { buttonVariants } from '@/shared/components/ui/button';
+import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { Panel } from '@/shared/components/Panel/Panel';
@@ -28,8 +31,26 @@ export function ActiveDeliveryPage() {
     );
   }
 
+  // No active delivery: show this in place rather than bouncing the Courier
+  // straight to the queue, so they see why they landed here (job completed,
+  // claimed elsewhere, or none yet) instead of a silent redirect.
   if (active.isGone || !active.delivery) {
-    return <Navigate to="/deliveries/queue" replace />;
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <main className="mx-auto max-w-3xl px-6 py-6">
+          <EmptyState
+            icon={Truck}
+            title="No active delivery"
+            description="You don't have a delivery in progress right now. Head to the queue to claim your next one."
+            action={
+              <Link to="/deliveries/queue" className={buttonVariants({ variant: 'default' })}>
+                Go to Queue
+              </Link>
+            }
+          />
+        </main>
+      </div>
+    );
   }
 
   const { delivery } = active;

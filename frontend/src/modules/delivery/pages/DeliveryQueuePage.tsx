@@ -32,7 +32,7 @@ export function DeliveryQueuePage() {
         ) : queue.items.length === 0 ? (
           <EmptyState
             title="No deliveries waiting"
-            description="No deliveries waiting."
+            description="New deliveries will show up here as soon as they're ready to be claimed. Check back shortly."
           />
         ) : (
           <>
