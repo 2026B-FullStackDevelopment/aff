@@ -9,7 +9,8 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 
 // Leaflet's default marker icon paths break under most bundlers unless
 // re-pointed explicitly — standard react-leaflet workaround.
@@ -23,11 +24,27 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+/**
+ * Pans the map to a new position when it changes, without remounting.
+ * `MapContainer`'s own `center` prop only applies once, at mount — this is
+ * the reactive counterpart, used only when `recenter` is requested.
+ */
+function RecenterOnChange({ latitude, longitude }: { latitude: number; longitude: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.panTo([latitude, longitude]);
+  }, [map, latitude, longitude]);
+
+  return null;
+}
+
 interface LocationMapProps {
   latitude: number;
   longitude: number;
   addressText: string;
   className?: string;
+  recenter?: boolean;
 }
 
 export function LocationMap({
@@ -35,6 +52,7 @@ export function LocationMap({
   longitude,
   addressText,
   className = 'h-48 w-full overflow-hidden rounded-lg',
+  recenter = false,
 }: LocationMapProps) {
   return (
     <div className={className}>
@@ -50,6 +68,7 @@ export function LocationMap({
         <Marker position={[latitude, longitude]} icon={defaultIcon}>
           <Popup>{addressText}</Popup>
         </Marker>
+        {recenter && <RecenterOnChange latitude={latitude} longitude={longitude} />}
       </MapContainer>
     </div>
   );
