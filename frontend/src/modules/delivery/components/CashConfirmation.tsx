@@ -8,11 +8,7 @@ interface CashConfirmationProps {
   onDeliver: (cashConfirmed?: boolean) => void;
 }
 
-// The SRS mandates this wording exactly. It is not cosmetic: the system models
-// no partial payments, change-giving or disputes, and the audit trail is only
-// the Courier's id and a timestamp — so this sentence is the whole substance of
-// what the Courier is confirming. Do not shorten it.
-const CASH_CONFIRMATION_LABEL = 'Cash received — exact amount, no change given';
+const CASH_CONFIRMATION_LABEL = 'Cash received';
 
 export function CashConfirmation({
   requiresCashCollection,

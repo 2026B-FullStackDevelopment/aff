@@ -93,6 +93,17 @@ export function DeliveryTrackingPanel({
               latitude={courierPosition.latitude}
               longitude={courierPosition.longitude}
               addressText="Your courier is on the way"
+              secondaryMarker={
+                order.deliveryLocation
+                  ? {
+                      latitude: order.deliveryLocation.latitude,
+                      longitude: order.deliveryLocation.longitude,
+                      addressText: order.deliveryAddressText,
+                    }
+                  : undefined
+              }
+              showPath={Boolean(order.deliveryLocation)}
+              tileVariant="muted"
               recenter
             />
             <LastUpdated updatedAt={courierPosition.updatedAt} />

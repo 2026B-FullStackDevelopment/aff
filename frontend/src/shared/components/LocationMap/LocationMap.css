@@ -1,0 +1,11 @@
+/*
+ * `muted` tileVariant: approximates the CARTO Positron basemap (clean, low
+ * contrast, near-monochrome) by desaturating the standard OpenStreetMap
+ * tiles in the browser. CARTO's hosted Positron tiles now require an API
+ * key, so this keeps the same visual intent with no external dependency.
+ * Scoped to `.location-map--muted` so the other LocationMap call sites keep
+ * full-colour tiles.
+ */
+.location-map--muted .leaflet-tile-pane {
+  filter: grayscale(1) brightness(1.05) contrast(0.9);
+}
