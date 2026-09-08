@@ -98,6 +98,15 @@ let activeSocket: OrderSocket | null =
 let activeToken: string | null =
     null;
 
+// I2 — Socket.IO room membership does not survive a reconnect (a reconnect
+// gets a new socket id server-side), so a transient network drop silently
+// and permanently ends `delivery:location`/`delivery:delivered` delivery
+// for the rest of the page view unless we rejoin on every reconnect. Only
+// one order room is ever needed at a time (a Recipient views one order's
+// tracking page at a time), so a single tracked value is enough.
+let joinedOrderId: string | null =
+    null;
+
 function resolveSocketServerUrl(): string {
     const explicitSocketUrl =
         import.meta.env.VITE_SOCKET_URL;
@@ -278,6 +287,15 @@ function handleDeliveryDeliveredEvent(
     notifyDeliveryDeliveredListeners(payload);
 }
 
+function handleConnect() {
+    if (joinedOrderId) {
+        activeSocket?.emit(
+            'order:join',
+            joinedOrderId,
+        );
+    }
+}
+
 function disconnect() {
     if (activeSocket) {
         activeSocket.off(
@@ -303,6 +321,11 @@ function disconnect() {
         activeSocket.off(
             'delivery:delivered',
             handleDeliveryDeliveredEvent,
+        );
+
+        activeSocket.off(
+            'connect',
+            handleConnect,
         );
 
         activeSocket.disconnect();
@@ -363,11 +386,21 @@ function connect(token: string) {
         'delivery:delivered',
         handleDeliveryDeliveredEvent,
     );
+
+    // I2 — re-emit `order:join` for the tracked room on every reconnect,
+    // since Socket.IO room membership does not survive a reconnect
+    // (a new socket id is issued server-side).
+    activeSocket.on(
+        'connect',
+        handleConnect,
+    );
 }
 
 function joinOrder(
     orderId: string,
 ) {
+    joinedOrderId = orderId;
+
     activeSocket?.emit(
         'order:join',
         orderId,
@@ -377,6 +410,10 @@ function joinOrder(
 function leaveOrder(
     orderId: string,
 ) {
+    if (joinedOrderId === orderId) {
+        joinedOrderId = null;
+    }
+
     activeSocket?.emit(
         'order:leave',
         orderId,
