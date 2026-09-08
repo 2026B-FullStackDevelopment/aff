@@ -72,6 +72,18 @@ export function useDeliveryTracking(
   const initialDeliveryId = initialDelivery?.id;
   const initialStage = initialDelivery?.stage;
 
+  // C1 — `initialDelivery` is `null` on the very first render (the parent's
+  // `order` fetch is still in flight), so the `useState` initializer above
+  // only ever sees `null`. Once `order` resolves and `initialStage` becomes
+  // known, sync it up here — through the same monotonic rank guard used by
+  // `handleStageChanged`/`handleDelivered` — so a cold load landing directly
+  // in PICKED_UP or DELIVERED still renders the correct stage instead of
+  // being stuck at `null` (which happens to render like PREPARING) forever.
+  useEffect(() => {
+    const nextStage = initialStage ?? null;
+    setStage((prev) => (rankOf(nextStage) > rankOf(prev) ? (nextStage as DeliveryStage) : prev));
+  }, [initialStage]);
+
   useEffect(() => {
     if (!initialDeliveryId) return;
     if (initialStage !== 'PICKED_UP' && initialStage !== 'DELIVERED') return;
