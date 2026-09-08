@@ -14,6 +14,7 @@ import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallou
 import { formatDate, formatPrice, UNIT_LABELS } from '@/shared/utils/listingFormatting';
 import { useOrderTracking } from '../hooks/useOrderTracking';
 import { OrderFeedbackSection } from '../components/OrderFeedbackSection';
+import { DeliveryTrackingPanel } from '../components/DeliveryTrackingPanel';
 
 export function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export function OrderTrackingPage() {
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload,
     isSubmittingFeedback, feedbackError, submitFeedback,
+    stage, courierPosition, deliveredAt,
   } = useOrderTracking(id);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -133,6 +135,14 @@ export function OrderTrackingPage() {
                 </p>
               </WarningCallout>
             )}
+
+            <DeliveryTrackingPanel
+              order={order}
+              isAwaitingPayment={isAwaitingPayment}
+              stage={stage}
+              courierPosition={courierPosition}
+              deliveredAt={deliveredAt}
+            />
 
             <Panel title="Order Details">
               <div className="flex flex-col gap-4">
