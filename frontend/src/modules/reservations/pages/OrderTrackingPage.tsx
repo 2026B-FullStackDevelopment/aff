@@ -199,12 +199,14 @@ export function OrderTrackingPage() {
 
             {/* D7 — one-shot feedback, only meaningful once DELIVERED.
                 Renders nothing until then; read-only once submitted. */}
-            <OrderFeedbackSection
-              order={order}
-              isSubmitting={isSubmittingFeedback}
-              error={feedbackError}
-              onSubmit={submitFeedback}
-            />
+            <div id="order-feedback-section">
+              <OrderFeedbackSection
+                order={order}
+                isSubmitting={isSubmittingFeedback}
+                error={feedbackError}
+                onSubmit={submitFeedback}
+              />
+            </div>
           </div>
         )}
       </div>
