@@ -57,7 +57,11 @@ async function getOrderForRecipient(
 
   const delivery = await deliveryInterface.findByOrderId(orderId);
 
-  return { order, deliveryStage: delivery ? delivery.stage : null };
+  return {
+    order,
+    deliveryStage: delivery ? delivery.stage : null,
+    deliveryId: delivery ? String(delivery._id) : null,
+  };
 }
 
 /**

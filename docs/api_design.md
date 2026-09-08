@@ -190,6 +190,7 @@ Referenced by multiple endpoints below; defined once here.
 | deliveryLocation | GeoLocation |
 | cancelledByUserId | string \| null |
 | feedback | `{ comment, createdAt }` \| null |
+| delivery | `{ stage, id }` \| null — `id` is `null` on the list (`GET /orders/mine`) and cancel (`DELETE /orders/:id`) responses, which don't need it; only `GET /orders/:id` populates it |
 | createdAt | datetime |
 
 **DeliveryDTO**
