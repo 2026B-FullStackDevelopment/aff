@@ -1,14 +1,17 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Truck } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
 import { buttonVariants } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
+import { cn } from '@/shared/utils';
 import { CashConfirmation } from '../components/CashConfirmation';
+import { CourierButton } from '../components/CourierButton';
+import { DeliveryDetailRow } from '../components/DeliveryDetailRow';
+import { DeliveryProgressStepper } from '../components/DeliveryProgressStepper';
 import { useActiveDelivery } from '../hooks/useActiveDelivery';
 
 export function ActiveDeliveryPage() {
@@ -23,8 +26,8 @@ export function ActiveDeliveryPage() {
 
   if (active.isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <main className="mx-auto max-w-3xl px-6 py-6">
+      <div className="min-h-screen bg-courier-bg">
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
           <LoadingSkeleton count={1} />
         </main>
       </div>
@@ -36,14 +39,20 @@ export function ActiveDeliveryPage() {
   // claimed elsewhere, or none yet) instead of a silent redirect.
   if (active.isGone || !active.delivery) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <main className="mx-auto max-w-3xl px-6 py-6">
+      <div className="min-h-screen bg-courier-bg">
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
           <EmptyState
             icon={Truck}
             title="No active delivery"
             description="You don't have a delivery in progress right now. Head to the queue to claim your next one."
             action={
-              <Link to="/deliveries/queue" className={buttonVariants({ variant: 'default' })}>
+              <Link
+                to="/deliveries/queue"
+                className={cn(
+                  buttonVariants({ variant: 'default' }),
+                  'bg-courier-primary text-courier-on-primary hover:bg-courier-primary-hover transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98] focus-visible:ring-courier-primary/40',
+                )}
+              >
                 Go to Queue
               </Link>
             }
@@ -67,20 +76,29 @@ export function ActiveDeliveryPage() {
     : delivery.pickupAddressText;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-6">
-        <Panel title={isPickedUp ? 'Deliver to' : 'Collect from'}>
+    <div className="min-h-screen bg-courier-bg">
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:py-10">
+        <h1 className="text-3xl font-extrabold tracking-tight text-courier-title">
+          Active Delivery
+        </h1>
+
+        <DeliveryProgressStepper stage={delivery.stage} />
+
+        <Panel
+          title={isPickedUp ? 'Deliver to' : 'Collect from'}
+          className="border-courier-border"
+        >
           <div className="flex flex-col gap-4">
             {/* The pickup address stays visible for the whole lifecycle, even
                 once the map below has switched to the destination pin (E5). */}
-            <p className="text-sm text-[#414844]">
-              <span className="font-bold text-[#1B1C1C]">Collect from: </span>
-              {delivery.pickupAddressText}
-            </p>
-            <p className="text-sm text-[#414844]">
-              <span className="font-bold text-[#1B1C1C]">Deliver to: </span>
-              {delivery.deliveryAddressText ?? '—'}
-            </p>
+            <DeliveryDetailRow
+              label="Collect from"
+              value={delivery.pickupAddressText}
+            />
+            <DeliveryDetailRow
+              label="Deliver to"
+              value={delivery.deliveryAddressText ?? '—'}
+            />
 
             {mapLatitude !== undefined && mapLongitude !== undefined ? (
               // Keyed on stage so react-leaflet remounts and re-centres on the
@@ -103,7 +121,7 @@ export function ActiveDeliveryPage() {
         ) : null}
 
         {active.actionError ? (
-          <p role="alert" className="text-sm font-medium text-[#B91C1C]">
+          <p role="alert" className="text-sm font-semibold text-shared-error-text">
             {active.actionError}
           </p>
         ) : null}
@@ -115,13 +133,13 @@ export function ActiveDeliveryPage() {
             onDeliver={active.deliver}
           />
         ) : (
-          <Button
+          <CourierButton
             type="button"
             disabled={active.isSubmitting}
             onClick={active.pickup}
           >
             {active.isSubmitting ? 'Confirming…' : 'Picked Up'}
-          </Button>
+          </CourierButton>
         )}
       </main>
     </div>

@@ -25,7 +25,7 @@ export function useDeliveryQueue() {
   const isMountedRef = useRef(true);
 
   // Tracks the delivery id of the claim the user is currently waiting on.
-  // QueueRow only disables the button for its own row, so a second row can be
+  // DeliveryCard only disables the button for its own row, so a second row can be
   // clicked while an earlier claim is still in flight (supported by design).
   // A response is only allowed to touch state if it belongs to whichever
   // claim is current when the response arrives — an older, superseded

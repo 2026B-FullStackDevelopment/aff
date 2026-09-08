@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckboxField } from '@/shared/components/CheckboxField/CheckboxField';
-import { Button } from '@/shared/components/Button/Button';
+import { CourierButton } from './CourierButton';
 
 interface CashConfirmationProps {
   requiresCashCollection: boolean;
@@ -23,9 +23,9 @@ export function CashConfirmation({
 
   if (!requiresCashCollection) {
     return (
-      <Button type="button" disabled={isSubmitting} onClick={() => onDeliver()}>
+      <CourierButton type="button" disabled={isSubmitting} onClick={() => onDeliver()}>
         {isSubmitting ? 'Completing…' : 'Delivered'}
-      </Button>
+      </CourierButton>
     );
   }
 
@@ -39,13 +39,13 @@ export function CashConfirmation({
         onChange={(e) => setIsCashConfirmed(e.currentTarget.checked)}
       />
 
-      <Button
+      <CourierButton
         type="button"
         disabled={isSubmitting || !isCashConfirmed}
         onClick={() => onDeliver(true)}
       >
         {isSubmitting ? 'Completing…' : 'Delivered'}
-      </Button>
+      </CourierButton>
     </div>
   );
 }

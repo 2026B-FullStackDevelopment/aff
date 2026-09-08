@@ -4,7 +4,7 @@ import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { QueueRow } from '../components/QueueRow';
+import { DeliveryCard } from '../components/DeliveryCard';
 import { useDeliveryQueue } from '../hooks/useDeliveryQueue';
 
 export function DeliveryQueuePage() {
@@ -23,8 +23,17 @@ export function DeliveryQueuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main>
+    <div className="min-h-screen bg-courier-bg">
+      <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
+        <header className="mb-6">
+          <h1 className="text-3xl font-extrabold tracking-tight text-courier-title">
+            Delivery Queue
+          </h1>
+          <p className="mt-1 text-sm text-courier-text-muted">
+            Unclaimed deliveries, oldest first. Claim one to begin.
+          </p>
+        </header>
+
         {queue.hasActiveDelivery === null || queue.isLoading ? (
           <LoadingSkeleton />
         ) : queue.error ? (
@@ -36,17 +45,20 @@ export function DeliveryQueuePage() {
           />
         ) : (
           <>
-            {queue.items.map((delivery) => (
-              <QueueRow
-                key={delivery.id}
-                delivery={delivery}
-                isClaiming={queue.claimingId === delivery.id}
-                errorMessage={
-                  queue.rowError?.id === delivery.id ? queue.rowError.message : null
-                }
-                onClaim={queue.claim}
-              />
-            ))}
+            <ul role="list" className="flex flex-col gap-4">
+              {queue.items.map((delivery) => (
+                <li key={delivery.id}>
+                  <DeliveryCard
+                    delivery={delivery}
+                    isClaiming={queue.claimingId === delivery.id}
+                    errorMessage={
+                      queue.rowError?.id === delivery.id ? queue.rowError.message : null
+                    }
+                    onClaim={queue.claim}
+                  />
+                </li>
+              ))}
+            </ul>
 
             {/* E2: ordering is fixed oldest-first server-side — no sort control
                 belongs here, so no Courier can cherry-pick work. */}
@@ -56,6 +68,7 @@ export function DeliveryQueuePage() {
               totalItems={queue.total}
               itemLabel="deliveries"
               onPageChange={queue.goToPage}
+              className="mt-4 rounded-xl border border-courier-border"
             />
           </>
         )}
