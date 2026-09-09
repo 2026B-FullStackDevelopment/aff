@@ -1,9 +1,12 @@
 // Validates the page and limit query parameters shared by paginated endpoints.
-// The admin user stories requires pagination & record limits in more detailed
+// The admin user stories require paginated directories with bounded record
+// counts, so every endpoint must interpret these inputs in the same way.
 // The project already has shared pagination support in other layers:
 // - shared/http/response.ts formats paginated API responses; and
 // - the frontend Pagination component renders pagination controls.
 // Those files handle output formatting and presentation. They do not validate
+// untrusted page and limit query strings. This schema owns that separate input
+// validation concern and prevents each backend module from duplicating it.
 
 import { z } from 'zod';
 

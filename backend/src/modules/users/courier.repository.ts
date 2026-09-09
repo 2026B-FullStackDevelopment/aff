@@ -6,22 +6,21 @@ import Courier, {
 import type { Types } from 'mongoose';
 
 interface CreateCourierInput {
-    userId: string | Types.ObjectId;
-    fullName: string;
+  userId: string | Types.ObjectId;
+  fullName: string;
 }
 
 function createCourier(data: CreateCourierInput) {
-    return Courier.create({ userId: data.userId, fullName: data.fullName});
+  return Courier.create({ userId: data.userId, fullName: data.fullName });
 }
 
 function findCourierByUserId(userId: string | Types.ObjectId) {
-    return Courier.findOne({ userId }).lean<CourierDocument>();
+  return Courier.findOne({ userId }).lean<CourierDocument>();
 }
 
 // find multiple for admin
-function findCouriersByUserIds(userIds: Array<string | Types.ObjectId>,) {
-  return Courier.find({ userId: { $in: userIds,},})
-    .lean<CourierDocument[]>();
+function findCouriersByUserIds(userIds: Array<string | Types.ObjectId>) {
+  return Courier.find({ userId: { $in: userIds } }).lean<CourierDocument[]>();
 }
 
 export {
