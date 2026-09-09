@@ -47,4 +47,6 @@ const listingSchema = new Schema<ListingDocument>(
 );
 
 export default mongoose.model<ListingDocument>('Listing', listingSchema);
+
+// typescript allows export different self-defined types
 export type { MeasurementUnit, FoodCategory, ListingStatus, ListingDocument };

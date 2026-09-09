@@ -92,7 +92,9 @@ async function getListingDonorData(
   donorId: string,
 ): Promise<ListingDonorData> {
   const [user, donorProfile] = await Promise.all([
-    userInterface.getUserById(donorId),
+    
+    // the database separates the records of a donor: donor record & user record
+    userInterface.getUserById(donorId), 
     userInterface.getDonorByUserId(donorId),
   ]);
 

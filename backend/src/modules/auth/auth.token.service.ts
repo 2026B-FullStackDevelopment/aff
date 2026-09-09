@@ -48,6 +48,9 @@ async function verifyAccessToken(token: string): Promise<DecodedToken> {
   // Signature and expiry first: a garbage token should never reach the database.
   const decoded = decodeAccessToken(token);
 
+  // server-side also checks whether a token is revoked or not
+  // revoked when the user logs out
+  // need token.repository for Mongoose function & token.model for model & schema
   if (await isTokenRevoked(decoded.jti)) {
     const error: Error = new Error('Your session is no longer valid. Please log in again.');
     error.statusCode = 401;
