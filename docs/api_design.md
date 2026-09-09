@@ -25,6 +25,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Media (§5A) | `POST /media/upload-url` | any role |
 | Listings (§6) | `POST /listings` | DONOR |
 | Listings (§6) | `GET /listings/mine` | DONOR |
+| Listings (§6) | `GET /listings/analytics` | DONOR |
 | Listings (§6) | `POST /listings/:id/clone` | DONOR |
 | Listings (§6) | `PATCH /listings/:id/status` | DONOR |
 | Listings (§6) | `GET /listings/:id/orders` | DONOR |
@@ -327,6 +328,39 @@ Errors: `400` invalid unit/category enum or `price` fails the "free or >= 15000 
 
 Query params: `?status=ACTIVE|PAST` (`ACTIVE` matches `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` matches `CANCELLED`/`SOLD_OUT`), `search=`, `category=`, `from=`, `to=`, `sort=createdAt|revenue&order=asc|desc`, plus pagination (§2.4).
 Response `200`: paginated `{ items: (ListingDTO & { donatedQuantity: number, revenue: number })[], page, limit, total }`.
+
+### `GET /listings/analytics` — *(new — donor dashboard aggregation)*
+**Auth:** `DONOR`
+**Ownership:** implicit — always scoped to `req.user.id` as the donor.
+
+Returns aggregated statistics for the authenticated Donor's listings. Replaces client-side counting by executing an aggregation pipeline over the Donor's `ACTIVE`, `PAUSED`, `SOLD_OUT`, and `CANCELLED` listings.
+
+Response `200`:
+```jsonc
+{
+  "data": {
+    "totalRevenue": "number",
+    "totalListings": "number",
+    "currentListings": "number", // Count of ACTIVE + PAUSED
+    "soldOutListings": "number", // Count of SOLD_OUT
+    "categories": [
+      {
+        "category": "VEGETABLE | MEAT | FRUIT | ...",
+        "listingCount": "number",
+        "revenue": "number"
+      }
+    ],
+    "topListings": [
+      {
+        "id": "string",
+        "name": "string",
+        "revenue": "number"
+      }
+    ]
+  }
+}
+```
+*Note: `topListings` is limited to the top 5 highest-revenue listings.*
 
 ### `POST /listings/:id/clone` — *`4.1.3`*
 **Auth:** `DONOR`
