@@ -1,5 +1,9 @@
 // Contains user database queries so services do not call Mongoose directly.
-import User, { type UserDocument, type Role } from './user.model.js';
+import User, {
+  type UserDocument,
+  type Role,
+  type AccountStatus,
+} from './user.model.js';
 import type { Types } from 'mongoose';
 
 function escapeRegExp(value: string): string {
@@ -19,6 +23,14 @@ interface RecipientSearchResult {
   _id: Types.ObjectId;
   username: string;
   email: string;
+}
+
+interface ListUsersQuery {
+  page: number;
+  limit: number;
+  role?: Role;
+  status?: AccountStatus;
+  search?: string;
 }
 
 function createUser(data: CreateUserInput) {
@@ -50,6 +62,33 @@ function searchActiveRecipientsByEmail(email: string, limit = 10) {
 
 function findUserById(id: string | Types.ObjectId) {
   return User.findById(id).lean<UserDocument>();
+}
+
+async function listUsers(query: ListUsersQuery) {
+  const filter: Record<string, unknown> = {};
+
+  if (query.role) filter.role = query.role;
+  if (query.status) filter.status = query.status;
+
+  if (query.search) {
+    const search = { $regex: escapeRegExp(query.search), $options: 'i' };
+    filter.$or = [{ username: search }, { email: search }];
+  }
+
+  const [items, total] = await Promise.all([
+    User.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .lean<UserDocument[]>(),
+    User.countDocuments(filter),
+  ]);
+
+  return { items, total };
+}
+
+function updateUserStatus(id: string | Types.ObjectId, status: AccountStatus) {
+  return User.findByIdAndUpdate(id, { status }, { new: true }).lean<UserDocument>();
 }
 
 function updateUser(
@@ -104,6 +143,8 @@ export {
   findUserByEmail,
   searchActiveRecipientsByEmail,
   findUserById,
+  listUsers,
+  updateUserStatus,
   updateUser,
   updateLoginState,
   incrementFailedLoginInWindow,
@@ -111,4 +152,9 @@ export {
   lockAccount,
   deleteUser,
 };
-export type { CreateUserInput, LoginStateUpdate, RecipientSearchResult };
+export type {
+  CreateUserInput,
+  LoginStateUpdate,
+  RecipientSearchResult,
+  ListUsersQuery,
+};
