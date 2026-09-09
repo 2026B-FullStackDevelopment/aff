@@ -49,4 +49,29 @@ const emailSchema = z
   })
   .transform((value) => value.toLowerCase());
 
-export { usernameSchema, citySchema, locationSchema, passwordSchema, emailSchema };
+// Query-string values arrive as strings, so both fields are coerced before the
+// numeric rules run. Shared because every paginated endpoint bounds its page
+// size the same way (`docs/api_design.md` §2.4).
+const paginationQuerySchema = z.object({
+  page: z.coerce
+    .number({ message: 'Page must be a number.' })
+    .int({ message: 'Page must be a whole number.' })
+    .min(1, { message: 'Page must be at least 1.' })
+    .default(1),
+
+  limit: z.coerce
+    .number({ message: 'Limit must be a number.' })
+    .int({ message: 'Limit must be a whole number.' })
+    .min(1, { message: 'Limit must be at least 1.' })
+    .max(100, { message: 'Limit cannot be greater than 100.' })
+    .default(20),
+});
+
+export {
+  usernameSchema,
+  citySchema,
+  locationSchema,
+  passwordSchema,
+  emailSchema,
+  paginationQuerySchema,
+};

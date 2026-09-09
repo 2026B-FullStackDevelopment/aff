@@ -11,6 +11,7 @@ This document defines the three role-based color themes used across the AFF port
 | **Admin** | Blue / Navy | `#5b7bc0` | `/login` page |
 | **Recipient** | Green | `#3D6852` | `/register/recipient` page |
 | **Donor** | Dark Brown / Gold | `#805300` | Approved AFF Figma donor wireframes |
+| **Courier** | Teal | `#0f766e` | Delivery queue / active delivery screens |
 
 ---
 
@@ -143,9 +144,64 @@ focus ring              → focus-visible:ring-[#805300]/15
 
 ---
 
+## Courier Theme (Teal)
+
+Used by: the Courier delivery queue and active delivery screens.
+
+Teal `#0f766e` is the primary Courier colour and must be used consistently
+for navigation, primary actions, active controls, and Courier-specific focus
+states. Unlike the other three themes, Courier tokens are defined once as
+Tailwind v4 `@theme` custom properties in `frontend/src/styles/global.css`
+and consumed via the generated utility classes — never as inline hex.
+
+### Colors
+
+| Token | Hex | Usage |
+|---|---|---|
+| `courier-bg` | `#f2faf9` | Page background |
+| `courier-surface` | `#ffffff` | Cards and panels |
+| `courier-border` | `#d6e9e6` | Card, divider, and panel borders |
+| `courier-title` | `#134e4a` | Page and section titles |
+| `courier-text` | `#1e293b` | Body text |
+| `courier-text-muted` | `#6b7280` | Helper text |
+| `courier-label` | `#6b7280` | Form labels (uppercase) |
+| `courier-input-border` | `#e5e7eb` | Input / select default border |
+| `courier-input-focus` | `#0f766e` | Input focus border |
+| `courier-input-focus-ring` | `rgba(15, 118, 110, 0.15)` | Input focus box-shadow |
+| `courier-primary` | `#0f766e` | Navigation, primary actions, focus ring |
+| `courier-primary-hover` | `#115e59` | Primary action hover state |
+| `courier-accent` | `#14b8a6` | Active nav header, progress-stepper current marker |
+| `courier-on-primary` | `#ffffff` | Text and icons on teal |
+| `courier-primary-container` | `#f0fdfa` | Subtle highlighted surfaces |
+
+`courier-label` and the `courier-input-*` tokens are reference values only —
+they are not yet in the `@theme` block because the Courier screens have no
+form inputs beyond one checkbox. Add them to `global.css` when the first
+Courier input lands.
+
+### Tailwind Equivalents
+
+These are real generated classes (via `@theme` in `global.css`), not approximations.
+
+```text
+courier-bg                → bg-courier-bg
+courier-surface           → bg-courier-surface
+courier-border            → border-courier-border
+courier-title             → text-courier-title
+courier-text              → text-courier-text
+courier-primary           → bg-courier-primary text-courier-on-primary
+courier-primary-hover     → hover:bg-courier-primary-hover
+courier-accent            → bg-courier-accent
+courier-primary-container → bg-courier-primary-container
+focus ring                → focus-visible:ring-courier-primary/40
+```
+
+---
+
 ## Shared Tokens (All Themes)
 
-These values are consistent across all three themes.
+These values are consistent across all three role themes; the Courier theme
+also draws on the same neutrals and semantic states.
 
 | Token | Hex | Usage |
 |---|---|---|
@@ -158,6 +214,11 @@ These values are consistent across all three themes.
 | `shared-input-divider` | `#E5E7EB` | Section divider lines |
 | `shared-progress-track` | `#E5E7EB` | Progress bar track background |
 | `shared-icon` | `#9CA3AF` | Input prefix/suffix icons (at rest) |
+
+`shared-error-text` (`#b91c1c`) and `shared-progress-track` (`#e5e7eb`) are
+also available as `@theme` utilities: `text-shared-error-text`,
+`bg-shared-progress-track`. The other shared values remain reference-only
+until a consumer needs them.
 
 ### Password Strength Indicator Colors (shared across all themes)
 
@@ -209,3 +270,6 @@ All themes share the same type scale.
 3. **Never mix theme colors across roles.** Do not use `recipient-primary` (#3D6852) inside a donor page.
 4. **Shared tokens are always shared.** Error colors, placeholder text, dividers, and progress-bar tracks are the same across all themes.
 5. **Always enforce Smoothness.** Every input, button, select, and modal must have smooth 	ransition-all duration-200 ease-out micro-animations.
+6. **Courier tokens come from `@theme`.** Consume Courier colours via the
+   generated utilities (`bg-courier-primary`, `text-courier-title`, …). Do
+   not reintroduce arbitrary hex values (`bg-[#0f766e]`) in Courier code.

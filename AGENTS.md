@@ -57,7 +57,7 @@ The frontend is built with React 19 and Vite. Styling is **Tailwind CSS v4** plu
 | `browsing` | Recipient-facing listing browse, search, and filter |
 | `donations` | Donor listing creation and management |
 | `reservations` | Recipient order and reservation history |
-| `delivery` | Courier delivery queue |
+| `delivery` | Courier delivery queue, claim, active delivery with pickup and destination maps, real-time GPS broadcasting, and delivery completion with cash confirmation |
 | `subscriptions` | Premium subscription UI |
 | `admin` | Admin oversight UI |
 

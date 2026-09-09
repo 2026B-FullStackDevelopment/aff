@@ -1,0 +1,516 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Delivery API",
+    "version": "0.1.0",
+    "description": "Courier queue, claim, and delivery lifecycle (stories E2-E5 and E7). Design intent lives in docs/api_design.md §9; this document reflects the routes as implemented in backend/src/modules/delivery. Every route in this document is implemented. Epic E's remaining work is frontend only."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Courier Queue", "description": "The shared, oldest-first queue of unclaimed Deliveries" },
+    { "name": "Courier Delivery", "description": "Claiming and progressing a Courier's own Delivery" }
+  ],
+  "paths": {
+    "/deliveries/queue": {
+      "get": {
+        "tags": ["Courier Queue"],
+        "summary": "List unclaimed Deliveries, oldest first",
+        "description": "Every Courier sees the same queue, containing only stage=AWAITING_COURIER Deliveries from both intake paths interleaved by age (E2).\n\nOrdering is fixed server-side by DELIVERY.createdAt ascending — the moment the Order became claimable — with the Delivery id as a stable tiebreak. **No sort or order query parameter is accepted**, and sending one is rejected with 400: the fixed ordering is what stops a Courier cherry-picking out of turn, so it is enforced rather than merely documented.\n\npickupAddressText and pickupAddressLocation are always absent here. The queue shows where the food is going, not where it is collected, and resolving each row's Donor address would cost a lookup per row for data this story never asks for; a Courier receives them on claim instead (E5).\n\nIf a row's Order or Donor cannot be loaded, the row is still returned with those fields null rather than dropped, so items.length stays consistent with total and a claimable Delivery is never silently hidden.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of unclaimed Deliveries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": { "$ref": "#/components/schemas/QueueDelivery" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/deliveries/active": {
+      "get": {
+        "tags": ["Courier Delivery"],
+        "summary": "Get the Courier's in-flight Delivery",
+        "description": "The Courier client's landing check on load or reload: is there already a Delivery in progress? Always scoped to the authenticated Courier — it can never return another Courier's Delivery (E4, E5).\n\nA Courier holds at most one Delivery in ASSIGNED or PICKED_UP, enforced by a unique partial index rather than by application logic, so this is a singular lookup rather than a list.\n\nThe pickup address is included at both stages, so it remains visible as a reference after pickup (E5).",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "The Courier's Delivery, currently ASSIGNED or PICKED_UP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No active Delivery. This is the expected signal for the client to fall through to GET /deliveries/queue, not an error condition.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "You have no active Delivery." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/claim": {
+      "patch": {
+        "tags": ["Courier Delivery"],
+        "summary": "Claim an unclaimed Delivery",
+        "description": "Atomically moves a Delivery from AWAITING_COURIER to ASSIGNED and sets courierId, in a single conditional write (E3).\n\nTwo separate guarantees fall out of that one operation. The stage filter closes the double-claim race — of two Couriers claiming simultaneously, exactly one succeeds — and by the same mechanism enforces D4's cancellation cutoff: if a Recipient cancelled at the same instant, the stage moved and the claim loses. A unique partial index on courierId, filtered to ASSIGNED/PICKED_UP, closes the second race: a Courier who already holds a Delivery cannot acquire another (E4).\n\nThe response already carries pickupAddressText and pickupAddressLocation, so no follow-up lookup is needed to render the pickup screen (E5). The location is a fixed pin on the Donor's registered address — it never moves, and there is no tracking concept for the pickup leg.\n\nA 409 is an expected, common outcome rather than a failure worth alarming the Courier over: the queue view goes stale as other Couriers claim. Clients should show it inline and refresh the queue.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
+        "responses": {
+          "200": {
+            "description": "The claimed Delivery, including its pickup address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No Delivery with that id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Delivery not found." }
+              }
+            }
+          },
+          "409": {
+            "description": "The claim could not be granted. The two cases are deliberately distinct so the client can show each differently.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "alreadyClaimed": {
+                    "summary": "Another Courier claimed it first, or the Order was cancelled",
+                    "value": { "message": "This Delivery has already been claimed." }
+                  },
+                  "courierBusy": {
+                    "summary": "This Courier already holds an ASSIGNED or PICKED_UP Delivery",
+                    "value": { "message": "You already have an active Delivery." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/pickup": {
+      "patch": {
+        "tags": ["Courier Delivery"],
+        "summary": "Confirm pickup and start live tracking",
+        "description": "Sets stage=PICKED_UP and pickedUpAt (E6). ORDER.orderStatus is deliberately untouched — it stays PREPARING through claim and pickup, and clients drive delivery-progress UI from DeliveryDTO.stage.\n\nFrom this point the Courier's client begins sending delivery:ping over the WebSocket connection; this REST call only flips the stage. The response carries the pickup address so it stays visible after pickup (E5).\n\nUnlike claim, a 409 here does not distinguish an unknown id from a wrong stage. The client reached this route with an id it received seconds earlier from claim or /active, so an unknown id means a broken client rather than a normal race.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
+        "responses": {
+          "200": {
+            "description": "The picked-up Delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "The Delivery is not currently ASSIGNED to this Courier, or does not exist",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Only an assigned Delivery can be picked up." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/deliver": {
+      "patch": {
+        "tags": ["Courier Delivery"],
+        "summary": "Complete a Delivery, confirming cash if required",
+        "description": "The terminal action on a Delivery (E7). Sets stage=DELIVERED and deliveredAt, and sets ORDER.orderStatus=DELIVERED. Both writes commit in one transaction.\n\nFor a cash Order, cashConfirmed must be true: the Order's paymentStatus also flips from PAYMENT_PENDING to PAID, and the confirming Courier and timestamp are recorded on the Order for basic traceability. The audit trail is intentionally shallow — Courier id and timestamp only. For any other payment method the field is ignored.\n\nThere is no undo: DELIVERED is terminal, with no Recipient confirmation step and no delivery-failure or redo path.\n\nCompleting also releases the Courier's one-active-delivery slot, because the row falls out of the partial index that enforces it — so the Courier can claim again immediately (E4).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "cashConfirmed": {
+                    "type": "boolean",
+                    "description": "Required and must be true when the Order's paymentMethod is CASH. The Courier confirms the exact amount was received, with no change given."
+                  }
+                }
+              },
+              "example": { "cashConfirmed": true }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The completed Delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A cash Order was submitted without cashConfirmed: true",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Cash confirmation is required." }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "The Delivery is assigned to a different Courier, or the caller is not a Courier",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "This Delivery is not assigned to you." }
+              }
+            }
+          },
+          "404": {
+            "description": "No Delivery with that id, or its Order could not be loaded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Delivery not found." }
+              }
+            }
+          },
+          "409": {
+            "description": "The Delivery is not currently PICKED_UP",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Only a picked-up Delivery can be completed." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{id}": {
+      "get": {
+        "tags": ["Courier Delivery"],
+        "summary": "Read a Delivery by id — RECIPIENT or ADMIN",
+        "description": "Powers the Recipient's live order-status view (E8) and Admin oversight. A Recipient must own the underlying Order; an Admin may read any Delivery.\n\nA Recipient who does not own the Delivery receives 404, not 403. A 403 would confirm the Delivery exists, turning this endpoint into an existence oracle for other people's orders.\n\nDeliberately closed to COURIER callers, and this is a scope boundary to preserve rather than a gap: a Courier reaches their own in-progress Delivery through GET /deliveries/active or the DeliveryDTO returned by claim/pickup/deliver, never by looking up an arbitrary id. There is no Courier delivery-history feature that would need one.\n\ncourierLastLocation is only populated while stage=PICKED_UP.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryId" }],
+        "responses": {
+          "200": {
+            "description": "The Delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/Delivery" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "No such Delivery, or the calling Recipient does not own its Order",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Delivery not found." }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "1-based page number.",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Rows per page.",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "DeliveryId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The Delivery's 24-character hexadecimal id.",
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } },
+        "required": ["message"]
+      },
+      "PaginatedEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": {} },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            },
+            "required": ["items", "page", "limit", "total"]
+          }
+        },
+        "required": ["data"]
+      },
+      "DeliveryStage": {
+        "type": "string",
+        "enum": ["AWAITING_COURIER", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"]
+      },
+      "GeoLocation": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Delivery": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "orderId": { "type": "string" },
+          "courierId": { "type": "string", "nullable": true },
+          "stage": { "$ref": "#/components/schemas/DeliveryStage" },
+          "pickupAddressText": {
+            "type": "string",
+            "nullable": true,
+            "description": "The Donor's registered address, denormalised at read time."
+          },
+          "pickupAddressLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "nullable": true,
+            "description": "A fixed pin on the Donor's registered location — static, not live-updating. The Donor does not move, so there is no tracking concept for the pickup leg."
+          },
+          "pickedUpAt": { "type": "string", "format": "date-time", "nullable": true },
+          "deliveredAt": { "type": "string", "format": "date-time", "nullable": true },
+          "courierLastLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "nullable": true,
+            "description": "Only populated while stage=PICKED_UP."
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "deliveryAddressText": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where the order is being delivered to — the Recipient's address."
+          },
+          "deliveryLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "nullable": true,
+            "description": "Coordinates of the delivery destination. The Courier's map re-centres here after pickup."
+          },
+          "requiresCashCollection": {
+            "type": "boolean",
+            "description": "Whether the Courier must collect cash on delivery. Derived server-side from the Order's payment method, which is never itself exposed — a Courier needs to know whether to collect money, not how the Recipient paid."
+          },
+          "amount": {
+            "type": "number",
+            "nullable": true,
+            "description": "The Order's amount. Null only when the Order behind this Delivery could not be loaded."
+          }
+        },
+        "required": ["id", "orderId", "courierId", "stage", "createdAt", "amount"]
+      },
+      "QueueDelivery": {
+        "type": "object",
+        "description": "A deliberately lean queue row (E2) — NOT a Delivery. An unclaimed row has no courier, no pickup/deliver timestamps and a constant stage, so none of that is sent. listing.*, order.* and donor.* each come from one bulk join (Listing→Donor, the Orders); each block degrades to null as a unit on a failed join rather than the row being dropped.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The DELIVERY id — the value passed to PATCH /deliveries/{id}/claim."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the Delivery became claimable. The queue's sort key (ascending)."
+          },
+          "listing": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "nullable": true },
+              "pickupAddressText": {
+                "type": "string",
+                "nullable": true,
+                "description": "The Donor's registered address, denormalised at read time."
+              },
+              "pickupAddressLocation": {
+                "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+                "nullable": true,
+                "description": "A fixed pin on the Donor's registered location — static, not live-updating."
+              }
+            },
+            "required": ["name", "pickupAddressText", "pickupAddressLocation"],
+            "description": "Null throughout only if the Listing or Donor profile could not be loaded."
+          },
+          "order": {
+            "type": "object",
+            "properties": {
+              "quantity": { "type": "number", "nullable": true },
+              "deliveryAddressText": {
+                "type": "string",
+                "nullable": true,
+                "description": "Where the food is going — the Recipient's address."
+              },
+              "deliveryLocation": {
+                "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+                "nullable": true,
+                "description": "Coordinates of the delivery destination."
+              },
+              "amount": { "type": "number", "nullable": true },
+              "requiresCashCollection": {
+                "type": "boolean",
+                "description": "Same rule as Delivery.requiresCashCollection — known before claiming, not just after."
+              }
+            },
+            "required": [
+              "quantity",
+              "deliveryAddressText",
+              "deliveryLocation",
+              "amount",
+              "requiresCashCollection"
+            ],
+            "description": "Null throughout only if the Order row could not be loaded."
+          },
+          "donor": {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string", "nullable": true }
+            },
+            "required": ["companyName"]
+          }
+        },
+        "required": ["id", "createdAt", "listing", "order", "donor"]
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "A query parameter failed validation, or an unknown key was sent",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "badPage": {
+                "summary": "Pagination outside the allowed range",
+                "value": { "message": "Limit cannot be greater than 100." }
+              },
+              "sortRejected": {
+                "summary": "A sort parameter was sent — queue order is not client-selectable",
+                "value": { "message": "Unrecognized key: \"sort\"" }
+              },
+              "badId": {
+                "summary": "Malformed Delivery id",
+                "value": { "message": "Delivery id must be valid." }
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, or already-revoked token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The caller is authenticated but holds the wrong role for this route",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      }
+    }
+  }
+}

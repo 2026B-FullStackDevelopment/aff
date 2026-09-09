@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The Affordable Food Federation (AFF) platform relies on precise location data for donor address registration, recipient location proximity ranking, and delivery dispatch. 
+The Affordable Food Federation (AFF) platform relies on precise location data for donor address registration and delivery dispatch (Courier pickup mapping and live tracking). 
 
 To provide address search-as-you-type without requiring proprietary paid APIs (e.g. Google Maps Platform), AFF integrates with the open-source **OpenStreetMap (OSM) Nominatim API**, paired with a custom administrative resolution layer for Vietnamese provinces.
 

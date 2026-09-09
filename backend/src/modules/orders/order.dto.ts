@@ -27,7 +27,7 @@ interface OrderResponseDto {
   cancelledByUserId: string | null;
   feedback: OrderFeedback | null;
   createdAt: Date;
-  delivery: { stage: DeliveryStage } | null;
+  delivery: { stage: DeliveryStage; id: string | null } | null;
 }
 
 interface CancelOrderResponseDto extends OrderResponseDto {
@@ -52,6 +52,7 @@ interface CreateOrderCheckoutSessionResponseDto {
 function toOrderResponseDto(
   order: OrderDocument | null,
   deliveryStage: DeliveryStage | null = null,
+  deliveryId: string | null = null,
 ): OrderResponseDto | null {
   if (!order) return null;
 
@@ -76,7 +77,7 @@ function toOrderResponseDto(
     cancelledByUserId: order.cancelledByUserId ? String(order.cancelledByUserId) : null,
     feedback: order.feedback ?? null,
     createdAt: order.createdAt,
-    delivery: deliveryStage ? { stage: deliveryStage } : null,
+    delivery: deliveryStage ? { stage: deliveryStage, id: deliveryId } : null,
   };
 }
 

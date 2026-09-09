@@ -77,7 +77,7 @@ AWAITING_COURIER --[claim]--> ASSIGNED --[Picked Up]--> PICKED_UP --[Delivered +
 
 Any Courier can claim an unclaimed order from a shared, oldest-first queue; claiming is atomic (prevents double-claim races); a Courier holds one active delivery at a time. **Cancellation window**: the Recipient, the Donor (via listing cancel), or Admin may cancel an order while it sits in `AWAITING_COURIER`. Once `ASSIGNED`, cancellation is blocked. Live GPS tracking runs only during `PICKED_UP`, visible only to that order's Recipient over WebSocket; `DELIVERED` is terminal and sole-source-of-truth (no Recipient confirmation step).
 
-**Supporting capabilities**: registration/login/profile management, with delivery address captured per-order rather than at signup [`1A`, `1B`, `2`, `3`]; Donor donation lifecycle management (pause/resume/cancel, rationing, search/filter/sort, statistics) [`4`]; Premium subscription via Stripe recurring billing with preference-based notifications and location-aware ranking [`5.3`, `6`]; Admin oversight of accounts (including Couriers), listings, and deliveries [`7`].
+**Supporting capabilities**: registration/login/profile management, with delivery address captured per-order rather than at signup [`1A`, `1B`, `2`, `3`]; Donor donation lifecycle management (pause/resume/cancel, rationing, search/filter/sort, statistics) [`4`]; Premium subscription via Stripe recurring billing with preference-based notifications [`5.3.1`, `5.3.2`, `6`]; Admin oversight of accounts (including Couriers), listings, and deliveries [`7`].
 
 ---
 
@@ -341,7 +341,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 ---
 
 ### Epic F — Premium Subscription
-*Traceability: `5.3.1`–`5.3.3`, `6`. Ultimo, with §10 deviation on `6.1.1`.*
+*Traceability: `5.3.1`, `5.3.2`, `6`. Ultimo, with §10 deviations on `6.1.1` (no wallet) and `5.3.3` (location-aware ranking dropped).*
 
 **F1. Stripe Recurring Subscription** (`6.2.1`; `6.1.1`'s wallet path not implemented)
 > As a Recipient, I want to subscribe to Premium for $5/month via Stripe recurring billing, and get an email confirmation on success.
@@ -361,11 +361,13 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - API: on listing creation, Service layer compares against all Premium preferences and emits a Socket.IO event to matches.
 - Data: reads `RECIPIENT.notificationPreferences`; creates a transient `NOTIFICATION` (type=PREMIUM_MATCH) for the feed, no read-state tracking.
 
-**F4. Location-Aware Ranking** (`5.3.3`)
-> As a Premium Recipient, I want matching listings ranked by my location (if granted) or my city (if not).
-- UI: browser geolocation permission prompt.
-- API: `GET /listings?rank=proximity` uses granted coordinates, else falls back to `RECIPIENT`'s selected city.
-- Data: n/a beyond existing `LISTING.city`/`DONOR.location`.
+> **F4. Location-Aware Ranking** — *retired; `5.3.3` dropped as an explicit SRS deviation (§10). Not implemented.*
+
+**F5. Cancel Premium Subscription** *(new — not specified in the SRS/original PRD; see `docs/epic/F-premium-subscription.md`)*
+> As a Premium Recipient, I want to cancel my subscription from inside the app and keep Premium until the end of the period I've already paid for.
+- UI: "Cancel Premium" control in account settings, with a confirm step naming the access-until date and, while the period is still open, an undo ("keep my subscription").
+- API: `DELETE /subscriptions/me` calls Stripe with `cancel_at_period_end: true`; access lapses at `currentPeriodEnd` when the existing `customer.subscription.deleted` webhook flips the row to `CANCELLED`. `409` if there is no active subscription. Cancels at period end only — no proration or partial refund.
+- Data: adds `cancelAtPeriodEnd` (boolean) to the latest `SUBSCRIPTION` row; `RECIPIENT.tier` derivation is unchanged.
 
 ---
 
@@ -457,6 +459,7 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 | `5.1.3` | Cash upon collection or wallet | Cash upon **delivery** (Courier collects, exact amount, no change) or Stripe checkout; no wallet |
 | `5.2.3` | Card via third-party (implied alongside cash/wallet) | Stripe implemented as specified; cash-on-delivery available as the alternative, no wallet |
 | `6.1.1` | Wallet-funded subscription | Not implemented — superseded entirely by `6.2.1` (Stripe recurring) |
+| `5.3.3` | Location-aware ranking of matched listings for Premium Recipients (by granted coordinates, else by city) | **Dropped.** Was Epic F story F4; removed from scope by team decision. `GET /listings` keeps only its base sort (`sort=price`); no `rank=proximity` mode is built. Donor coordinates (`DONOR.location`) are still captured and used for delivery mapping, just not for Recipient-side listing ranking |
 | `4.1.4` | Cash + change display at physical Donor-Recipient handoff; recipient by free-text name | Recipient must be a registered account; if priced, Recipient chooses Stripe or cash-on-delivery; the physical handoff moves from Donor to Courier |
 | `4.2.1` | Recipient may visit pickup location; quantity given in person; no online reservation | Implemented as originally specified — this is intentionally the one path that stays self-service and untracked |
 | Base pickup model (`5.1.2` / general marketplace assumption) | Recipient collects in person from Donor | Reservation + Donor-initiated orders are Courier-delivered; Per-Request remains self-collection |
