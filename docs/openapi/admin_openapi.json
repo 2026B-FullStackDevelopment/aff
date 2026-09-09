@@ -1,0 +1,639 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Admin API",
+    "version": "0.1.0",
+    "description": "Frontend/backend integration contract for Admin Functionality (Epic G) and the Admin-owned Courier capabilities in Epic E. Design intent lives in docs/api_design.md §11 and the corresponding user stories. The routes are declared in backend/src/modules/admin, but their business logic is not implemented yet."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Admin Accounts", "description": "Admin account directory, status management, and Courier creation" },
+    { "name": "Admin Listings", "description": "Search and cancellation of listings across all lifecycle statuses" },
+    { "name": "Admin Deliveries", "description": "Read-only Courier and delivery oversight" }
+  ],
+  "paths": {
+    "/admin/couriers": {
+      "post": {
+        "tags": ["Admin Accounts"],
+        "summary": "Create a Courier account",
+        "description": "Creates the base USER with role COURIER and its Courier profile. This is the only Courier-registration path; there is no public Courier registration endpoint.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCourierRequest" },
+              "example": {
+                "username": "courier_02",
+                "email": "courier02@aff.com",
+                "tempPassword": "Abcd!1234",
+                "fullName": "Nguyen Van An"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Courier account created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CourierResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" },
+          "409": { "$ref": "#/components/responses/DuplicateEmail" }
+        }
+      },
+      "get": {
+        "tags": ["Admin Accounts"],
+        "summary": "List Courier accounts",
+        "description": "Convenience alias for the Courier-filtered account directory. It returns the same Courier data as GET /admin/users?role=COURIER.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Search" },
+          { "$ref": "#/components/parameters/Status" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated Courier accounts",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CourierListResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin Accounts"],
+        "summary": "List and filter all accounts",
+        "description": "Returns Recipient, Donor, Courier, and Admin accounts in one paginated directory. Search matches username, email, and the role-specific display name where one exists.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "description": "Restrict results to one account role",
+            "schema": { "$ref": "#/components/schemas/UserRole" }
+          },
+          { "$ref": "#/components/parameters/Status" },
+          { "$ref": "#/components/parameters/Search" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated role-appropriate account DTOs",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUsersResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" }
+        }
+      }
+    },
+    "/admin/users/{id}/status": {
+      "patch": {
+        "tags": ["Admin Accounts"],
+        "summary": "Deactivate or reactivate an account",
+        "description": "Sets the account status uniformly across roles. Deactivation prevents future login and invalidates the target user's live sessions with reason ADMIN_DEACTIVATE. Reactivation does not restore previously invalidated tokens.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserStatusRequest" },
+              "example": { "status": "DEACTIVATED" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account status updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/listings": {
+      "get": {
+        "tags": ["Admin Listings"],
+        "summary": "Search the complete listing directory",
+        "description": "Returns listings in every lifecycle status, unlike the public active-listings endpoint. Search matches Donor company name or username, Donor ID, and listing ID. An omitted or empty search returns the complete paginated directory.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Donor company name or username, Donor ID, or listing ID",
+            "schema": { "type": "string", "maxLength": 100 }
+          },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated listings across all statuses",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminListingsResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" }
+        }
+      }
+    },
+    "/admin/listings/{id}/cancel": {
+      "patch": {
+        "tags": ["Admin Listings"],
+        "summary": "Cancel an active or paused listing",
+        "description": "Sets the listing to CANCELLED and applies the shared listing-cancellation cascade. Only Orders with no Delivery or a Delivery still in AWAITING_COURIER are cancelled; ASSIGNED, PICKED_UP, and DELIVERED Orders are preserved. Each cancelled Order records the Admin's user ID and its Recipient receives the transient notification:admin_cancel Socket.IO event.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ListingId" }],
+        "responses": {
+          "200": {
+            "description": "Listing cancelled and cancellable Orders cascaded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CancelListingResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "The listing is already terminal or its status changed concurrently",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "message": "Cannot change listing status from CANCELLED to CANCELLED." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/deliveries": {
+      "get": {
+        "tags": ["Admin Deliveries"],
+        "summary": "List all deliveries for read-only oversight",
+        "description": "Returns every Delivery with its assigned Courier, if any, and associated Order reference. This view is read-only: no Admin assignment, reassignment, or force-claim operation exists.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "description": "Restrict results to one Delivery pipeline stage",
+            "schema": { "$ref": "#/components/schemas/DeliveryStage" }
+          },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated delivery oversight rows",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminDeliveriesResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/AdminOnly" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "One-based page number",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Results per page",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "Search": {
+        "name": "search",
+        "in": "query",
+        "required": false,
+        "description": "Case-insensitive account search",
+        "schema": { "type": "string", "maxLength": 100 }
+      },
+      "Status": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "Restrict results to one account status",
+        "schema": { "$ref": "#/components/schemas/AccountStatus" }
+      },
+      "UserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "MongoDB User ObjectId",
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
+      },
+      "ListingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "MongoDB Listing ObjectId",
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": { "message": { "type": "string" } }
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": ["RECIPIENT", "DONOR", "ADMIN", "COURIER"]
+      },
+      "AccountStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "DEACTIVATED"]
+      },
+      "GeoLocation": {
+        "type": "object",
+        "required": ["latitude", "longitude", "updatedAt"],
+        "properties": {
+          "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserDTO": {
+        "type": "object",
+        "required": ["id", "username", "email", "role", "status", "avatarUrl", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "$ref": "#/components/schemas/UserRole" },
+          "country": { "type": "string" },
+          "city": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/AccountStatus" },
+          "avatarUrl": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecipientDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "required": ["tier", "notificationPreferences", "hasStripeCard"],
+            "properties": {
+              "role": { "type": "string", "enum": ["RECIPIENT"] },
+              "tier": { "type": "string", "enum": ["STANDARD", "PREMIUM"] },
+              "notificationPreferences": { "type": "array", "items": { "type": "object" } },
+              "hasStripeCard": { "type": "boolean" }
+            }
+          }
+        ]
+      },
+      "DonorDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "required": ["companyName", "taxCode", "addressText", "location"],
+            "properties": {
+              "role": { "type": "string", "enum": ["DONOR"] },
+              "companyName": { "type": "string" },
+              "taxCode": { "type": "string" },
+              "addressText": { "type": "string" },
+              "location": { "$ref": "#/components/schemas/GeoLocation" }
+            }
+          }
+        ]
+      },
+      "CourierDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "required": ["fullName"],
+            "properties": {
+              "role": { "type": "string", "enum": ["COURIER"] },
+              "fullName": { "type": "string" }
+            }
+          }
+        ]
+      },
+      "AdminUserDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/UserDTO" },
+          {
+            "type": "object",
+            "properties": { "role": { "type": "string", "enum": ["ADMIN"] } }
+          }
+        ]
+      },
+      "AnyUserDTO": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/RecipientDTO" },
+          { "$ref": "#/components/schemas/DonorDTO" },
+          { "$ref": "#/components/schemas/CourierDTO" },
+          { "$ref": "#/components/schemas/AdminUserDTO" }
+        ],
+        "discriminator": { "propertyName": "role" }
+      },
+      "CreateCourierRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["username", "email", "tempPassword", "fullName"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "English letters, numbers, underscore, and hyphen only"
+          },
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "tempPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "At least 8 characters, 1 uppercase letter, 1 number, and 1 special character"
+          },
+          "fullName": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      },
+      "UpdateUserStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": { "status": { "$ref": "#/components/schemas/AccountStatus" } }
+      },
+      "FoodCategory": {
+        "type": "string",
+        "enum": ["FRUIT", "VEGETABLE", "MEAT", "COOKED_DISH", "BAKED_GOODS", "DRINK"]
+      },
+      "MeasurementUnit": {
+        "type": "string",
+        "enum": ["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "PER_REQUEST"]
+      },
+      "ListingStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "PAUSED", "CANCELLED", "SOLD_OUT"]
+      },
+      "ListingDonorSummary": {
+        "type": "object",
+        "required": ["id", "companyName", "city", "location"],
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" },
+          "city": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/GeoLocation" }
+        }
+      },
+      "ListingDTO": {
+        "type": "object",
+        "required": ["id", "donor", "name", "description", "imageUrl", "unit", "category", "isVegetarian", "price", "city", "status", "donationLimit", "rationLimitPerPerson", "quantityRemaining", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "donor": { "$ref": "#/components/schemas/ListingDonorSummary" },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "imageUrl": { "type": "string", "nullable": true },
+          "unit": { "$ref": "#/components/schemas/MeasurementUnit" },
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "isVegetarian": { "type": "boolean" },
+          "price": { "type": "number", "minimum": 0 },
+          "city": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/ListingStatus" },
+          "donationLimit": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+          "rationLimitPerPerson": { "type": "number", "nullable": true, "exclusiveMinimum": true, "minimum": 0 },
+          "quantityRemaining": { "type": "number", "minimum": 0 },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DeliveryStage": {
+        "type": "string",
+        "enum": ["AWAITING_COURIER", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"]
+      },
+      "AdminDeliveryDTO": {
+        "type": "object",
+        "required": ["id", "orderId", "courierId", "stage", "pickedUpAt", "deliveredAt", "courierLastLocation", "createdAt", "courier", "order"],
+        "properties": {
+          "id": { "type": "string" },
+          "orderId": { "type": "string" },
+          "courierId": { "type": "string", "nullable": true },
+          "stage": { "$ref": "#/components/schemas/DeliveryStage" },
+          "pickupAddressText": { "type": "string" },
+          "pickupAddressLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "pickedUpAt": { "type": "string", "format": "date-time", "nullable": true },
+          "deliveredAt": { "type": "string", "format": "date-time", "nullable": true },
+          "courierLastLocation": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }]
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "courier": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/CourierSummary" }]
+          },
+          "order": { "$ref": "#/components/schemas/AdminDeliveryOrderSummary" }
+        }
+      },
+      "CourierSummary": {
+        "type": "object",
+        "required": ["id", "fullName"],
+        "properties": {
+          "id": { "type": "string" },
+          "fullName": { "type": "string" }
+        }
+      },
+      "AdminDeliveryOrderSummary": {
+        "type": "object",
+        "required": ["id", "recipientId"],
+        "properties": {
+          "id": { "type": "string" },
+          "recipientId": { "type": "string" }
+        }
+      },
+      "CourierResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": { "data": { "$ref": "#/components/schemas/CourierDTO" } }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": { "data": { "$ref": "#/components/schemas/UserDTO" } }
+      },
+      "AdminUsersResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/AnyUserDTO" } },
+              "page": { "type": "integer", "minimum": 1 },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+              "total": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      },
+      "CourierListResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/CourierDTO" } },
+              "page": { "type": "integer", "minimum": 1 },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+              "total": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      },
+      "AdminListingsResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/ListingDTO" } },
+              "page": { "type": "integer", "minimum": 1 },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+              "total": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      },
+      "CancelListingResult": {
+        "type": "object",
+        "required": ["listing", "cancelledOrderCount"],
+        "properties": {
+          "listing": { "$ref": "#/components/schemas/ListingDTO" },
+          "cancelledOrderCount": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "CancelListingResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": { "data": { "$ref": "#/components/schemas/CancelListingResult" } }
+      },
+      "AdminDeliveriesResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["items", "page", "limit", "total"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/AdminDeliveryDTO" } },
+              "page": { "type": "integer", "minimum": 1 },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+              "total": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Path, query, or request body validation failed",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "The request contains invalid data." }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, or revoked access token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "AdminOnly": {
+        "description": "The authenticated account does not have the ADMIN role",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to perform this action." }
+          }
+        }
+      },
+      "DuplicateEmail": {
+        "description": "An account already exists with this email",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "This email is already registered." }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The requested account or listing does not exist",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Resource not found." }
+          }
+        }
+      }
+    }
+  }
+}
