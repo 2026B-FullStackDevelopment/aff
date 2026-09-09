@@ -6,6 +6,7 @@ import { env } from '../../config/env.js';
 import type { AuthSession } from './auth.token.service.js';
 import type { LoginRequestDto } from './auth.dto.js';
 import type { UserDocument } from '../users/user.model.js';
+import { createActiveSession } from './active-session.repository.js';
 
 // One message for every credential failure, so nothing reveals whether the
 // account exists (issue #49).
@@ -115,7 +116,17 @@ async function login(payload: LoginRequestDto): Promise<AuthSession> {
     lockedUntil: null,
   });
 
-  return issueSession(user);
+  const session = issueSession(user);
+
+  if (session.expiresAt) {
+    await createActiveSession({
+      jti: session.jti,
+      userId: user._id,
+      expiresAt: session.expiresAt,
+    });
+  }
+
+  return session;
 }
 
 export { login };

@@ -1,5 +1,10 @@
 // Contains the logout business rules, revoking the presented token server-side.
 import { revokeToken } from './revoked-token.repository.js';
+import {
+  deleteActiveSessionsByUserId,
+  findActiveSessionsByUserId,
+} from './active-session.repository.js';
+import type { RevokeReason } from './revoked-token.model.js';
 
 /** Everything needed to revoke the token that was presented on this request. */
 interface LogoutInput {
@@ -46,5 +51,26 @@ async function revokeForPasswordChange(input: LogoutInput): Promise<void> {
   });
 }
 
-export { logout, revokeForPasswordChange };
+/** Revokes every currently tracked token owned by one user. */
+async function revokeAllUserSessions(
+  userId: string,
+  reason: RevokeReason = 'ADMIN_DEACTIVATE',
+): Promise<void> {
+  const sessions = await findActiveSessionsByUserId(userId);
+
+  await Promise.all(
+    sessions.map((session) =>
+      revokeToken({
+        jti: session.jti,
+        userId,
+        expiresAt: session.expiresAt,
+        reason,
+      }),
+    ),
+  );
+
+  await deleteActiveSessionsByUserId(userId);
+}
+
+export { logout, revokeForPasswordChange, revokeAllUserSessions };
 export type { LogoutInput };

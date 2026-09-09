@@ -17,7 +17,8 @@ interface AuthSession {
 
 /**
  * Issues a new session for a user who has just registered or logged in
- * successfully. Purely local — does not touch the database.
+ * successfully. The active-session row lets an Admin later revoke all live
+ * sessions for a deactivated account.
  *
  * @param user - The user to issue a session for.
  * @returns The new session, including the raw access token to return to the client.
