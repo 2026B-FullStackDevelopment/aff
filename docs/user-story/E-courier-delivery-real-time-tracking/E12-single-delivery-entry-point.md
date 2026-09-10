@@ -7,8 +7,8 @@ labels: user-story
 
 ## User Story
 As the **Delivery module**,
-I expose **one `createForOrder(orderId, ...)` entry point, called identically by the Reservation and Donor-initiated flows**
-so that **both intake paths converge on the same Courier pipeline with no divergent logic between them**.
+I expose **one `createForOrder(orderId, ...)` entry point for queue-eligible Reservation Orders**
+so that **every Courier delivery enters the same pipeline while completed in-person flows remain outside it**.
 
 ## Acceptance Criteria
 
@@ -17,10 +17,10 @@ so that **both intake paths converge on the same Courier pipeline with no diverg
   - **When** the order becomes payable-complete (immediately for free/cash, on webhook success for Stripe)
   - **Then** `DeliveryService.createForOrder(orderId)` is called, creating a `DELIVERY` (`stage=AWAITING_COURIER`) referencing that `orderId`
 
-- [ ] **Scenario:** Donor-initiated flow calls the same entry point
-  - **Given** a free or paid Donor-initiated donation is created (C3)
-  - **When** the order becomes payable-complete (immediately for free, on payment confirmation for priced)
-  - **Then** the identical `DeliveryService.createForOrder(orderId)` call fires — not a separate Donor-initiated-specific delivery-creation path
+- [ ] **Scenario:** Donor-initiated manual donation does not enter the queue
+  - **Given** a free or priced Donor-initiated manual donation is recorded (C3)
+  - **When** its terminal `ORDER` is created with `orderStatus=DELIVERED`
+  - **Then** `DeliveryService.createForOrder(orderId)` is not called and no `DELIVERY` is created
 
 - [ ] **Scenario:** No delivery is created for Per-Request listings
   - **Given** a Per-Request listing exists
@@ -39,11 +39,13 @@ so that **both intake paths converge on the same Courier pipeline with no diverg
 
 ## Implementation Flow
 
-1. **Build this as a plain internal function/service method on the Delivery module, exposed via its `*.interface.ts`** — per the architecture's cross-module rule (`A.3.1`), the Orders and Listings services call `DeliveryService.createForOrder` directly through that interface, never through an HTTP round-trip to the Delivery module's own routes.
-2. **This is the one function every other "order becomes queue-eligible" moment must route through**, rather than each caller writing its own `DELIVERY` document directly: D2's free/cash reservation path, the Stripe webhook's `checkout.session.completed` handler (§8), and C3's free/priced donor-initiated donation path all call this same function. When implementing any of those stories, resist writing an inline `Delivery.create(...)` — call this interface instead.
+1. **Build this as a plain internal function/service method on the Delivery module, exposed via its `*.interface.ts`** — per the architecture's cross-module rule (`A.3.1`), the Orders module calls `DeliveryService.createForOrder` directly through that interface, never through an HTTP round-trip to the Delivery module's own routes.
+2. **Route every Reservation "becomes queue-eligible" moment through this function**, rather than writing a `DELIVERY` document directly: D2's free/cash Reservation path and the Stripe webhook's successful Reservation-payment handler call the same interface.
 3. **Guard against duplicate creation** — key the idempotency check on `orderId` (e.g. a unique index on `DELIVERY.orderId`, or an existence check before insert) since at least one caller (the Stripe webhook) is explicitly at-least-once delivery per §8's idempotency note.
-4. **Keep the created `DELIVERY` minimal and consistent regardless of caller**: `orderId` set, `stage=AWAITING_COURIER`, `courierId` unset, `createdAt=now` — no intake-path-specific branching inside this function. If a caller needs different behavior, that belongs in the caller, not as a parameter that forks this function's logic.
-5. **This story should land before — or alongside — the first story that needs to call it (C3 or D2).** Per `docs/blockers.md`, it's the structural prerequisite for most of Epic E and for C3/D2; sequence it early rather than stubbing it out to unblock those stories first.
+4. **Validate delivery eligibility defensively.** The referenced Order must use `intakePath=RESERVATION` and be in a queue-eligible state. Reject or safely ignore `DONOR_INITIATED` Orders so a future caller cannot accidentally queue an in-person donation.
+5. **Keep the created `DELIVERY` minimal and consistent regardless of Reservation payment method**: `orderId` set, `stage=AWAITING_COURIER`, `courierId` unset, `createdAt=now`.
+6. **Test the boundary explicitly.** Cover free, cash, and webhook-confirmed Stripe Reservations, duplicate calls, and the rule that Donor-initiated manual Orders never create a Delivery.
+7. **This story should land before — or alongside — D2.** It is the structural prerequisite for Reservation delivery and most of Epic E.
 
 ## Related Epic
 Courier Delivery & Real-Time Tracking (Epic E — #85)

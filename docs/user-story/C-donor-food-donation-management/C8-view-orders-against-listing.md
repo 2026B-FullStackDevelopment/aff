@@ -7,7 +7,7 @@ labels: user-story
 
 ## User Story
 As a **Donor**,
-I can **see every tracked order against one of my listings — Recipient, quantity, delivery status, payment info, and feedback**
+I can **see every tracked order against one of my listings — Recipient, quantity, fulfillment status, payment info, and feedback**
 so that **I can follow up on and understand the outcome of each donation I've made**.
 
 ## Acceptance Criteria
@@ -16,6 +16,12 @@ so that **I can follow up on and understand the outcome of each donation I've ma
   - **Given** I own a listing with one or more Reservation and/or Donor-initiated orders against it
   - **When** I call `GET /listings/:id/orders`
   - **Then** I see a paginated table of orders, each showing the Recipient's username, `quantity`, `orderStatus`, `paymentMethod`/`paymentStatus`, and any `feedback`
+
+- [ ] **Scenario:** In-person manual donation has no Delivery
+  - **Given** a Donor-initiated manual Order was completed at my premises
+  - **When** I view its row
+  - **Then** it shows `orderStatus=DELIVERED` and the UI labels its fulfillment as "Completed in person"
+  - **And** the missing Delivery is not displayed as "Not queued", pending, or an error
 
 - [ ] **Scenario:** Per-Request listings have nothing to show
   - **Given** I own a listing with `unit=PER_REQUEST`
@@ -38,6 +44,8 @@ so that **I can follow up on and understand the outcome of each donation I've ma
 2. **Use the response's pagination fields** the same way as C4's listing search, rather than loading every order for a listing at once.
 3. **Render `feedback` only when present** (it's nullable) — don't show an empty feedback row/placeholder for orders that haven't been reviewed yet.
 4. **On `403` (viewing another Donor's listing), route back to the Donor's own listings view** rather than rendering a blank or broken table.
+5. **Derive the fulfillment label from both intake path and delivery data.** For `DONOR_INITIATED` plus `orderStatus=DELIVERED` and no Delivery, show "Completed in person". Reservation rows continue to use their Delivery stage where available.
+6. **Do not assume every Order has a Delivery.** The `delivery` field is nullable by contract; a null value is expected for completed manual donations and for a Stripe Reservation that has not yet completed payment.
 
 ## Related Epic
 Donor Food Donation Management (Epic C — #66)
