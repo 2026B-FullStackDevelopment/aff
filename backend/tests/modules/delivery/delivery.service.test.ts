@@ -19,9 +19,9 @@ const {
   findDonorSummariesByListingIdsMock,
   markOrderDeliveredMock,
   getListingByIdMock,
-  emitToUserMock,
   emitToOrderMock,
   verifyOrderOwnershipMock,
+  sendNotificationMock,
 } = vi.hoisted(() => ({
   findOrCreateForOrderMock: vi.fn(),
   findDeliveryByOrderIdMock: vi.fn(),
@@ -41,9 +41,9 @@ const {
   findDonorSummariesByListingIdsMock: vi.fn(),
   markOrderDeliveredMock: vi.fn(),
   getListingByIdMock: vi.fn(),
-  emitToUserMock: vi.fn(),
   emitToOrderMock: vi.fn(),
   verifyOrderOwnershipMock: vi.fn(),
+  sendNotificationMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/delivery/delivery.repository.js', () => ({
@@ -80,8 +80,13 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 }));
 
 vi.mock('../../../src/realtime/socket.js', () => ({
-  emitToUser: emitToUserMock,
   emitToOrder: emitToOrderMock,
+}));
+
+vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
+  notificationInterface: {
+    sendNotification: sendNotificationMock,
+  },
 }));
 
 import {
@@ -228,19 +233,25 @@ describe('delivery.service', () => {
 
       await markDelivered('d1', 'c1', {});
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'DELIVERY_STATUS',
+        event: 'order:status_changed',
         orderId: 'o1',
-        stage: 'DELIVERED',
+        payload: { orderId: 'o1', stage: 'DELIVERED' },
       });
       expect(emitToOrderMock).toHaveBeenCalledWith(
         'o1',
         'delivery:delivered',
         expect.objectContaining({ orderId: 'o1' }),
       );
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'r1',
-        'delivery:delivered',
-        expect.objectContaining({ orderId: 'o1' }),
+      expect(sendNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'r1',
+          type: 'DELIVERY_STATUS',
+          event: 'delivery:delivered',
+          orderId: 'o1',
+        }),
       );
     });
 
@@ -256,14 +267,14 @@ describe('delivery.service', () => {
       let emittedDuringTransaction = false;
       withTransactionMock.mockImplementation(async (operation) => {
         const value = await operation(databaseSession);
-        emittedDuringTransaction = emitToUserMock.mock.calls.length > 0;
+        emittedDuringTransaction = sendNotificationMock.mock.calls.length > 0;
         return value;
       });
 
       await markDelivered('d1', 'c1', {});
 
       expect(emittedDuringTransaction).toBe(false);
-      expect(emitToUserMock).toHaveBeenCalled();
+      expect(sendNotificationMock).toHaveBeenCalled();
     });
 
     it('still completes the Delivery when every post-commit notification fails', async () => {
@@ -274,7 +285,7 @@ describe('delivery.service', () => {
         recipientId: 'r1',
         paymentMethod: 'STRIPE',
       });
-      emitToUserMock.mockImplementation(() => {
+      sendNotificationMock.mockImplementation(() => {
         throw new Error('Socket.IO server has not been initialized.');
       });
       emitToOrderMock.mockImplementation(() => {
@@ -289,7 +300,7 @@ describe('delivery.service', () => {
       expect(result.delivery).toMatchObject({ stage: 'DELIVERED' });
       // All three post-commit emits are independently guarded, so one
       // failing does not stop the others from being attempted.
-      expect(emitToUserMock).toHaveBeenCalledTimes(2);
+      expect(sendNotificationMock).toHaveBeenCalledTimes(2);
       expect(emitToOrderMock).toHaveBeenCalledTimes(1);
       expect(consoleErrorSpy).toHaveBeenCalledTimes(3);
 
@@ -625,9 +636,12 @@ describe('delivery.service', () => {
 
       await claimDelivery('d1', 'c1');
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'DELIVERY_STATUS',
+        event: 'order:status_changed',
         orderId: 'o1',
-        stage: 'ASSIGNED',
+        payload: { orderId: 'o1', stage: 'ASSIGNED' },
       });
     });
 
@@ -643,9 +657,12 @@ describe('delivery.service', () => {
 
       await markPickedUp('d1', 'c1');
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'DELIVERY_STATUS',
+        event: 'order:status_changed',
         orderId: 'o1',
-        stage: 'PICKED_UP',
+        payload: { orderId: 'o1', stage: 'PICKED_UP' },
       });
     });
 
@@ -658,7 +675,7 @@ describe('delivery.service', () => {
         createdAt: new Date(),
       });
       prepareOrder();
-      emitToUserMock.mockImplementationOnce(() => {
+      sendNotificationMock.mockImplementationOnce(() => {
         throw new Error('Socket.IO server has not been initialized.');
       });
       const consoleErrorSpy = vi
@@ -682,7 +699,7 @@ describe('delivery.service', () => {
         createdAt: new Date(),
       });
       prepareOrder();
-      emitToUserMock.mockImplementationOnce(() => {
+      sendNotificationMock.mockImplementationOnce(() => {
         throw new Error('Socket.IO server has not been initialized.');
       });
       const consoleErrorSpy = vi
