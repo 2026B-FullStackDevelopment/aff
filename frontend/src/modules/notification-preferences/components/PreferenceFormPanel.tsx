@@ -21,11 +21,9 @@ interface PreferenceFormPanelProps {
   preference?: NotificationPreference;
   onClose: () => void;
   onSaved: (preference: NotificationPreference) => void;
-  /** Edit mode only — parent owns the confirmation dialog and the actual DELETE call. */
-  onDeleteRequest?: () => void;
 }
 
-export function PreferenceFormPanel({ mode, preference, onClose, onSaved, onDeleteRequest }: PreferenceFormPanelProps) {
+export function PreferenceFormPanel({ mode, preference, onClose, onSaved }: PreferenceFormPanelProps) {
   const {
     form,
     error: validationError,
@@ -187,30 +185,24 @@ export function PreferenceFormPanel({ mode, preference, onClose, onSaved, onDele
 
         <FormErrorAlert message={validationError ?? serverError} />
 
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-4">
-            <div>
-                {mode === 'edit' && onDeleteRequest && (
-                <button
-                    type="button"
-                    onClick={onDeleteRequest}
-                    disabled={isSubmitting}
-                    className="text-sm font-semibold text-red-600 transition-colors duration-150 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    Delete
-                </button>
-                )}
-            </div>
-
-            <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}
-                className="h-10 px-4 border-[#3D6852]/30 text-[#2E5A47] transition-all duration-200 ease-out hover:bg-[#f0f7f3] hover:shadow-md active:scale-[0.98]">
-                Cancel
-                </Button>
-                <Button type="button" disabled={isSubmitting} onClick={() => void handleSubmit()}
-                className="h-10 px-4 bg-[#3D6852] text-white transition-all duration-200 ease-out hover:bg-[#2E5A47] hover:shadow-md active:scale-[0.98]">
-                {isSubmitting ? 'Saving…' : mode === 'create' ? 'Save Preference' : 'Save Changes'}
-                </Button>
-            </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSubmitting}
+            onClick={handleCancel}
+            className="h-10 px-4 border-[#3D6852]/30 text-[#2E5A47] transition-all duration-200 ease-out hover:bg-[#f0f7f3] hover:shadow-md active:scale-[0.98]"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => void handleSubmit()}
+            className="h-10 px-4 bg-[#3D6852] text-white transition-all duration-200 ease-out hover:bg-[#2E5A47] hover:shadow-md active:scale-[0.98]"
+          >
+            {isSubmitting ? 'Saving…' : mode === 'create' ? 'Save Preference' : 'Save Changes'}
+          </Button>
         </div>
       </div>
     </Panel>

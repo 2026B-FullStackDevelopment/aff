@@ -60,9 +60,9 @@ export function NotificationPreferencesPage() {
     const success = await removePreference(pendingDelete.id);
 
     setIsDeleting(false);
-    setPendingDelete(null);
 
     if (success) {
+      setPendingDelete(null);
       closePanel();
     } else {
       toast.error('Could not delete this preference. Please try again.');
@@ -147,6 +147,7 @@ export function NotificationPreferencesPage() {
                     isPremium={isPremium}
                     onEdit={() => openEdit(preference)}
                     onToggleActive={toggleActive}
+                    onDelete={() => setPendingDelete(preference)}
                   />
                 ))}
 
@@ -161,9 +162,6 @@ export function NotificationPreferencesPage() {
               preference={panel.mode === 'edit' ? panel.preference : undefined}
               onClose={closePanel}
               onSaved={handleSaved}
-              onDeleteRequest={
-                panel.mode === 'edit' ? () => setPendingDelete(panel.preference) : undefined
-              }
             />
           )}
         </div>

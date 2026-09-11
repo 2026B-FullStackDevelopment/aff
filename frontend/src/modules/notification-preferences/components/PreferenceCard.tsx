@@ -1,13 +1,14 @@
-import { Layers, Leaf, Wallet, MapPin, Zap, PauseCircle } from 'lucide-react';
+import { Layers, Leaf, Wallet, MapPin, Zap, PauseCircle, Trash2 } from 'lucide-react';
 import { CATEGORY_LABELS, formatPrice } from '@/shared/utils/listingFormatting';
 import { cn } from '@/shared/utils';
 import type { NotificationPreference } from '@/types/api';
 
 interface PreferenceCardProps {
   preference: NotificationPreference;
-  /** PATCH is Premium-gated — a STANDARD recipient can view but not edit/toggle. */
+  /** PATCH and DELETE are Premium-gated — a STANDARD recipient can view but not edit/toggle/delete. */
   isPremium: boolean;
   onEdit: () => void;
+  onDelete?: () => void;
   onToggleActive: (id: string) => void;
 }
 
@@ -18,12 +19,28 @@ function formatPriceRange(priceMin: number | null, priceMax: number | null): str
   return `${formatPrice(priceMin)} - ${formatPrice(priceMax)}`;
 }
 
-export function PreferenceCard({ preference, isPremium, onEdit, onToggleActive }: PreferenceCardProps) {
+export function PreferenceCard({ preference, isPremium, onEdit, onDelete, onToggleActive }: PreferenceCardProps) {
   const { id, preferenceTitle, categories, vegetarian, priceMin, priceMax, city, isActive } = preference;
 
   const details = (
     <div className="flex flex-col gap-3">
-      <h3 className="text-base font-bold text-[#1B1C1C]">{preferenceTitle}</h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-bold text-[#1B1C1C] flex-1 truncate">{preferenceTitle}</h3>
+        {isPremium && onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition-colors duration-150 hover:bg-red-50 -mr-1.5 -mt-1 shrink-0"
+            aria-label={`Delete ${preferenceTitle}`}
+            title="Delete preference"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
 
       {categories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -57,15 +74,22 @@ export function PreferenceCard({ preference, isPremium, onEdit, onToggleActive }
   );
 
   return (
-    <div className="flex flex-col rounded-xl border border-[#E4E2E1] bg-white p-5">
+    <div className="flex flex-col justify-between rounded-xl border border-[#E4E2E1] bg-white p-5 shadow-xs transition-shadow duration-200 hover:shadow-sm">
       {isPremium ? (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onEdit}
-          className="rounded-lg text-left transition-opacity duration-150 hover:opacity-80"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onEdit();
+            }
+          }}
+          className="rounded-lg text-left transition-opacity duration-150 hover:opacity-85 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6852]/20"
         >
           {details}
-        </button>
+        </div>
       ) : (
         details
       )}
@@ -93,7 +117,7 @@ export function PreferenceCard({ preference, isPremium, onEdit, onToggleActive }
           disabled={!isPremium}
           onClick={() => onToggleActive(id)}
           className={cn(
-            'relative h-6 w-11 shrink-0 rounded-full transition-all duration-200 ease-out',
+            'relative h-6 w-11 shrink-0 rounded-full transition-all duration-200 ease-out cursor-pointer',
             'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-offset-0 focus-visible:ring-[#3D6852]/25',
             'disabled:cursor-not-allowed disabled:opacity-60',
             isActive ? 'bg-[#3D6852]' : 'bg-slate-300',
