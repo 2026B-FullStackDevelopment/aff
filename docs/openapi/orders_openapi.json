@@ -18,7 +18,7 @@
         "tags": ["Recipient Orders"],
         "operationId": "listMyOrders",
         "summary": "List the authenticated Recipient's Orders, paginated and enriched (D5)",
-        "description": "Always implicitly scoped to req.user.id as recipientId — there is no parameter to query anyone else's orders. Sorted newest-first (createdAt descending, no client-controlled sort). Each item embeds the donating Listing's name/imageUrl/unit, the Donor's id/companyName, and the Order's live Delivery stage (null when no Delivery exists yet, e.g. a Stripe Order still PENDING_PAYMENT) — all joined server-side so the client never needs a second call per row.",
+        "description": "Always implicitly scoped to req.user.id as recipientId — there is no parameter to query anyone else's orders. Sorted newest-first (createdAt descending, no client-controlled sort). Each item embeds the donating Listing's name/imageUrl/unit, the Donor's id/companyName, and the Order's Delivery stage. Delivery is null for a Stripe Reservation still PENDING_PAYMENT and for a completed in-person DONOR_INITIATED Order; clients display the latter as Completed in person rather than Not queued.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/Page" },
@@ -44,7 +44,7 @@
         "tags": ["Recipient Orders"],
         "operationId": "getOrder",
         "summary": "Get a single Order, including its live Delivery stage",
-        "description": "Supports the order-tracking page. Ownership: the Order must belong to req.user.id. Never distinguishes a nonexistent Order from one owned by someone else — both are 404 — so this endpoint can't be used to probe for another Recipient's order ids. delivery is null when no Delivery exists yet (e.g. a Stripe Order still PENDING_PAYMENT); otherwise it reflects the Delivery's current stage, which is exactly what the client uses to decide whether to show the Cancel Order action (D4): eligible when delivery is null or stage is AWAITING_COURIER.",
+        "description": "Supports the order-tracking page. Ownership: the Order must belong to req.user.id. Never distinguishes a nonexistent Order from one owned by someone else — both are 404. Delivery is null for a Stripe Reservation still PENDING_PAYMENT and for a completed in-person DONOR_INITIATED Order. Cancellation also checks orderStatus: a DELIVERED manual Order remains terminal even though it has no Delivery.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/OrderId" }
@@ -67,7 +67,7 @@
         "tags": ["Recipient Orders"],
         "operationId": "cancelOrder",
         "summary": "Cancel my own Order before a Courier claims it (D4)",
-        "description": "Atomically checks the associated Delivery's stage. If no Delivery exists yet, or stage=AWAITING_COURIER, cancellation proceeds: ORDER.orderStatus=CANCELLED, cancelledByUserId=req.user.id, cancelledAt=now, and LISTING.quantityRemaining is restored. If stage has moved to ASSIGNED, PICKED_UP, or DELIVERED — including a Courier claim that wins the race between this endpoint's own pre-check and its atomic update — the request is rejected with 409 and the Order is left untouched; this is the same atomic-update guarantee PATCH /deliveries/{id}/claim relies on, so a claim racing a cancellation can never leave both operations believing they won. Automatic Stripe refund: if the cancelled Order has paymentMethod=STRIPE and paymentStatus=PAID, cancellation additionally triggers a synchronous stripe.refunds.create() call against PAYMENT.stripePaymentIntentId. On success, paymentStatus becomes REFUND_PENDING (not REFUNDED yet — that's confirmed later by the charge.refunded webhook, which emits payment:refunded over Socket.IO) and the response reports refundStatus=REFUND_PENDING. If the Stripe call itself errors, cancellation still commits (never blocked on Stripe reachability) and the response reports refundStatus=FAILED. Free, cash, and Stripe-but-never-paid (PENDING_PAYMENT) Orders get refundStatus=NOT_APPLICABLE and no Stripe call at all. Idempotent on the refund side: a Payment already REFUND_PENDING or REFUNDED is not refunded again.",
+        "description": "Rejects terminal Orders first. A non-terminal Reservation can be cancelled while its Delivery is AWAITING_COURIER, or while Stripe payment is pending before a Delivery exists. A DONOR_INITIATED manual Order is created as DELIVERED and cannot be cancelled even though it intentionally has no Delivery. Successful cancellation sets orderStatus=CANCELLED, records the actor/time, and restores stock. ASSIGNED-or-later Deliveries return 409 using the same atomic race guard as Courier claim. A paid Stripe cancellation starts the existing asynchronous refund flow; free, cash, and never-paid Orders require no refund.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/OrderId" }
@@ -285,7 +285,7 @@
         "properties": {
           "stage": { "$ref": "#/components/schemas/DeliveryStage" }
         },
-        "description": "null when no Delivery exists yet for this Order (e.g. a Stripe Order still PENDING_PAYMENT)"
+        "description": "null for a Stripe Reservation still PENDING_PAYMENT and for a completed in-person DONOR_INITIATED Order"
       },
       "RefundStatus": {
         "type": "string",
@@ -294,7 +294,7 @@
       },
       "Order": {
         "type": "object",
-        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt", "delivery"],
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "cancelledByUserId", "feedback", "createdAt", "delivery"],
         "properties": {
           "id": { "type": "string" },
           "recipientId": { "type": "string" },
@@ -318,8 +318,14 @@
             "type": "string",
             "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"]
           },
-          "deliveryAddressText": { "type": "string" },
-          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "deliveryAddressText": {
+            "type": "string",
+            "description": "Required for RESERVATION; omitted for an in-person DONOR_INITIATED Order"
+          },
+          "deliveryLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "description": "Required for RESERVATION; omitted for an in-person DONOR_INITIATED Order"
+          },
           "cancelledByUserId": { "type": "string", "nullable": true },
           "feedback": {
             "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
@@ -490,7 +496,7 @@
         }
       },
       "OrderNoLongerCancellable": {
-        "description": "The Order's Delivery has already moved to ASSIGNED, PICKED_UP, or DELIVERED — including a Courier claim that won the race against this cancellation. The Order is left untouched.",
+        "description": "The Order is already DELIVERED/CANCELLED, or its Delivery has moved to ASSIGNED, PICKED_UP, or DELIVERED. This includes a Courier claim that won the race against cancellation. The Order is left untouched.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },

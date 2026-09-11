@@ -19,12 +19,13 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] The server ignores or rejects client-controlled `city`
 - [ ] The server ignores or rejects client-controlled `quantityRemaining`
 - [ ] A price of `0` is accepted
-- [ ] A price strictly greater than `1000` VND is accepted
-- [ ] A price from `1` through `1000` VND is rejected with `400`
+- [ ] A price greater than or equal to `15000` VND is accepted
+- [ ] A price from `1` through `14999` VND is rejected with `400`
 - [ ] A negative price is rejected with `400`
 - [ ] Invalid unit values are rejected with `400`
 - [ ] Invalid category values are rejected with `400`
-- [ ] Invalid donation and ration quantities are rejected with `400`
+- [ ] Invalid donation quantities are rejected with `400`
+- [ ] Ration limits that are zero, negative, or decimal are rejected with `400`
 
 ## Clone listing (#69)
 
@@ -42,10 +43,11 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] A registered Recipient is resolved by email
 - [ ] A nonexistent Recipient email returns `404`
 - [ ] A non-Recipient account cannot be selected
-- [ ] A free donation creates a `DONOR_INITIATED` Order
-- [ ] A free donation enters the Courier queue
-- [ ] A priced donation starts as `PAYMENT_PENDING`
-- [ ] A priced donation emits `notification:payment_requested`
+- [ ] The request accepts only `recipientEmail` and `quantity`; delivery, payment-selection, cash-received, and change fields are rejected
+- [ ] A free donation creates a `DONOR_INITIATED` Order with `paymentStatus=FREE` and `orderStatus=DELIVERED`
+- [ ] A priced donation creates a `DONOR_INITIATED` Order with `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`
+- [ ] Neither free nor priced manual donation creates a Delivery
+- [ ] A manual donation never creates a Payment or emits `notification:payment_requested`
 - [ ] Insufficient remaining stock returns `422`
 - [ ] A ration-limit violation returns `422`
 - [ ] A `PER_REQUEST` listing returns `422`
@@ -73,7 +75,8 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] A listing can be cancelled by its owner
 - [ ] Another Donor cannot update the listing status
 - [ ] Invalid or stale transitions return `409`
-- [ ] Cancellation affects Orders with no Delivery record
+- [ ] Cancellation affects a non-terminal Stripe Reservation with no Delivery record
+- [ ] Cancellation does not affect a terminal Donor-initiated manual Order with no Delivery record
 - [ ] Cancellation affects Orders whose Delivery is `AWAITING_COURIER`
 - [ ] Cancellation does not affect `ASSIGNED` or later Deliveries
 - [ ] Cancelled Orders store `cancelledByUserId`
@@ -82,9 +85,11 @@ This checklist tracks the backend verification required for the Donor Food Donat
 
 ## Ration limit (#73)
 
-- [ ] A positive ration limit can be stored on a listing
+- [ ] A positive whole-number ration limit can be stored on a listing
 - [ ] An omitted ration limit is stored as `null` or omitted according to the DTO contract
 - [ ] A ration limit of `0` is rejected
+- [ ] A negative ration limit is rejected
+- [ ] A decimal ration limit is rejected without silently rounding it
 - [ ] Recipient reservations enforce the ration limit
 - [ ] Donor-initiated donations enforce the ration limit
 
@@ -120,10 +125,11 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] A sold-out listing appears in the Past grouping
 - [ ] A `PER_REQUEST` listing never emits a sold-out event
 
-## Delivery and payment dependencies
+## Reservation delivery and payment dependencies
 
 - [ ] `DeliveryService.createForOrder` creates an `AWAITING_COURIER` Delivery
 - [ ] Repeating `createForOrder` does not create duplicate Deliveries
+- [ ] `createForOrder` rejects or ignores a `DONOR_INITIATED` manual Order
 - [ ] Stripe completion updates the related Order to `PAID`
 - [ ] Stripe completion changes the Order to `PREPARING`
 - [ ] Stripe completion creates the Delivery

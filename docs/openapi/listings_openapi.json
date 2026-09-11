@@ -3,7 +3,7 @@
   "info": {
     "title": "AFF Listings Browse API",
     "version": "0.1.0",
-    "description": "The public, unauthenticated Recipient browse endpoint (Epic D — D1 base pagination, D6 search/filter/sort), plus the authenticated Recipient reservation action (D2). Reflects backend/src/modules/listings/listing.controller.ts::listAvailableListings and ::reserveListing as implemented. Listing detail (GET /listings/{id}) and every Donor-owned listings-management endpoint are documented in donor_openai.json, not here, to avoid documenting the same path in two files."
+    "description": "The public, unauthenticated Recipient browse endpoint (Epic D — D1 base pagination, D6 search/filter/sort), plus the authenticated Recipient reservation action (D2). Reflects backend/src/modules/listings/listing.controller.ts::listAvailableListings and ::reserveListing as implemented. Listing detail and Donor-owned endpoints, including the in-person manual-donation contract, are documented in donor_openai.json to avoid duplicating paths."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
@@ -264,7 +264,7 @@
       },
       "Order": {
         "type": "object",
-        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt"],
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "cancelledByUserId", "feedback", "createdAt"],
         "properties": {
           "id": { "type": "string" },
           "recipientId": { "type": "string" },
@@ -281,7 +281,7 @@
           "paymentMethod": {
             "type": "string",
             "enum": ["STRIPE", "CASH"],
-            "description": "Omitted for a free (FREE paymentStatus) reservation"
+            "description": "Omitted for a free Order; priced Donor-initiated manual Orders always use CASH"
           },
           "paymentStatus": {
             "type": "string",
@@ -290,10 +290,16 @@
           "orderStatus": {
             "type": "string",
             "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"],
-            "description": "PREPARING for free/cash reservations, PENDING_PAYMENT for Stripe until checkout completes"
+            "description": "PREPARING for free/cash Reservations, PENDING_PAYMENT for Stripe until checkout completes, and DELIVERED immediately for an in-person manual Order"
           },
-          "deliveryAddressText": { "type": "string" },
-          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "deliveryAddressText": {
+            "type": "string",
+            "description": "Required for RESERVATION and omitted for an in-person DONOR_INITIATED Order"
+          },
+          "deliveryLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "description": "Required for RESERVATION and omitted for an in-person DONOR_INITIATED Order"
+          },
           "cancelledByUserId": { "type": "string", "nullable": true },
           "feedback": {
             "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
@@ -337,7 +343,7 @@
           "city": { "type": "string" },
           "status": { "$ref": "#/components/schemas/ListingStatus" },
           "donationLimit": { "type": "number" },
-          "rationLimitPerPerson": { "type": "number", "nullable": true },
+          "rationLimitPerPerson": { "type": "integer", "minimum": 1, "nullable": true },
           "quantityRemaining": { "type": "number" },
           "createdAt": { "type": "string", "format": "date-time" }
         }
