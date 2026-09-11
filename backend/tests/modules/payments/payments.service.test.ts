@@ -22,6 +22,7 @@ const {
   markOrderRefundedMock,
   createForOrderMock,
   emitToUserMock,
+  sendNotificationMock,
 } = vi.hoisted(() => ({
   createStripeCustomerMock: vi.fn(),
   createCheckoutSessionMock: vi.fn(),
@@ -43,6 +44,7 @@ const {
   markOrderRefundedMock: vi.fn(),
   createForOrderMock: vi.fn(),
   emitToUserMock: vi.fn(),
+  sendNotificationMock: vi.fn(),
 }));
 
 vi.mock('../../../src/integrations/payment/payment.provider.js', () => ({
@@ -87,6 +89,12 @@ vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
 
 vi.mock('../../../src/realtime/socket.js', () => ({
   emitToUser: emitToUserMock,
+}));
+
+vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
+  notificationInterface: {
+    sendNotification: sendNotificationMock,
+  },
 }));
 
 import {
@@ -144,6 +152,7 @@ describe('payments.service', () => {
     markOrderRefundedMock.mockReset();
     createForOrderMock.mockReset();
     emitToUserMock.mockReset();
+    sendNotificationMock.mockReset();
 
     withTransactionMock.mockImplementation(
       async (operation) => operation(databaseSession),
@@ -449,12 +458,13 @@ describe('payments.service', () => {
         'o1',
         databaseSession,
       );
-      expect(emitToUserMock).toHaveBeenCalledTimes(1);
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'r1',
-        'payment:success',
-        { orderId: 'o1' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'PAYMENT_SUCCESS',
+        orderId: 'o1',
+        payload: { orderId: 'o1' },
+      });
     });
 
     it('captures stripePaymentIntentId from the session when present', async () => {
@@ -484,7 +494,7 @@ describe('payments.service', () => {
       expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
       expect(markOrderPaidMock).not.toHaveBeenCalled();
       expect(createForOrderMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the session', async () => {
@@ -492,7 +502,7 @@ describe('payments.service', () => {
 
       await expect(processWebhookEvent(checkoutSessionCompletedEvent())).resolves.toBeUndefined();
       expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('no-ops on a subscription-mode checkout.session.completed event (F1 stub)', async () => {

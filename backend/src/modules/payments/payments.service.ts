@@ -6,6 +6,7 @@ import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import type { PayableType } from './payment.model.js';
 import type { ClientSession, Types } from 'mongoose';
 import type Stripe from 'stripe';
@@ -275,8 +276,11 @@ async function handlePaymentCheckoutCompleted(
   );
 
   if (result) {
-    emitToUser(result.recipientId, 'payment:success', {
+    void notificationInterface.sendNotification({
+      userId: result.recipientId,
+      type: 'PAYMENT_SUCCESS',
       orderId: result.orderId,
+      payload: { orderId: result.orderId },
     });
   }
 }
