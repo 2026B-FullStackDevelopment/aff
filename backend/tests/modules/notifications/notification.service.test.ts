@@ -139,6 +139,45 @@ describe('notification.service', () => {
 
       consoleErrorSpy.mockRestore();
     });
+
+    it('emits the default event for PREMIUM_MATCH and persists a matching message', async () => {
+      createMock.mockResolvedValue({ _id: 'n1' });
+
+      await sendNotification({
+        userId: 'u1',
+        type: 'PREMIUM_MATCH',
+        payload: { listingId: 'l1' },
+      });
+
+      expect(emitToUserMock).toHaveBeenCalledWith('u1', 'notification:premium_match', { listingId: 'l1' });
+      expect(createMock).toHaveBeenCalledWith({
+        userId: 'u1',
+        type: 'PREMIUM_MATCH',
+        message: 'A new listing matches your notification preferences.',
+        orderId: undefined,
+        listingId: undefined,
+      });
+    });
+
+    it('emits the default event for ADMIN_CANCEL and persists a matching message', async () => {
+      createMock.mockResolvedValue({ _id: 'n1' });
+
+      await sendNotification({
+        userId: 'r1',
+        type: 'ADMIN_CANCEL',
+        orderId: 'o1',
+        payload: { orderId: 'o1' },
+      });
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'notification:admin_cancel', { orderId: 'o1' });
+      expect(createMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'ADMIN_CANCEL',
+        message: 'Your order was cancelled by an admin.',
+        orderId: 'o1',
+        listingId: undefined,
+      });
+    });
   });
 
   describe('listMyNotifications', () => {
