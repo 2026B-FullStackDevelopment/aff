@@ -1,4 +1,4 @@
-import type { DecodedToken } from '../shared/security/token.js';
+import type { DecodedToken } from '../modules/security/token.service.js';
 
 // Describes the authenticated user in socket
 interface AuthenticatedSocketUser {

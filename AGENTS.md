@@ -24,7 +24,8 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 
 | Module | Responsibility |
 |---|---|
-| `auth` | Registration, login (with brute-force lockout), logout (server-side token revocation), JWT issuance and verification |
+| `auth` | Registration, login (with brute-force lockout), logout, and session issuance; delegates JWT signing/verification and token revocation to `security` |
+| `security` | JWT signing/verification, the revoked-token denylist, and password hashing. Infrastructure module: no HTTP surface — other modules call it through `security.interface.ts` |
 | `users` | User profile management; Recipient and Donor profile subtypes |
 | `listings` | Donor food listing creation, lifecycle (pause/resume/cancel), search, and donation flows |
 | `orders` | Recipient order and reservation lifecycle, cancellation, feedback |
@@ -43,6 +44,8 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 - **Models (`*.model.ts`):** Define MongoDB/Mongoose schemas.
 - **DTOs (`*.dto.ts`):** Shape data crossing the backend's external boundary. Response DTOs (`<Entity>ResponseDto`, built by a `to<Entity>ResponseDto()` mapper) shape outbound data; request DTOs (`<Verb><Entity>RequestDto`) shape inbound HTTP request bodies. Both live in the same module's `*.dto.ts` file.
 - **Interfaces (`*.interface.ts`):** Expose safe public APIs for other modules to call. Cross-module communication must happen via interfaces (e.g. `orders.service -> users.interface`), not directly via services.
+
+Not every module owns an HTTP route. `security` is an infrastructure module — it exposes only `security.interface.ts` (JWT and password primitives) and registers no routes or controllers.
 
 ### Frontend Architecture
 

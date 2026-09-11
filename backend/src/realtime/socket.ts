@@ -7,9 +7,9 @@ import type {
   InterServerEvents,
   SocketData,
 } from './socket.types.js';
-// Import Auth module public interface. Socket.IO user verifyAccessToken()
-// checking whether token has expired or been revoked
-import {authInterface} from '../modules/auth/auth.interface.js';
+// Import the security module's public interface. verifyAccessToken() checks the
+// token's signature, expiry, and revocation status.
+import { securityInterface } from '../modules/security/security.interface.js';
 // Import Order module public interface
 import {orderInterface} from '../modules/orders/order.interface.js';
 import {env} from '../config/env.js'
@@ -74,7 +74,7 @@ function initializeSocketServer (
             if (typeof token !== 'string' || !token) {
                 return next(new Error('Authentication is required.'));
             }
-            const decoded = await authInterface.verifyAccessToken(token);
+            const decoded = await securityInterface.verifyAccessToken(token);
 
             // userId and role of the authenticated user
             socket.data.user = {

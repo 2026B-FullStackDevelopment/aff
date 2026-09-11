@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import bcrypt from 'bcryptjs';
-import { hashPassword, verifyPassword, dummyCompare } from '../../../src/shared/security/password.js';
+import { hashPassword, verifyPassword, dummyCompare } from '../../../src/modules/security/password.service.js';
 
-describe('shared/security/password', () => {
+describe('security/password.service', () => {
   it('hashPassword never returns the plaintext', async () => {
     const hash = await hashPassword('Str0ng!Pass');
 

@@ -17,7 +17,7 @@ const {
   findDonorByUserIdMock,
   updateDonorMock,
   hashPasswordMock,
-  revokeTokenForPasswordChangeMock,
+  revokeTokenMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
@@ -35,7 +35,7 @@ const {
   findDonorByUserIdMock: vi.fn(),
   updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
-  revokeTokenForPasswordChangeMock: vi.fn(),
+  revokeTokenMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.repository.js', () => ({
@@ -62,13 +62,10 @@ vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   updateDonor: updateDonorMock,
 }));
 
-vi.mock('../../../src/shared/security/password.js', () => ({
-  hashPassword: hashPasswordMock,
-}));
-
-vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
-  authInterface: {
-    revokeTokenForPasswordChange: revokeTokenForPasswordChangeMock,
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: {
+    hashPassword: hashPasswordMock,
+    revokeToken: revokeTokenMock,
   },
 }));
 
@@ -378,18 +375,19 @@ describe('user.service', () => {
       expect(updateUserMock).toHaveBeenCalledWith('u1', { passwordHash: 'hashed-value' });
     });
 
-    it('revokes the presented token with reason PASSWORD_CHANGE via the auth interface', async () => {
+    it('revokes the presented token with reason PASSWORD_CHANGE via the security interface', async () => {
       await changePassword('u1', 'NewStr0ng!Pass', auth);
 
-      expect(revokeTokenForPasswordChangeMock).toHaveBeenCalledWith({
+      expect(revokeTokenMock).toHaveBeenCalledWith({
         userId: 'u1',
         jti: 'j1',
         expiresAt: auth.expiresAt,
+        reason: 'PASSWORD_CHANGE',
       });
     });
 
     it('propagates a failure from the revoke call', async () => {
-      revokeTokenForPasswordChangeMock.mockRejectedValueOnce(new Error('connection lost'));
+      revokeTokenMock.mockRejectedValueOnce(new Error('connection lost'));
 
       await expect(changePassword('u1', 'NewStr0ng!Pass', auth)).rejects.toThrow('connection lost');
     });
