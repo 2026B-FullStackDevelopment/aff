@@ -59,7 +59,7 @@ describe('notification.service', () => {
       expect(createMock).toHaveBeenCalledWith({
         userId: 'r1',
         type: 'PAYMENT_SUCCESS',
-        message: 'Your payment for order #o1 was successful.',
+        message: 'Your payment was successful.',
         orderId: 'o1',
         listingId: undefined,
       });
@@ -78,7 +78,7 @@ describe('notification.service', () => {
 
       expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', { orderId: 'o1', stage: 'ASSIGNED' });
       expect(createMock).toHaveBeenLastCalledWith(
-        expect.objectContaining({ message: "Your order's delivery status changed to ASSIGNED." }),
+        expect.objectContaining({ message: "Your order's delivery status is now assigned to a courier." }),
       );
 
       await sendNotification({
@@ -177,6 +177,20 @@ describe('notification.service', () => {
         orderId: 'o1',
         listingId: undefined,
       });
+    });
+
+    it('emits but does not persist when persist is false', async () => {
+      await sendNotification({
+        userId: 'r1',
+        type: 'DELIVERY_STATUS',
+        event: 'order:status_changed',
+        orderId: 'o1',
+        payload: { orderId: 'o1', stage: 'DELIVERED' },
+        persist: false,
+      });
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', { orderId: 'o1', stage: 'DELIVERED' });
+      expect(createMock).not.toHaveBeenCalled();
     });
   });
 

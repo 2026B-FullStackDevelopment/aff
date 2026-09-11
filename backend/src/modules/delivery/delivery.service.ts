@@ -274,12 +274,13 @@ async function withPickupAddress(
  * no cancelled state, and cancellations reach them through
  * `notification:admin_cancel` instead. See D4 in the design doc.
  */
-function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryStage) {
+function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryStage, persist?: boolean) {
   void notificationInterface.sendNotification({
     userId: recipientId,
     type: 'DELIVERY_STATUS',
     event: 'order:status_changed',
     orderId,
+    ...(persist === false ? { persist: false } : {}),
     payload: { orderId, stage },
   });
 }
@@ -516,7 +517,7 @@ async function markDelivered(
   // announce a delivery that a later abort rolls back, and that announcement
   // cannot be retracted. Each notification is independently guarded (see
   // `safeEmit`) so one failing to send doesn't stop the others from trying.
-  safeEmit(() => emitStageChanged(orderId, recipientId, view.delivery.stage));
+  safeEmit(() => emitStageChanged(orderId, recipientId, view.delivery.stage, false));
   safeEmit(() =>
     notificationInterface.sendNotification({
       userId: recipientId,

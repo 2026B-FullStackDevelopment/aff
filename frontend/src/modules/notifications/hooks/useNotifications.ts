@@ -5,6 +5,24 @@ import type { NotificationDTO } from '@/types/api';
 
 const NOTIFICATIONS_PAGE_SIZE = 20;
 
+let inFlightFirstPage: ReturnType<typeof notificationService.getMyNotifications> | null = null;
+
+function fetchPage(targetPage: number) {
+  if (targetPage !== 1) {
+    return notificationService.getMyNotifications(targetPage, NOTIFICATIONS_PAGE_SIZE);
+  }
+
+  if (!inFlightFirstPage) {
+    inFlightFirstPage = notificationService
+      .getMyNotifications(1, NOTIFICATIONS_PAGE_SIZE)
+      .finally(() => {
+        inFlightFirstPage = null;
+      });
+  }
+
+  return inFlightFirstPage;
+}
+
 /**
  * Loads the authenticated user's own notification history from
  * `GET /notifications` (H2) for the bell dropdown. Fetches page 1 whenever
@@ -24,7 +42,7 @@ export function useNotifications(enabled: boolean) {
     setError(null);
 
     try {
-      const response = await notificationService.getMyNotifications(targetPage, NOTIFICATIONS_PAGE_SIZE);
+      const response = await fetchPage(targetPage);
 
       if (!response.ok || !response.data) {
         setError(getResponseMessage(response.data, "We couldn't load your notifications. Please try again."));

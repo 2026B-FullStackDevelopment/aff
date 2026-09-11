@@ -238,6 +238,7 @@ describe('delivery.service', () => {
         type: 'DELIVERY_STATUS',
         event: 'order:status_changed',
         orderId: 'o1',
+        persist: false,
         payload: { orderId: 'o1', stage: 'DELIVERED' },
       });
       expect(emitToOrderMock).toHaveBeenCalledWith(

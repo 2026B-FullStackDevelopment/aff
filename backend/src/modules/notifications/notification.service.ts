@@ -10,6 +10,7 @@ interface SendNotificationParams {
   orderId?: string;
   listingId?: string;
   payload: Record<string, unknown>;
+  persist?: boolean;
 }
 
 // DELIVERY_STATUS has no single default event — it covers both
@@ -20,6 +21,14 @@ const DEFAULT_EVENT_BY_TYPE: Partial<Record<NotificationType, string>> = {
   PAYMENT_SUCCESS: 'payment:success',
   PREMIUM_MATCH: 'notification:premium_match',
   ADMIN_CANCEL: 'notification:admin_cancel',
+};
+
+const DELIVERY_STAGE_LABELS: Record<string, string> = {
+  AWAITING_COURIER: 'awaiting a courier',
+  ASSIGNED: 'assigned to a courier',
+  PICKED_UP: 'picked up by your courier',
+  DELIVERED: 'delivered',
+  CANCELLED: 'cancelled',
 };
 
 function resolveEventName(type: NotificationType, event?: string): string {
@@ -37,11 +46,11 @@ function buildMessage(type: NotificationType, event: string, payload: Record<str
     case 'SOLD_OUT':
       return `Your listing "${String(payload.name)}" just sold out.`;
     case 'PAYMENT_SUCCESS':
-      return `Your payment for order #${String(payload.orderId)} was successful.`;
+      return 'Your payment was successful.';
     case 'DELIVERY_STATUS':
       return event === 'delivery:delivered'
         ? 'Your order has been delivered.'
-        : `Your order's delivery status changed to ${String(payload.stage)}.`;
+        : `Your order's delivery status is now ${DELIVERY_STAGE_LABELS[String(payload.stage)] ?? String(payload.stage).toLowerCase()}.`;
     case 'PREMIUM_MATCH':
       return 'A new listing matches your notification preferences.';
     case 'ADMIN_CANCEL':
@@ -59,7 +68,7 @@ function buildMessage(type: NotificationType, event: string, payload: Record<str
  * or failed by this call (H1).
  */
 async function sendNotification(params: SendNotificationParams): Promise<void> {
-  const { userId, type, event, orderId, listingId, payload } = params;
+  const { userId, type, event, orderId, listingId, payload, persist = true } = params;
 
   let resolvedEvent: string;
   try {
@@ -67,6 +76,10 @@ async function sendNotification(params: SendNotificationParams): Promise<void> {
     emitToUser(userId, resolvedEvent, payload);
   } catch (error) {
     console.error('Failed to emit a realtime notification event:', error);
+    return;
+  }
+
+  if (!persist) {
     return;
   }
 
