@@ -179,14 +179,14 @@ export function PortalTopNavigation({
 
         {/* Desktop Right Actions */}
         <div className="hidden md:flex shrink-0 items-center gap-2">
-          {variant === 'recipient' && renderBell()}
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
         </div>
 
         {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
-          {variant === 'recipient' && renderBell()}
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
