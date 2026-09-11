@@ -52,7 +52,7 @@ Milestone 1/2 deliverable for COSC2769. **Confirmed: target Ultimo tier across A
 - **Architecture**: Backend Modular Monolith, each bounded-context module internally layered Route → Controller → Service → Repository → Model (`A.1.2`, `A.2.1`), cross-module calls only via exposed service interfaces (`A.3.1`), DTOs on all responses (`A.3.2`), RBAC middleware as the single coarse-grained authorization enforcement point (`A.2.3`) covering all four roles, with fine-grained ownership checks in the Service layer (`A.2.2`). Delivery/Courier is its **own bounded module** with its own MongoDB collection, referenced by ID from the Order module — not embedded fields.
 - **Frontend**: React, Page → Component → Hook → Service → Reusable Component hierarchy (`A.1.3`), global API route config + shared REST helper (`A.2.a`/`A.2.b`), frontend RBAC (`A.2.c`), modularized components with hooks/service-calls/styling split into separate files (`A.3.a`/`A.3.b`), responsive Profile and Admin UIs (`A.3.c`).
 - **Auth**: JWT/JWS per Ultimo `2.3.1`/`2.3.2`, with a server-side `REVOKED_TOKEN` record (`jti` + TTL-indexed expiry) checked by auth middleware before the Controller layer — plain client-side token deletion doesn't satisfy the SRS's revocation requirement.
-- **Real-time & notifications**: one shared Socket.IO layer delivering a **live, in-session feed** — not a persisted read/unread inbox — for listing sold out (`4.3.1`), Premium match (`5.3.2`), Admin cancellation (`7.3.3`), payment success (`6.1.2`), and Courier delivery status/location events.
+- **Real-time & notifications**: one shared Socket.IO layer delivering a **live, in-session feed** for listing sold out (`4.3.1`), Premium match (`5.3.2`), Admin cancellation (`7.3.3`), payment success (`6.1.2`), and Courier delivery status/location events. Most of these are also persisted as a `NOTIFICATION` row and fetchable via `GET /notifications` (Epic H) — but there is still no read/unread inbox state (§8).
 - **Deployment**: Render (frontend + backend) + MongoDB Atlas — satisfies the maximum available Deployment tier (`D.2.1`, Medium; there is no Ultimo deployment tier).
 - **Process constraints** (unchanged, restated for completeness): GitHub as sole project-management/storage tool, iterative delivery, mandatory sprint reviews at Weeks 2/5/11, grading penalties for weak GitHub usage [`P1`, `P2`, `P3`].
 - **Schema follow-up required**: the current data model has no `paymentMethod` field distinguishing cash from Stripe on `ORDER`/`PAYMENT`. This must be added before Path 1/2 development starts (see §9 Risks).
@@ -357,9 +357,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **F3. Real-Time Match Alerts** (`5.3.2`)
 > As a Premium Recipient, I want a live alert when a new listing matches my preferences.
-- UI: in-app toast (live feed, not persisted) linking to the matching listing.
+- UI: in-app toast (live feed) linking to the matching listing.
 - API: on listing creation, Service layer compares against all Premium preferences and emits a Socket.IO event to matches.
-- Data: reads `RECIPIENT.notificationPreferences`; creates a transient `NOTIFICATION` (type=PREMIUM_MATCH) for the feed, no read-state tracking.
+- Data: reads `RECIPIENT.notificationPreferences`; persists a `NOTIFICATION` (type=PREMIUM_MATCH) row, fetchable via `GET /notifications` (Epic H), no read-state tracking.
 
 > **F4. Location-Aware Ranking** — *retired; `5.3.3` dropped as an explicit SRS deviation (§10). Not implemented.*
 
@@ -402,11 +402,28 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 > As a Recipient whose order's listing gets Admin-cancelled, I want a live notification without refreshing.
 - UI: in-app toast (live feed).
 - API: Socket.IO event emitted on the G3 cascade.
-- Data: transient `NOTIFICATION` (type=ADMIN_CANCEL).
+- Data: persists a `NOTIFICATION` (type=ADMIN_CANCEL) row, fetchable via `GET /notifications` (Epic H), no read-state tracking.
 
 **G6. Read-Only Courier Oversight** (see E11)
 > As an Admin, I want visibility into the Courier delivery queue and history.
 - (Same as E11 — listed here for `7`-group traceability.)
+
+---
+
+### Epic H — Notifications *(new — not in the original PRD or SRS; see `docs/epic/H-notifications.md`)*
+*Traceability: extends the `NOTIFICATION` model already implied by `4.3.1`/`5.3.2`/`7.3.3`/`6.1.2`'s live events (`docs/database_design.md`).*
+
+**H1. Persist Notifications at Trigger**
+> As the platform, I want every existing notification-worthy live event to also write a durable `NOTIFICATION` row.
+- UI: none — a backend-only persistence step alongside each existing Socket.IO emit.
+- API: no new endpoint; called from inside `listings`, `payments`, and `delivery` services at their existing `emitToUser(...)` sites.
+- Data: writes `NOTIFICATION` (`docs/database_design.md`), never blocking the triggering action if the write fails.
+
+**H2. View My Notifications**
+> As a logged-in User, I want to fetch my own notification history so I can see what happened even after the live toast is gone.
+- UI: notification bell / inbox list, reading from the new endpoint (extends the existing `frontend/src/modules/notifications` bell UI beyond its current Premium-upsell-only content).
+- API: `GET /notifications`, paginated, newest first.
+- Data: reads `NOTIFICATION`, scoped to `req.user.id`; each row includes `orderId`/`listingId` when present so the client can link to the Order or Listing.
 
 ---
 
@@ -421,7 +438,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - **Admin manual delivery assignment** — claim-based queue only.
 - **A second Additional Feature** — Courier Delivery is the sole one.
 - **Off-session/merchant-initiated Stripe charges** — all Stripe charges are Recipient-initiated checkout sessions, never a Donor or Admin charging a card without the Recipient present at that moment.
-- **Persisted notification read/unread state** — notifications are a live, in-session feed only.
+- **Notification read/unread state** — notifications are persisted and fetchable (`GET /notifications`, Epic H), but there is no read/unread flag or mark-as-read action this milestone.
 - **Mandatory Stripe card at signup** — card capture is deferred to the first card-based checkout.
 - **Real customer discovery / TAM-SAM-SOM** — not applicable to a course assignment.
 

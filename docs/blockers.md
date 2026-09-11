@@ -1,6 +1,6 @@
 # AFF Platform — User Story Blockers Assessment
 
-Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked against the current codebase state (`backend/src/modules/` — `listings`/`orders` exist but still use the pre-PRD-v2 schema; no `delivery` module exists yet; `.env.example` has placeholder-only Stripe/Supabase/Nodemailer credentials) and the PRD's own §9 Risks / §11 Open Questions.
+Based on `docs/PRD.md` (all 47 stories across Epics A–H), cross-checked against the current codebase state (`backend/src/modules/` — `listings`/`orders` exist but still use the pre-PRD-v2 schema; no `delivery` module exists yet; `.env.example` has placeholder-only Stripe/Supabase/Nodemailer credentials) and the PRD's own §9 Risks / §11 Open Questions.
 
 ---
 
@@ -53,6 +53,8 @@ Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked agains
 | G — Admin Functionality | G4. Searchable Listing Directory | Depends on C1 rebuild | 🔴 Blocked |
 | G — Admin Functionality | G5. Real-Time Cancellation Notice | Depends on G3 + Socket.IO layer | 🔴 Blocked |
 | G — Admin Functionality | G6. Read-Only Courier Oversight | Depends on E1/E11 | 🔴 Blocked |
+| H — Notifications | H1. Persist Notifications at Trigger | No `notifications` module exists yet; depends on C1/C9, C3, and the payments/delivery modules already emitting the events it hooks into | 🔴 Blocked |
+| H — Notifications | H2. View My Notifications | Depends on H1 (nothing to fetch until rows exist) | 🔴 Blocked |
 
 ---
 
@@ -66,4 +68,4 @@ Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked agains
 | Stripe/Supabase/SMTP credentials are placeholders in `.env.example` | B1, D2, D3, D4 (refund), F1, F5 | Provision real sandbox/test-mode credentials |
 | Open PRD questions (§11) not yet decided | F1 (email provider, webhook event set) | Team decision — PRD marks these as non-blocking for starting work, but each story is incomplete without a decision |
 
-**Summary:** 3 of 45 stories are fully unblocked today (A1, A3, A4). A2, B1, F1, F2, F5, G1, and G2 are partially blocked (each has one remaining gap — see rows above). F4 (Location-Aware Ranking) was dropped from scope (PRD §10). Everything in Donor/Recipient ordering and Courier Delivery is blocked on two structural gaps: the `listings`/`orders` schema rebuild and the not-yet-built `delivery` module — both are prerequisites the team should tackle first, since nearly every other story in Epics C–G transitively depends on one or both.
+**Summary:** 3 of 47 stories are fully unblocked today (A1, A3, A4). A2, B1, F1, F2, F5, G1, and G2 are partially blocked (each has one remaining gap — see rows above). F4 (Location-Aware Ranking) was dropped from scope (PRD §10). Everything in Donor/Recipient ordering and Courier Delivery is blocked on two structural gaps: the `listings`/`orders` schema rebuild and the not-yet-built `delivery` module — both are prerequisites the team should tackle first, since nearly every other story in Epics C–G transitively depends on one or both. H1/H2 (Epic H, new) are blocked on nothing structural — they just haven't been built yet — but H1 hooks into emit sites owned by C9/C3/F3/G5/payments/delivery, so it's easiest to pick up once those are further along.

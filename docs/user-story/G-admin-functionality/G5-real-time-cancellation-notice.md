@@ -27,10 +27,10 @@ so that **I know my order is gone without discovering it later by refreshing my 
   - **When** the cascade runs
   - **Then** affected Recipients receive the same `notification:admin_cancel` event — it is keyed to the cascade, not to which actor triggered it
 
-- [ ] **Scenario:** Transient, not persisted
+- [ ] **Scenario:** The toast is transient, but the notification persists
   - **Given** I received the toast and reloaded
   - **When** the page returns
-  - **Then** there is no read/unread record; my order history simply shows the order as `CANCELLED` from its own data
+  - **Then** the toast is gone, but the underlying `NOTIFICATION` row is fetchable via `GET /notifications` (Epic H) — there is still no read/unread record, and my order history simply shows the order as `CANCELLED` from its own data
 
 - [ ] **Scenario:** Disconnected Recipient
   - **Given** I am offline when the cancel happens
@@ -39,12 +39,11 @@ so that **I know my order is gone without discovering it later by refreshing my 
 
 ## Implementation Flow
 
-1. **Emit from inside the G3/C5 cascade transaction**, once per Recipient whose order was auto-cancelled, to their `user:<recipientId>` room. Payload is `{ orderId, listingName }`.
-2. **Create a transient `NOTIFICATION` (type=ADMIN_CANCEL)** for the live feed — no read-state, consistent with the "live feed only, no inbox" scope boundary (PRD §8).
-3. **Client renders an in-app toast** and, if the affected order screen is open, flips it to the cancelled state from the event; otherwise the next data load reflects it.
-4. **Do not build a catch-up / missed-events channel** — order history (`GET /orders/mine`) is the durable record; this event is purely a live nicety.
-5. **Rides the shared Socket.IO layer** (with C9/F3/E-tracking). The room + JWT-handshake plumbing is shared; this story only adds the one emit call in the cascade.
-6. **Blocked** on G3 (the cascade that fires it) and the shared Socket.IO layer (`docs/blockers.md`, G5 🔴).
+1. **Call `notificationService.send({ userId: recipientId, type: 'ADMIN_CANCEL', orderId, payload: { orderId, listingName } })` from inside the G3/C5 cascade transaction**, once per Recipient whose order was auto-cancelled (`docs/epic/H-notifications.md`, H1) — this single call both emits `notification:admin_cancel` to `user:<recipientId>` and persists the `NOTIFICATION` row; G5 never calls `emitToUser(...)` or writes to the `NOTIFICATION` collection itself.
+2. **Client renders an in-app toast** and, if the affected order screen is open, flips it to the cancelled state from the event; otherwise the next data load reflects it.
+3. **Do not build a catch-up / missed-events channel** — order history (`GET /orders/mine`) is the durable record; this event is purely a live nicety.
+4. **Rides the shared Socket.IO layer** (with C9/F3/E-tracking). The room + JWT-handshake plumbing is shared; this story only adds the one `send(...)` call in the cascade.
+5. **Blocked** on G3 (the cascade that fires it) and the shared Socket.IO layer (`docs/blockers.md`, G5 🔴).
 
 ## Related Epic
 Admin Functionality (Epic G — #124)

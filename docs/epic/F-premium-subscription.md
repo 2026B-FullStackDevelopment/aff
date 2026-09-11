@@ -23,14 +23,14 @@ Let a Recipient upgrade to Premium for $5/month via Stripe recurring billing, th
 - [ ] A Premium Recipient can save multiple notification preferences (title, categories, vegetarian, price range, city) via `PUT /recipients/me/preferences`, which fully replaces the list
 - [ ] `PUT /recipients/me/preferences` returns `403` for a non-Premium Recipient and `400` for an invalid category enum or malformed price range
 - [ ] When a new `ACTIVE` listing is created, the service layer compares it against every Premium Recipient's saved preferences and emits `notification:premium_match` (`{ listingId, name, matchedPreferenceId }`) to `user:<recipientId>` for each match
-- [ ] The match alert is a live, in-session toast only — a transient `NOTIFICATION` (type=PREMIUM_MATCH) with no read/unread state, consistent with the "no persisted inbox" scope boundary
+- [ ] The match alert is a live, in-session toast, and also persists a `NOTIFICATION` (type=PREMIUM_MATCH) row fetchable via `GET /notifications` (Epic H) — with no read/unread state, consistent with the "no read-state tracking" scope boundary
 - [ ] A Premium Recipient can cancel via `DELETE /subscriptions/me`, which calls Stripe with `cancel_at_period_end: true` — Premium access continues until `currentPeriodEnd`, then the existing `customer.subscription.deleted` webhook flips the row to `CANCELLED` and the derived tier lapses to `STANDARD`
 - [ ] Cancelling is idempotent and reversible while the period is still open (a "keep my subscription" inverse call, no re-checkout); `DELETE /subscriptions/me` returns `409` when there is no `ACTIVE` subscription
 - [ ] A Standard Recipient sees none of the above surfaced — no preference form, no match toasts, no cancel control
 
 ## Out of Scope
 - **AFF Wallet / stored balance** — no wallet path is implemented anywhere; Premium is Stripe recurring billing only (PRD §8, §10 deviation on `6.1.1`)
-- **A persisted notification inbox** — match alerts are transient live-feed events with no read-state tracking (PRD §8)
+- **Read/unread state on the notification inbox** — match alerts are persisted (Epic H) but carry no read-state tracking (PRD §8)
 - **Proration, plan tiers, annual billing, coupons** — a single $5/month plan, nothing more
 - **Dunning / failed-payment recovery UX** — `SUBSCRIPTION.status` can reflect `PAST_DUE`/`CANCELLED` from Stripe, but no in-app retry or grace-period flow is built
 - **Proration / partial refunds on cancellation** — F5 cancels at period end only; a Recipient who cancels keeps the access they paid for and gets no money back for the unused remainder
@@ -45,3 +45,4 @@ Let a Recipient upgrade to Premium for $5/month via Stripe recurring billing, th
 - F3's matching runs in the Service layer on listing creation — it shares the one Socket.IO layer with C9 (`listing:sold_out`), G5 (`notification:admin_cancel`), and the Courier tracking events (E6/E8/E9). Stand up that shared layer before F3 can be demoed.
 - Open PRD questions in §11 (email provider choice, exact Stripe webhook event set) are marked non-blocking for *starting* F1, but the story is not complete until the team decides them.
 - Premium tier gating (`403` on `PUT /recipients/me/preferences` for non-Premium) is the single enforcement point — F2 and F3 both assume tier is checked there and in the Service layer, not re-derived ad hoc in the UI.
+- **F3 doesn't emit or persist its own notification — Epic H owns both** — once H1 lands, F3 calls `notificationService.send({ type: 'PREMIUM_MATCH', ... })`, which handles the `notification:premium_match` emit and the `NOTIFICATION` write in one call; F3 itself never touches `emitToUser(...)` or the `NOTIFICATION` collection (`docs/epic/H-notifications.md`).

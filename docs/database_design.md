@@ -141,7 +141,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 |---|---|---|---|
 | _id | ObjectId | PK | |
 | userId | ObjectId | FK → USER._id | Recipient of the notification |
-| type | NotificationType (enum) | | SOLD_OUT, PREMIUM_MATCH, ADMIN_CANCEL, PAYMENT_SUCCESS, PAYMENT_REQUESTED, DELIVERY_STATUS |
+| type | NotificationType (enum) | | SOLD_OUT, PREMIUM_MATCH, ADMIN_CANCEL, PAYMENT_SUCCESS, DELIVERY_STATUS |
 | message | string | | |
 | orderId | ObjectId | FK → ORDER._id | Optional cross-reference |
 | listingId | ObjectId | FK → LISTING._id | Optional cross-reference |
@@ -235,7 +235,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | MeasurementUnit | KILOGRAM, GRAM, LITER, MILLILITER, UNIT, PER_REQUEST |
 | FoodCategory | FRUIT, VEGETABLE, MEAT, COOKED_DISH, BAKED_GOODS, DRINK |
 | ListingStatus | ACTIVE, PAUSED, CANCELLED, SOLD_OUT |
-| NotificationType | SOLD_OUT, PREMIUM_MATCH, ADMIN_CANCEL, PAYMENT_SUCCESS, PAYMENT_REQUESTED, DELIVERY_STATUS |
+| NotificationType | SOLD_OUT, PREMIUM_MATCH, ADMIN_CANCEL, PAYMENT_SUCCESS, DELIVERY_STATUS |
 | IntakePath | RESERVATION, DONOR_INITIATED |
 | PaymentMethod | STRIPE, CASH |
 | PaymentStatus | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED |
