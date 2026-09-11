@@ -43,10 +43,9 @@ export const API_ROUTES = {
     feedback: (orderId: string) => 
       `/orders/${orderId}/feedback`,
   },
-
-  food: {
-    list: '/food',
-    create: '/food',
+  recipients: {
+    preferences: '/recipients/me/preferences',
+    preferenceDetail: (id: string) => `/recipients/me/preferences/${id}`,
   },
   reservations: {
     mine: '/reservations/me',
