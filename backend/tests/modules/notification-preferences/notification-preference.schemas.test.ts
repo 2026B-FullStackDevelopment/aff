@@ -129,6 +129,13 @@ describe('notification-preference.schemas', () => {
       expect(updateNotificationPreferenceSchema.safeParse({ isActive: false }).success).toBe(true);
     });
 
+    it('does not inject a categories: [] default into a partial update that never mentioned categories', () => {
+      const parsed = updateNotificationPreferenceSchema.parse({ isActive: false });
+
+      expect(parsed).toEqual({ isActive: false });
+      expect('categories' in parsed).toBe(false);
+    });
+
     it('accepts just a price range update', () => {
       expect(updateNotificationPreferenceSchema.safeParse({ priceMin: 1, priceMax: 2 }).success).toBe(true);
     });

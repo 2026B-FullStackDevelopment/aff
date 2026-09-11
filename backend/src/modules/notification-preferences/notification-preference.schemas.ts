@@ -32,7 +32,7 @@ const preferenceFieldsShape = {
     .string({ message: 'Preference title is required.' })
     .trim()
     .min(1, { message: 'Preference title is required.' }),
-  categories: z.array(foodCategorySchema).default([]),
+  categories: z.array(foodCategorySchema),
   vegetarian: z.boolean({ message: 'Vegetarian status must be true or false.' }).nullable().optional(),
   priceMin: z
     .number({ message: 'Minimum price must be a number.' })
@@ -48,8 +48,11 @@ const preferenceFieldsShape = {
   isActive: z.boolean({ message: 'isActive must be true or false.' }).optional(),
 };
 
+// categories only defaults on create: .partial() (used for update below) does
+// NOT suppress an inner .default() in Zod 4, so a shared default here would
+// silently inject categories: [] into every partial update body.
 const createNotificationPreferenceSchema = z
-  .object(preferenceFieldsShape)
+  .object({ ...preferenceFieldsShape, categories: preferenceFieldsShape.categories.default([]) })
   .strict()
   .superRefine(priceRangeRefine);
 
