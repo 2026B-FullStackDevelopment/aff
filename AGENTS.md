@@ -32,6 +32,7 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 | `delivery` | Courier delivery queue, claim, pickup, and delivery completion |
 | `subscriptions` | Premium Recipient subscription (billing cycles, tier derivation) |
 | `notification-preferences` | A Premium Recipient's saved notification-preference lifecycle (create/update/delete/list) |
+| `notifications` | Centralized notification sending (`notificationService.send`) and a User's own durable notification history |
 | `payments` | Stripe webhook handling for one-off checkouts and subscription billing |
 | `admin` | Admin account, listing, and delivery oversight |
 

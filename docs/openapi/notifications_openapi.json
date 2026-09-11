@@ -1,0 +1,140 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Notifications API",
+    "version": "0.1.0",
+    "description": "The durable notification history endpoint (Epic H, H2). Reflects backend/src/modules/notifications/notification.controller.ts as implemented. Any authenticated role may call it; ownership is implicit via req.user.id. Sending a notification (H1) has no HTTP surface — it happens inside listings/payments/delivery at their existing trigger points."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Notifications", "description": "The authenticated user's own durable notification history" }
+  ],
+  "paths": {
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "operationId": "listMyNotifications",
+        "summary": "List the caller's own notification history, newest first",
+        "description": "Scoped to req.user.id server-side — no client-supplied userId is ever accepted. Returns an empty items array (not 404) for a user with no notifications yet.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the caller's own notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": { "$ref": "#/components/schemas/Notification" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "1-based page number.",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Rows per page.",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } },
+        "required": ["message"]
+      },
+      "PaginatedEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": {} },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            },
+            "required": ["items", "page", "limit", "total"]
+          }
+        },
+        "required": ["data"]
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": ["SOLD_OUT", "PREMIUM_MATCH", "ADMIN_CANCEL", "PAYMENT_SUCCESS", "DELIVERY_STATUS"]
+      },
+      "Notification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "message", "orderId", "listingId", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "$ref": "#/components/schemas/NotificationType" },
+          "message": { "type": "string" },
+          "orderId": { "type": "string", "nullable": true },
+          "listingId": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Query validation failed — e.g. limit above 100, or an unknown query parameter",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Limit cannot be greater than 100." }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      }
+    }
+  }
+}
