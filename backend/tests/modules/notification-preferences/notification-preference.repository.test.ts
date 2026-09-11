@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, findMock, sortMock, findOneAndUpdateMock, findOneAndDeleteMock, leanMock } = vi.hoisted(() => {
-  const leanMock = vi.fn();
-  const sortMock = vi.fn(() => ({ lean: leanMock }));
-  return {
-    createMock: vi.fn(),
-    findMock: vi.fn(() => ({ sort: sortMock, lean: leanMock })),
-    sortMock,
-    findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
-    findOneAndDeleteMock: vi.fn(() => ({ lean: leanMock })),
-    leanMock,
-  };
-});
+const { createMock, findMock, sortMock, findOneAndUpdateMock, findOneAndDeleteMock, findOneMock, leanMock } =
+  vi.hoisted(() => {
+    const leanMock = vi.fn();
+    const sortMock = vi.fn(() => ({ lean: leanMock }));
+    return {
+      createMock: vi.fn(),
+      findMock: vi.fn(() => ({ sort: sortMock, lean: leanMock })),
+      sortMock,
+      findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
+      findOneAndDeleteMock: vi.fn(() => ({ lean: leanMock })),
+      findOneMock: vi.fn(() => ({ lean: leanMock })),
+      leanMock,
+    };
+  });
 
 vi.mock('../../../src/modules/notification-preferences/notification-preference.model.js', () => ({
   default: {
@@ -19,6 +21,7 @@ vi.mock('../../../src/modules/notification-preferences/notification-preference.m
     find: findMock,
     findOneAndUpdate: findOneAndUpdateMock,
     findOneAndDelete: findOneAndDeleteMock,
+    findOne: findOneMock,
   },
 }));
 
@@ -27,6 +30,7 @@ import {
   findPreferencesByRecipientId,
   updatePreferenceByIdAndRecipient,
   deletePreferenceByIdAndRecipient,
+  findPreferenceByIdAndRecipient,
   findAllActivePreferences,
 } from '../../../src/modules/notification-preferences/notification-preference.repository.js';
 
@@ -37,6 +41,7 @@ describe('notification-preference.repository', () => {
     sortMock.mockClear();
     findOneAndUpdateMock.mockClear();
     findOneAndDeleteMock.mockClear();
+    findOneMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue({ _id: 'pref1' });
   });
@@ -109,6 +114,21 @@ describe('notification-preference.repository', () => {
     leanMock.mockResolvedValue(null);
 
     expect(await deletePreferenceByIdAndRecipient('pref1', 'someone-else')).toBeNull();
+  });
+
+  it('findPreferenceByIdAndRecipient scopes the read to _id and recipientId together', async () => {
+    leanMock.mockResolvedValue({ _id: 'pref1', priceMin: 1, priceMax: 5 });
+
+    const result = await findPreferenceByIdAndRecipient('pref1', 'r1');
+
+    expect(findOneMock).toHaveBeenCalledWith({ _id: 'pref1', recipientId: 'r1' });
+    expect(result).toEqual({ _id: 'pref1', priceMin: 1, priceMax: 5 });
+  });
+
+  it('findPreferenceByIdAndRecipient resolves null when the id does not belong to this recipient', async () => {
+    leanMock.mockResolvedValue(null);
+
+    expect(await findPreferenceByIdAndRecipient('pref1', 'someone-else')).toBeNull();
   });
 
   it('findAllActivePreferences queries only isActive rows, for the future F3 matcher', async () => {

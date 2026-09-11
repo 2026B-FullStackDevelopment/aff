@@ -5,6 +5,7 @@ const {
   findPreferencesByRecipientIdMock,
   updatePreferenceByIdAndRecipientMock,
   deletePreferenceByIdAndRecipientMock,
+  findPreferenceByIdAndRecipientMock,
   findAllActivePreferencesMock,
   isPremiumRecipientMock,
 } = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const {
   findPreferencesByRecipientIdMock: vi.fn(),
   updatePreferenceByIdAndRecipientMock: vi.fn(),
   deletePreferenceByIdAndRecipientMock: vi.fn(),
+  findPreferenceByIdAndRecipientMock: vi.fn(),
   findAllActivePreferencesMock: vi.fn(),
   isPremiumRecipientMock: vi.fn(),
 }));
@@ -21,6 +23,7 @@ vi.mock('../../../src/modules/notification-preferences/notification-preference.r
   findPreferencesByRecipientId: findPreferencesByRecipientIdMock,
   updatePreferenceByIdAndRecipient: updatePreferenceByIdAndRecipientMock,
   deletePreferenceByIdAndRecipient: deletePreferenceByIdAndRecipientMock,
+  findPreferenceByIdAndRecipient: findPreferenceByIdAndRecipientMock,
   findAllActivePreferences: findAllActivePreferencesMock,
 }));
 
@@ -46,6 +49,7 @@ describe('notification-preference.service', () => {
     findPreferencesByRecipientIdMock.mockClear();
     updatePreferenceByIdAndRecipientMock.mockClear();
     deletePreferenceByIdAndRecipientMock.mockClear();
+    findPreferenceByIdAndRecipientMock.mockClear();
     findAllActivePreferencesMock.mockClear();
     isPremiumRecipientMock.mockClear();
   });
@@ -144,6 +148,50 @@ describe('notification-preference.service', () => {
 
       expect(updatePreferenceByIdAndRecipientMock).toHaveBeenCalledWith(VALID_ID, 'r1', { isActive: false });
       expect(result).toEqual({ _id: VALID_ID, isActive: false });
+    });
+
+    it('rejects a priceMin-only patch with 400 when it would invert the stored price range, without writing anything', async () => {
+      isPremiumRecipientMock.mockResolvedValue(true);
+      findPreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, priceMin: 1, priceMax: 5 });
+
+      await expect(updatePreference('r1', VALID_ID, { priceMin: 10 })).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'Minimum price cannot be greater than maximum price.',
+      });
+
+      expect(findPreferenceByIdAndRecipientMock).toHaveBeenCalledWith(VALID_ID, 'r1');
+      expect(updatePreferenceByIdAndRecipientMock).not.toHaveBeenCalled();
+    });
+
+    it('accepts a priceMin-only patch that does not invert the stored price range', async () => {
+      isPremiumRecipientMock.mockResolvedValue(true);
+      findPreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, priceMin: 1, priceMax: 5 });
+      updatePreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, priceMin: 3 });
+
+      const result = await updatePreference('r1', VALID_ID, { priceMin: 3 });
+
+      expect(updatePreferenceByIdAndRecipientMock).toHaveBeenCalledWith(VALID_ID, 'r1', { priceMin: 3 });
+      expect(result).toEqual({ _id: VALID_ID, priceMin: 3 });
+    });
+
+    it('accepts a priceMin-only patch when the stored row has no priceMax to invert against', async () => {
+      isPremiumRecipientMock.mockResolvedValue(true);
+      findPreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, priceMin: null, priceMax: null });
+      updatePreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, priceMin: 100 });
+
+      const result = await updatePreference('r1', VALID_ID, { priceMin: 100 });
+
+      expect(updatePreferenceByIdAndRecipientMock).toHaveBeenCalledWith(VALID_ID, 'r1', { priceMin: 100 });
+      expect(result).toEqual({ _id: VALID_ID, priceMin: 100 });
+    });
+
+    it('skips the extra ownership read when the patch touches neither priceMin nor priceMax', async () => {
+      isPremiumRecipientMock.mockResolvedValue(true);
+      updatePreferenceByIdAndRecipientMock.mockResolvedValue({ _id: VALID_ID, isActive: false });
+
+      await updatePreference('r1', VALID_ID, { isActive: false });
+
+      expect(findPreferenceByIdAndRecipientMock).not.toHaveBeenCalled();
     });
   });
 

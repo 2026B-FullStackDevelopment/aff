@@ -48,6 +48,19 @@ async function updatePreference(recipientId: string, preferenceId: string, input
 
   await requirePremium(recipientId);
 
+  if ('priceMin' in input || 'priceMax' in input) {
+    const existing = await notificationPreferenceRepository.findPreferenceByIdAndRecipient(preferenceId, recipientId);
+
+    if (existing) {
+      const effectivePriceMin = 'priceMin' in input ? input.priceMin : existing.priceMin;
+      const effectivePriceMax = 'priceMax' in input ? input.priceMax : existing.priceMax;
+
+      if (effectivePriceMin != null && effectivePriceMax != null && effectivePriceMin > effectivePriceMax) {
+        throw createHttpError(400, 'Minimum price cannot be greater than maximum price.');
+      }
+    }
+  }
+
   const updated = await notificationPreferenceRepository.updatePreferenceByIdAndRecipient(preferenceId, recipientId, input);
 
   if (!updated) {

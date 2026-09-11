@@ -39,6 +39,10 @@ function deletePreferenceByIdAndRecipient(preferenceId: string | Types.ObjectId,
   return NotificationPreference.findOneAndDelete({ _id: preferenceId, recipientId }).lean<NotificationPreferenceDocument>();
 }
 
+function findPreferenceByIdAndRecipient(preferenceId: string | Types.ObjectId, recipientId: string | Types.ObjectId) {
+  return NotificationPreference.findOne({ _id: preferenceId, recipientId }).lean<NotificationPreferenceDocument>();
+}
+
 // For F3's future in-process matching scan — not called by anything in this plan.
 function findAllActivePreferences() {
   return NotificationPreference.find({ isActive: true }).lean<NotificationPreferenceDocument[]>();
@@ -49,6 +53,7 @@ export {
   findPreferencesByRecipientId,
   updatePreferenceByIdAndRecipient,
   deletePreferenceByIdAndRecipient,
+  findPreferenceByIdAndRecipient,
   findAllActivePreferences,
 };
 export type { NotificationPreferenceWriteInput };
