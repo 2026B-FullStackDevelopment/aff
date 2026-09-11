@@ -327,6 +327,15 @@ export interface SubscriptionDTO {
   createdAt: string;
 }
 
+export interface NotificationDTO {
+  id: string;
+  type: 'SOLD_OUT' | 'PREMIUM_MATCH' | 'ADMIN_CANCEL' | 'PAYMENT_SUCCESS' | 'DELIVERY_STATUS';
+  message: string;
+  orderId: string | null;
+  listingId: string | null;
+  createdAt: string;
+}
+
 // --- Shared envelopes (api_design.md §2.2-2.4) ---
 
 export interface ApiErrorBody {
