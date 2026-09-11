@@ -28,6 +28,7 @@ import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPag
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
 import { Toaster } from '@/shared/components/ui/sonner';
+import { NotificationPreferencesPage } from '@/modules/notification-preferences/pages/NotificationPreferencesPage';
 
 export function AppRouter() {
   return (
@@ -131,6 +132,15 @@ export function AppRouter() {
               allowedRoles={['RECIPIENT']}
             >
               <SubscriptionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile/notification-preferences"
+          element={
+            <ProtectedRoute allowedRoles={['RECIPIENT']}>
+              <NotificationPreferencesPage />
             </ProtectedRoute>
           }
         />

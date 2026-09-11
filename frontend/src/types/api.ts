@@ -22,7 +22,20 @@ export interface NotificationPreference {
   priceMin: number | null;
   priceMax: number | null;
   city: string | null;
+  isActive: boolean;
 }
+
+export interface CreateNotificationPreferencePayload {
+  preferenceTitle: string;
+  categories?: FoodCategory[];
+  vegetarian?: boolean | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  city?: string | null;
+  isActive?: boolean;
+}
+
+export type UpdateNotificationPreferencePayload = Partial<CreateNotificationPreferencePayload>;
 
 // --- Users ---
 
@@ -41,7 +54,6 @@ export interface UserDTO {
 export interface RecipientDTO extends UserDTO {
   role: 'RECIPIENT';
   tier: 'STANDARD' | 'PREMIUM';
-  notificationPreferences: NotificationPreference[];
   hasStripeCard: boolean;
 }
 
