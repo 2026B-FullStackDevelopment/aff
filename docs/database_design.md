@@ -12,6 +12,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | DONOR | Role-specific profile for a User who donates/sells food |
 | RECIPIENT | Role-specific profile for a User who collects food |
 | COURIER | Role-specific profile for a User who delivers orders |
+| NOTIFICATION_PREFERENCE | A Premium Recipient's saved alert criteria for new listings |
 | REVOKED_TOKEN | Denylist of revoked JWTs (TTL-indexed) |
 | SUBSCRIPTION | Append-only ledger of a Recipient's Premium billing cycles |
 | LISTING | A food donation/sale posted by a Donor |
@@ -58,8 +59,23 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 |---|---|---|---|
 | userId | ObjectId | PK, FK → USER._id | Subtype of USER |
 | tier | Tier (enum) | | STANDARD, PREMIUM |
-| notificationPreferences | List\<NotificationPreference\> | | Embedded value objects |
 | stripeCustomerId | string | | |
+
+### NOTIFICATION_PREFERENCE
+
+| Field | Type | Key | Description |
+|---|---|---|---|
+| _id | ObjectId | PK | |
+| recipientId | ObjectId | FK → RECIPIENT.userId | |
+| preferenceTitle | string | | |
+| categories | List\<FoodCategory\> | | |
+| vegetarian | boolean | | Nullable — null means "no constraint on that dimension" |
+| priceMin | number | | Nullable |
+| priceMax | number | | Nullable |
+| city | string | | Nullable |
+| isActive | boolean | | Default true; false pauses matching without deleting the row |
+| createdAt | datetime | | |
+| updatedAt | datetime | | |
 
 ### COURIER
 
@@ -189,12 +205,6 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | GeoLocation | latitude | number | DONOR.location, ORDER.deliveryLocation, DELIVERY.courierLastLocation |
 | GeoLocation | longitude | number | |
 | GeoLocation | updatedAt | datetime | |
-| NotificationPreference | preferenceTitle | string | RECIPIENT.notificationPreferences (list) |
-| NotificationPreference | categories | List\<FoodCategory\> | |
-| NotificationPreference | vegetarian | boolean | |
-| NotificationPreference | priceMin | number | |
-| NotificationPreference | priceMax | number | |
-| NotificationPreference | city | string | |
 | Feedback | comment | string | ORDER.feedback |
 | Feedback | createdAt | datetime | |
 
@@ -212,6 +222,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | USER | ORDER | 0..1 : N | ORDER.cancelledByUserId | cancelled by (optional) |
 | DONOR | LISTING | 1 : N | LISTING.donorId | creates |
 | RECIPIENT | SUBSCRIPTION | 1 : N | SUBSCRIPTION.recipientId | subscribes |
+| RECIPIENT | NOTIFICATION_PREFERENCE | 1 : N | NOTIFICATION_PREFERENCE.recipientId | saves |
 | RECIPIENT | ORDER | 1 : N | ORDER.recipientId | places |
 | LISTING | ORDER | 1 : N | ORDER.listingId | is ordered as |
 | LISTING | NOTIFICATION | 1 : N (opt.) | NOTIFICATION.listingId | referenced by |
@@ -260,6 +271,7 @@ read-then-write check, which would reopen the race the index exists to close.
 | DELIVERY | `{ stage, createdAt }` | Serves the oldest-first Courier queue read (E2) |
 | USER | `{ email }` unique | One account per email; the real guard behind registration's `409` |
 | DONOR / RECIPIENT / COURIER | `{ userId }` unique | One profile row per User |
+| NOTIFICATION_PREFERENCE | `{ recipientId }` | Supports "list my preferences" and F3's future per-recipient matching scan |
 | REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
 | REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |
 

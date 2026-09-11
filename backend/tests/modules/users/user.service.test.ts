@@ -278,7 +278,7 @@ describe('user.service', () => {
 
     it('returns the Recipient DTO for a RECIPIENT', async () => {
       findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
-      findRecipientByUserIdMock.mockResolvedValue({ tier: 'PREMIUM', notificationPreferences: [] });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'PREMIUM' });
 
       const dto = await getMyProfileDto('u1');
 
@@ -301,7 +301,7 @@ describe('user.service', () => {
   describe('updateUserProfile', () => {
     beforeEach(() => {
       findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
-      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD', notificationPreferences: [] });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD' });
       findDonorByUserIdMock.mockResolvedValue({ companyName: 'Fresh Foods Ltd' });
     });
 
@@ -396,7 +396,7 @@ describe('user.service', () => {
   describe('changeEmail', () => {
     beforeEach(() => {
       findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
-      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD', notificationPreferences: [] });
+      findRecipientByUserIdMock.mockResolvedValue({ tier: 'STANDARD' });
     });
 
     it('updates the email and returns a fresh profile DTO', async () => {

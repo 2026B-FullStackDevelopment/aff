@@ -47,7 +47,10 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Subscriptions (§10) | `GET /subscriptions/me` | RECIPIENT |
 | Subscriptions (§10) | `POST /subscriptions/checkout-session` | RECIPIENT |
 | Subscriptions (§10) | `DELETE /subscriptions/me` | RECIPIENT (Premium) |
-| Subscriptions (§10) | `PUT /recipients/me/preferences` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `GET /recipients/me/preferences` | RECIPIENT |
+| Subscriptions (§10) | `POST /recipients/me/preferences` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `PATCH /recipients/me/preferences/:id` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `DELETE /recipients/me/preferences/:id` | RECIPIENT (Premium) |
 | Admin (§11) | `POST /admin/couriers` | ADMIN |
 | Admin (§11) | `GET /admin/couriers` | ADMIN |
 | Admin (§11) | `GET /admin/deliveries` | ADMIN |
@@ -145,7 +148,7 @@ Referenced by multiple endpoints below; defined once here.
 | avatarUrl | string \| null |
 | createdAt | datetime |
 
-**RecipientDTO** = UserDTO + `{ tier: 'STANDARD'|'PREMIUM', notificationPreferences: NotificationPreference[], hasStripeCard: boolean }`
+**RecipientDTO** = UserDTO + `{ tier: 'STANDARD'|'PREMIUM', hasStripeCard: boolean }`
 (`hasStripeCard` is derived from `stripeCustomerId` presence — the raw Stripe customer ID is never sent to the client.)
 
 **DonorDTO** = UserDTO + `{ companyName: string, taxCode: string, addressText: string, location: GeoLocation }`
@@ -154,7 +157,7 @@ Referenced by multiple endpoints below; defined once here.
 
 **GeoLocation**: `{ latitude: number, longitude: number, updatedAt: datetime }`
 
-**NotificationPreference**: `{ id: string, preferenceTitle: string, categories: FoodCategory[], vegetarian: boolean|null, priceMin: number|null, priceMax: number|null, city: string|null }`
+**NotificationPreference**: `{ id: string, preferenceTitle: string, categories: FoodCategory[], vegetarian: boolean|null, priceMin: number|null, priceMax: number|null, city: string|null, isActive: boolean }`
 
 **ListingDTO**
 | Field | Type |
@@ -570,18 +573,36 @@ Confirmation happens via the `POST /webhooks/stripe` handler (§8), which create
 ### `DELETE /subscriptions/me` — *(new — not tied to an original PRD story; see `docs/user-story/F-premium-subscription/F5-cancel-subscription.md`)*
 **Auth:** `RECIPIENT` (tier must be `PREMIUM` — the caller must have an `ACTIVE` subscription)
 
-Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end: true })` on the caller's own latest subscription, then sets `cancelAtPeriodEnd=true` on that `SUBSCRIPTION` row. **Access is not revoked now** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`PUT /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`.
+Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end: true })` on the caller's own latest subscription, then sets `cancelAtPeriodEnd=true` on that `SUBSCRIPTION` row. **Access is not revoked now** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`POST`/`PATCH`/`DELETE /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`.
 Idempotent: calling again while `cancelAtPeriodEnd` is already `true` is a no-op success, no second Stripe call.
 Reversible: a follow-up `POST /subscriptions/checkout-session` is **not** needed to undo a not-yet-lapsed cancellation — a client may re-call this route's inverse (`cancel_at_period_end: false`) via `PATCH /subscriptions/me { cancelAtPeriodEnd: false }` while `currentPeriodEnd` is still in the future. *(If the team prefers a single toggle endpoint over `DELETE` + `PATCH`, collapse both into `PATCH /subscriptions/me { cancelAtPeriodEnd: boolean }` — the F5 story is written against the observable behavior, not the verb.)*
 Response `200`: `SubscriptionDTO` (with `cancelAtPeriodEnd=true`)
 Errors: `409` no `ACTIVE` subscription to cancel (never subscribed, or already lapsed)
 
-### `PUT /recipients/me/preferences` — *`5.3.1`*
+### `GET /recipients/me/preferences` — *`5.3.1`*
+**Auth:** `RECIPIENT`
+
+Response `200`: `NotificationPreference[]` — the caller's own rows, regardless of tier (a downgraded Recipient can still see stored preferences, just not edit them).
+
+### `POST /recipients/me/preferences` — *`5.3.1`*
 **Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
 
-Request body: `{ preferences: NotificationPreference[] }` (full replace of the list, supports multiple saved preferences)
-Response `200`: `{ notificationPreferences: NotificationPreference[] }`
+Request body: `{ preferenceTitle, categories, vegetarian?, priceMin?, priceMax?, city?, isActive? }`
+Response `201`: `NotificationPreference`
 Errors: `403` not a Premium Recipient; `400` invalid category enum / malformed price range
+
+### `PATCH /recipients/me/preferences/:id` — *`5.3.1`*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
+
+Request body: any subset of the `POST` fields (e.g. `{ isActive: false }` to pause)
+Response `200`: `NotificationPreference`
+Errors: `403` not a Premium Recipient; `404` `:id` doesn't belong to the caller; `400` invalid category enum / malformed price range
+
+### `DELETE /recipients/me/preferences/:id` — *`5.3.1`*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
+
+Response `200`
+Errors: `403` not a Premium Recipient; `404` `:id` doesn't belong to the caller
 
 ---
 
