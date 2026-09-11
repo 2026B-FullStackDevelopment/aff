@@ -26,8 +26,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": { "$ref": "#/components/schemas/NotificationPreference" }
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/NotificationPreference" }
+                    }
+                  }
                 }
               }
             }
@@ -72,7 +77,10 @@
             "description": "The created preference",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NotificationPreference" }
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/NotificationPreference" } }
+                }
               }
             }
           },
@@ -107,7 +115,10 @@
             "description": "The updated preference",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NotificationPreference" }
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/NotificationPreference" } }
+                }
               }
             }
           },
@@ -124,7 +135,17 @@
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/PreferenceId" }],
         "responses": {
-          "200": { "description": "Deleted" },
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "nullable": true, "example": null } }
+                }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/PremiumRequired" },
           "404": { "$ref": "#/components/responses/PreferenceNotFound" }
