@@ -7,7 +7,7 @@ import {
   loginSchema,
 } from './auth.schemas.js';
 import type { UserResponseDto, RecipientResponseDto, DonorResponseDto } from '../users/user.dto.js';
-import type { AuthSession } from './auth.token.service.js';
+import type { AuthSession } from '../security/token.service.js';
 import type { RecipientDocument } from '../users/recipient.model.js';
 import type { DonorDocument } from '../users/donor.model.js';
 

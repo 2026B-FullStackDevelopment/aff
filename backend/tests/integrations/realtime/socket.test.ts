@@ -35,8 +35,8 @@ const {
 }));
 
 // Replace the real login checker with our fake, avoids using real login information during the tests.
-vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
-  authInterface: {
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: {
     verifyAccessToken: verifyAccessTokenMock,
   },
 }));

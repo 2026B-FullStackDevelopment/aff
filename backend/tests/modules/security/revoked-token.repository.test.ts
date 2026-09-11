@@ -5,11 +5,11 @@ const { createMock, existsMock } = vi.hoisted(() => ({
   existsMock: vi.fn(),
 }));
 
-vi.mock('../../../src/modules/auth/revoked-token.model.js', () => ({
+vi.mock('../../../src/modules/security/revoked-token.model.js', () => ({
   default: { create: createMock, exists: existsMock },
 }));
 
-import { revokeToken, isTokenRevoked } from '../../../src/modules/auth/revoked-token.repository.js';
+import { revokeToken, isTokenRevoked } from '../../../src/modules/security/revoked-token.repository.js';
 
 const expiresAt = new Date('2026-08-11T12:00:00.000Z');
 

@@ -1,13 +1,13 @@
 // Verifies the Bearer token on protected routes before they reach a controller.
 import type { Request, Response, NextFunction } from 'express';
-import { authInterface } from '../modules/auth/auth.interface.js';
+import { securityInterface } from '../modules/security/security.interface.js';
 
 const UNAUTHENTICATED = 'Authentication is required.';
 
 /**
  * Express middleware that guards protected routes. Requires an
  * `Authorization: Bearer <token>` header, then verifies the token's
- * signature, expiry, and revocation status via `authInterface.verifyAccessToken`.
+ * signature, expiry, and revocation status via `securityInterface.verifyAccessToken`.
  *
  * On success, attaches `req.user = { id, role }` (read by controllers and by
  * `requireRole`) and `req.auth = { jti, expiresAt }` (used by logout to
@@ -28,7 +28,7 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    const decoded = await authInterface.verifyAccessToken(token);
+    const decoded = await securityInterface.verifyAccessToken(token);
 
     // Role comes from the token payload (docs/api_design.md §2.1); no user lookup here.
     req.user = { id: decoded.userId, role: decoded.role };

@@ -1,4 +1,5 @@
 // Hashes and verifies user passwords so no other module talks to bcrypt directly.
+// Lives in the security module; other modules reach it via security.interface.ts.
 import bcrypt from 'bcryptjs';
 import { env } from '../../config/env.js';
 

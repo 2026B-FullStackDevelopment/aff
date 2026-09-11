@@ -36,11 +36,8 @@ vi.mock('../../../src/modules/users/recipient.repository.js', () => ({}));
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   findDonorsByUserIds: findDonorsByUserIdsMock,
 }));
-vi.mock('../../../src/shared/security/password.js', () => ({
-  hashPassword: hashPasswordMock,
-}));
-vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
-  authInterface: {},
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: { hashPassword: hashPasswordMock },
 }));
 
 import {

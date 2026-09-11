@@ -3,8 +3,7 @@ import * as userRepository from './user.repository.js';
 import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import * as courierRepository from './courier.repository.js';
-import { hashPassword } from '../../shared/security/password.js';
-import { authInterface } from '../auth/auth.interface.js';
+import { securityInterface } from '../security/security.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
@@ -72,7 +71,7 @@ async function createUser(payload: CreateUserRequestDto) {
     return await userRepository.createUser({
       username: payload.username,
       email: payload.email,
-      passwordHash: await hashPassword(payload.password),
+      passwordHash: await securityInterface.hashPassword(payload.password),
       role: payload.role || 'RECIPIENT',
       // AFF operates in Vietnam; the registration forms do not ask for a country.
       country: payload.country || 'Vietnam',
@@ -309,12 +308,13 @@ async function updateUserProfile(userId: string, role: Role, patch: UpdateUserRe
  * credential it relies on changes; no new token is issued, mirroring `logout`.
  */
 async function changePassword(userId: string, newPassword: string, auth: RequestAuth): Promise<void> {
-  const passwordHash = await hashPassword(newPassword);
+  const passwordHash = await securityInterface.hashPassword(newPassword);
   await userRepository.updateUser(userId, { passwordHash });
-  await authInterface.revokeTokenForPasswordChange({
+  await securityInterface.revokeToken({
     userId,
     jti: auth.jti,
     expiresAt: auth.expiresAt,
+    reason: 'PASSWORD_CHANGE',
   });
 }
 
