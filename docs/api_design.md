@@ -55,6 +55,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Admin (§11) | `PATCH /admin/users/:id/status` | ADMIN |
 | Admin (§11) | `PATCH /admin/listings/:id/cancel` | ADMIN |
 | Admin (§11) | `GET /admin/listings` | ADMIN |
+| Notifications (§14) | `GET /notifications` | any role |
 
 ### 1.2 Real-Time Event Quick Reference (§12)
 
@@ -213,6 +214,9 @@ Referenced by multiple endpoints below; defined once here.
 
 **SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, cancelAtPeriodEnd: boolean, createdAt: datetime }`
 (`cancelAtPeriodEnd` is `true` after `DELETE /subscriptions/me` — the subscription stays `ACTIVE` and the tier stays `PREMIUM` until `currentPeriodEnd`, then the `customer.subscription.deleted` webhook flips `status` to `CANCELLED`.)
+
+**NotificationDTO**: `{ id, type: 'SOLD_OUT'|'PREMIUM_MATCH'|'ADMIN_CANCEL'|'PAYMENT_SUCCESS'|'DELIVERY_STATUS', message: string, orderId: string|null, listingId: string|null, createdAt: datetime }`
+(A thin, direct mapping of the `NOTIFICATION` model, §14. `orderId`/`listingId` are cross-references, not denormalized detail — the client fetches the Order/Listing itself if the user taps through.)
 
 ---
 
@@ -631,7 +635,7 @@ Response `200`: paginated `ListingDTO[]` with full detail (no status filter — 
 
 ## 12. Real-Time Events (Socket.IO)
 
-One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed only** — nothing is persisted with read/unread state (explicit Out-of-Scope item, PRD §8).
+One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed**. As of Epic H, the six events that map to a `NotificationType` (marked below) are never emitted directly by their owning module — they go through one `notificationService.send(...)` call (§14) that both emits the event and persists it as a `NOTIFICATION` row (`docs/database_design.md`), so they survive a reload. There is still no read/unread state (that stays out of scope, PRD §8). `delivery:location` (GPS pings) and `payment:refunded` are the two exceptions: they call `emitToUser(...)` directly and are never persisted — too frequent (location) or no matching `NotificationType` (refund) to justify a row.
 
 ### Connection
 
@@ -652,6 +656,8 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 | `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
+
+**Send mapping (Epic H):** `listing:sold_out` → `NOTIFICATION.type=SOLD_OUT`; `notification:premium_match` → `PREMIUM_MATCH`; `notification:admin_cancel` → `ADMIN_CANCEL`; `payment:success` → `PAYMENT_SUCCESS`; `order:status_changed`/`delivery:delivered` → `DELIVERY_STATUS`. Each of these is emitted *and* persisted from inside a single `notificationService.send(...)` call — the owning module (`listings`, `payments`, `delivery`, and eventually `subscriptions`/`admin`) never calls `emitToUser(...)` directly for these types. See §14 and `docs/epic/H-notifications.md`.
 
 ### Client → server events
 
@@ -677,6 +683,20 @@ Per PRD §8, the following are intentionally **not** part of this API:
 - `POST /deliveries/:id/redo` or any failure/retry endpoint — every claimed delivery is expected to complete.
 - Any Courier self-registration route (`POST /auth/register/courier` does not exist) — Couriers are Admin-created only.
 - Any Admin manual-assignment route (`PATCH /admin/deliveries/:id/assign` does not exist) — claim-based queue only.
-- `GET /notifications` or any persisted-notification route — live feed only, per §8.
+- A mark-as-read/unread action, or any read-state field on `NOTIFICATION` — `GET /notifications` (§14, Epic H) returns a durable history, but there is no read/unread tracking, per §8.
 - Cancellation on an `ASSIGNED`-or-later delivery — enforced by the same atomic check backing the claim/cancel endpoints above, always `409`.
 - An AFF Wallet balance endpoint of any kind.
+
+---
+
+## 14. Notifications Module — `/api/notifications`
+
+*New in Epic H.* Centralizes both halves of sending one of the six notification-worthy events in §12's catalog: `notificationService.send({ userId, type, orderId?, listingId?, payload })` emits the matching Socket.IO event *and* writes a `NOTIFICATION` row (`docs/database_design.md`) in one call, so a user can look it up after the live toast is gone. This module doesn't own any of the triggering business logic — the Listings, Payments, Delivery, Subscriptions, and Admin services each call `sendNotification(...)` (exposed via `notification.interface.ts`, per `AGENTS.md`'s cross-module rule) at the point they used to call `emitToUser(...)` directly (§12's send mapping); no other module calls `emitToUser(...)` or writes to `NOTIFICATION` for these six types.
+
+### `GET /notifications` — *`H2`*
+**Auth:** any authenticated role
+**Ownership:** implicit — always scoped to `req.user.id` as `userId`
+
+Query params: pagination only (§2.4).
+Response `200`: paginated `NotificationDTO[]` (§3), newest (`createdAt`) first.
+Errors: `401` missing/invalid/revoked token — same as every other protected route.

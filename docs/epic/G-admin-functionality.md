@@ -33,7 +33,7 @@ Give the Admin the operator tools to keep the marketplace healthy: view and filt
 - **Admin manual delivery dispatch / assignment / reassignment** — the Courier queue is claim-based only; G6/E11 is strictly read-only (PRD §8)
 - **Hard-deleting accounts or listings** — deactivate and cancel are the only lifecycle actions; nothing is permanently removed
 - **Editing another user's profile data** — Admin can change `status` only, not contact fields, passwords, or emails
-- **A persisted admin notification/audit log** — G5 is a transient live toast to the affected Recipient; there is no admin-side event history beyond what the `ORDER`/`LISTING` records themselves carry (`cancelledByUserId`, timestamps)
+- **A persisted admin notification/audit log** — G5's `NOTIFICATION` row (Epic H) records the event for the affected Recipient's own history only; there is no admin-side event history beyond what the `ORDER`/`LISTING` records themselves carry (`cancelledByUserId`, timestamps)
 - **Courier account creation** — that is **E1** (`POST /admin/couriers`); Epic G only *views and oversees* Couriers. E1 is listed under Epic E for Additional-Feature traceability; there is no separate G story for it
 - **Bulk actions** — one account / one listing per action
 

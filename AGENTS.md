@@ -59,6 +59,7 @@ The frontend is built with React 19 and Vite. Styling is **Tailwind CSS v4** plu
 | `reservations` | Recipient order and reservation history |
 | `delivery` | Courier delivery queue, claim, active delivery with pickup and destination maps, real-time GPS broadcasting, and delivery completion with cash confirmation |
 | `subscriptions` | Premium subscription UI |
+| `notifications` | Notification bell dropdown UI (Premium upsell today; reads from `GET /notifications` once Epic H's persisted feed ships) |
 | `admin` | Admin oversight UI |
 
 **Frontend flow:**
