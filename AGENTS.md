@@ -30,7 +30,8 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 | `listings` | Donor food listing creation, lifecycle (pause/resume/cancel), search, and donation flows |
 | `orders` | Recipient order and reservation lifecycle, cancellation, feedback |
 | `delivery` | Courier delivery queue, claim, pickup, and delivery completion |
-| `subscriptions` | Premium Recipient subscription and notification preferences |
+| `subscriptions` | Premium Recipient subscription (billing cycles, tier derivation) |
+| `notification-preferences` | A Premium Recipient's saved notification-preference lifecycle (create/update/delete/list) |
 | `payments` | Stripe webhook handling for one-off checkouts and subscription billing |
 | `admin` | Admin account, listing, and delivery oversight |
 
