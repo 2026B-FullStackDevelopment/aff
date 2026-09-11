@@ -3,9 +3,6 @@ import {
     useState,
     type SubmitEvent,
 } from 'react';
-import type {
-    LocationData,
-} from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import type { OrderDTO } from '@/types/api'; // remove paymentMethod import, only cash
 import { listingService } from '../services/listing.service';
 import { recipientService } from '../services/recipient.service';
@@ -14,13 +11,13 @@ import { toast } from '@/shared/components/ui/sonner';
 import type {
     ManagedListingDTO,
     RecipientSearchResult,
+    DonorInitiatedDonationPayload,
 } from '../types';
 
 export interface ManualDonationFieldErrors {
     recipientEmail?: string;
     listingId?: string;
     quantity?: string;
-    deliveryAddressText?: string;
     cashReceivedAmount?: string;
 }
 
@@ -29,11 +26,6 @@ interface ManualDonationFormState {
     listingId: string;
     quantity: string;
     cashReceivedAmount: string;
-    deliveryAddressText: string;
-    deliveryLocation: {
-        latitude: number;
-        longitude: number;
-    } | null;
 }
 
 interface SubmittedListingSummary {
@@ -46,8 +38,6 @@ const INITIAL_FORM: ManualDonationFormState = {
     listingId: '',
     quantity: '1',
     cashReceivedAmount: '',
-    deliveryAddressText: '',
-    deliveryLocation: null,
 };
 
 // format money to VND
@@ -142,14 +132,6 @@ function validateForm(
             errors.quantity =
                 `Quantity cannot exceed the ration limit of ${selectedListing.rationLimitPerPerson}.`;
         }
-    }
-
-    if (!form.deliveryAddressText.trim()) {
-        errors.deliveryAddressText =
-            'Enter the Recipient delivery address.';
-    } else if (!form.deliveryLocation) {
-        errors.deliveryAddressText =
-            'Select an address suggestion so AFF can save its location.';
     }
 
     // cash received logic
@@ -532,43 +514,6 @@ export function useManualDonation() {
         clearSubmissionOutcome();
     }
 
-    function setDeliveryAddressInput(
-        nextAddress: string,
-    ) {
-        setForm((current) => ({
-            ...current,
-            deliveryAddressText: nextAddress,
-            deliveryLocation:
-                nextAddress === current.deliveryAddressText
-                    ? current.deliveryLocation
-                    : null,
-        }));
-
-        clearFieldError(
-            'deliveryAddressText',
-        );
-        clearSubmissionOutcome();
-    }
-
-    function selectDeliveryAddress(
-        location: LocationData,
-    ) {
-        setForm((current) => ({
-            ...current,
-            deliveryAddressText:
-                location.addressText,
-            deliveryLocation: {
-                latitude: location.latitude,
-                longitude: location.longitude,
-            },
-        }));
-
-        clearFieldError(
-            'deliveryAddressText',
-        );
-        clearSubmissionOutcome();
-    }
-
     function assignBadRequestError(
         message: string,
     ) {
@@ -579,19 +524,6 @@ export function useManualDonation() {
             setFieldErrors((current) => ({
                 ...current,
                 recipientEmail: message,
-            }));
-            return;
-        }
-
-        if (
-            normalized.includes('address')
-            || normalized.includes('location')
-            || normalized.includes('latitude')
-            || normalized.includes('longitude')
-        ) {
-            setFieldErrors((current) => ({
-                ...current,
-                deliveryAddressText: message,
             }));
             return;
         }
@@ -628,7 +560,6 @@ export function useManualDonation() {
             Object.keys(nextErrors).length > 0
             || !selectedListing
             || !selectedRecipient
-            || !form.deliveryLocation
         ) {
             return;
         }
@@ -643,25 +574,10 @@ export function useManualDonation() {
         setIsSubmitting(true);
 
         try {
-            // The backend contract is updated in the next vertical slice.
-            // Keeping these fields on a named object lets this UI slice typecheck
-            // while still exercising the intended request shape end to end.
-            const donationPayload = {
+            const donationPayload: DonorInitiatedDonationPayload = {
                 recipientEmail:
                     selectedRecipient.email,
                 quantity,
-                deliveryAddressText:
-                    form.deliveryAddressText.trim(),
-                deliveryLocation:
-                    form.deliveryLocation,
-                ...(isPriced
-                    ? {
-                        cashReceivedAmount:
-                            parseCashReceivedAmount(
-                                form.cashReceivedAmount,
-                            ) as number,
-                    }
-                    : {}),
             };
 
             const response =
@@ -771,12 +687,12 @@ export function useManualDonation() {
             const isFree = selectedListing.price === 0;
             if (isFree) {
                 toast.success('Donation recorded', {
-                    description: `${selectedListing.name} is recorded and ready for delivery processing.`,
+                    description: `${selectedListing.name} was handed to the Recipient and recorded as completed.`,
                 });
             } else {
                 // temporary success notification
                 toast.success('Cash donation recorded', {
-                    description: `${selectedListing.name} is recorded with ${
+                    description: `${selectedListing.name} was paid and completed in person with ${
                         VND_FORMATTER.format(cashChange ?? 0)
                     } change.`,
                 });
@@ -880,8 +796,6 @@ export function useManualDonation() {
         setListingId,
         setQuantity,
         setCashReceivedAmount,
-        setDeliveryAddressInput,
-        selectDeliveryAddress,
         handleSubmit,
         clearForm,
         retryListings,

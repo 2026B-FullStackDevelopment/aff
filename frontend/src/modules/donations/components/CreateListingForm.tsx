@@ -222,9 +222,9 @@ export function CreateListingForm({
               type="number"
               label="Ration per person"
               icon={Scale}
-              min="0"
-              step="any"
-              inputMode="decimal"
+              min="1"
+              step="1"
+              inputMode="numeric"
               value={
                 form.rationLimitPerPerson
               }
@@ -232,7 +232,7 @@ export function CreateListingForm({
                 'rationLimitPerPerson',
               )}
               placeholder="No limit"
-              helperText="Optional per-Recipient cap."
+              helperText="Optional positive whole-number cap per Recipient."
               error={
                 errors.rationLimitPerPerson
               }

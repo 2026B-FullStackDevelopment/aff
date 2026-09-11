@@ -5,7 +5,6 @@ import type {
   ListingStatus,
   ListingUnit,
   OrderDTO,
-  PaymentMethod,
 } from '@/types/api';
 
 // Request body accepted by POST /listings.
@@ -38,13 +37,6 @@ export interface SoldOutEvent {
 export interface DonorInitiatedDonationPayload {
   recipientEmail: string;
   quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: {
-    latitude: number;
-    longitude: number;
-  };
-  paymentMethod?: PaymentMethod;
-  cashReceivedAmount?: number;
 }
 
 export type ListingGroup =

@@ -14,7 +14,6 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
-import { AddressAutocomplete } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
@@ -67,8 +66,6 @@ export function ManualDonationForm() {
     setListingId,
     setQuantity,
     setCashReceivedAmount,
-    setDeliveryAddressInput,
-    selectDeliveryAddress,
     handleSubmit,
     clearForm,
     retryListings,
@@ -178,7 +175,7 @@ export function ManualDonationForm() {
           <div className="min-w-0 flex-1">
             <Panel
               title="Donation Details"
-              description="Record food committed to a registered AFF Recipient."
+              description="Record food handed directly to a registered AFF Recipient at your premises."
               className="shadow-sm"
               contentClassName="space-y-7 p-5 sm:p-7"
             >
@@ -561,39 +558,6 @@ export function ManualDonationForm() {
               )}
           </section>
 
-          <section>
-            <FormSectionHeader
-              title="Delivery Details"
-              theme="donor"
-            />
-
-            <AddressAutocomplete
-              id="manualDonationDeliveryAddress"
-              label="Recipient delivery address"
-              placeholder="Start typing the Recipient address..."
-              value={
-                form.deliveryAddressText
-              }
-              onInputChange={
-                setDeliveryAddressInput
-              }
-              onSelect={
-                selectDeliveryAddress
-              }
-              error={
-                fieldErrors
-                  .deliveryAddressText
-              }
-              theme="donor"
-            />
-
-            <p className="mt-2 text-xs leading-5 text-[#6B7280]">
-              Select an address suggestion or use the
-              current-location button so AFF can save
-              valid delivery coordinates.
-            </p>
-          </section>
-
             </Panel>
           </div>
 
@@ -611,7 +575,7 @@ export function ManualDonationForm() {
                       <div>
                         <p className="font-bold text-[#1B1C1C]">Cash</p>
                         <p className="text-xs text-[#694400]">
-                          Payment will be confirmed by the Courier upon delivery.
+                          The Recipient pays you directly during this in-person donation.
                         </p>
                       </div>                                            
                     </div>
@@ -633,7 +597,7 @@ export function ManualDonationForm() {
                       }
                       placeholder={String(orderTotal)}
                       error={fieldErrors.cashReceivedAmount}
-                      helperText="Enter the cash amount the Courier will receive in VND."
+                      helperText="Enter the cash received from the Recipient in VND."
                       theme="donor"
                     />
                   </>
