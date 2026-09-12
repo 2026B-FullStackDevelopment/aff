@@ -38,7 +38,7 @@ so that **my order enters the delivery queue without me having to arrange pickup
   - **Then** the request is rejected with `422`
 
 - [ ] **Scenario:** One reservation per listing per Recipient
-  - **Given** I already have a non-cancelled order against this listing
+  - **Given** I already have a non-cancelled order against this listing, whether its intake path is `RESERVATION` or `DONOR_INITIATED`
   - **When** I attempt to reserve it again
   - **Then** the request is rejected with `422`
 

@@ -70,7 +70,7 @@
         "tags": ["Donor Listings"],
         "operationId": "createDonorListing",
         "summary": "Create a listing",
-        "description": "Creates an ACTIVE listing owned by the authenticated Donor. city is inherited from the Donor profile and quantityRemaining is initialized to donationLimit; neither field may be sent by the client. PER_REQUEST is a valid unit, but those listings cannot create tracked Orders. Upload an image first through POST /media/upload-url with purpose LISTING_IMAGE, then send the returned mediaUrl as imageUrl.",
+        "description": "Creates an ACTIVE listing owned by the authenticated Donor. donationLimit and an optional rationLimitPerPerson must be positive whole numbers. city is inherited from the Donor profile and quantityRemaining is initialized to donationLimit; neither field may be sent by the client. PER_REQUEST is a valid unit, but those listings cannot create tracked Orders. Upload an image first through POST /media/upload-url with purpose LISTING_IMAGE, then send the returned mediaUrl as imageUrl.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -239,7 +239,7 @@
         "tags": ["Donor Listings"],
         "operationId": "updateDonorListingStatus",
         "summary": "Pause, resume, or cancel an owned listing",
-        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling also cancels non-cancelled Orders that have no Delivery or whose Delivery is still AWAITING_COURIER; claimed or later deliveries remain untouched. cancelledOrderCount is authoritative for the completed cascade.",
+        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling cascades to non-terminal Orders whose Delivery is AWAITING_COURIER and Stripe Reservations awaiting payment before Delivery creation. DELIVERED manual Orders are untouched even though they intentionally have no Delivery. cancelledOrderCount is authoritative.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
@@ -275,7 +275,7 @@
         "tags": ["Donor Donations"],
         "operationId": "listDonorListingOrders",
         "summary": "List tracked Orders against an owned listing",
-        "description": "Returns Reservation and Donor-initiated Orders newest first, with Recipient and Listing summaries. For a PER_REQUEST listing, returns an empty page because that flow never creates Orders. paymentMethod can be absent for a free Order or a priced donor-initiated Order whose Recipient has not chosen a payment method yet.",
+        "description": "Returns Reservation and Donor-initiated Orders newest first, with Recipient and Listing summaries. For a PER_REQUEST listing, returns an empty page because that flow never creates Orders. A priced manual Order is CASH/PAID/DELIVERED and has no Delivery; the UI labels it Completed in person. paymentMethod is absent only for free Orders.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" },
@@ -302,8 +302,8 @@
       "post": {
         "tags": ["Donor Donations"],
         "operationId": "createDonorInitiatedDonation",
-        "summary": "Create a Donor-initiated donation",
-        "description": "Creates a tracked Order for a selected active Recipient and atomically decrements stock. Do not send paymentMethod. A free listing returns paymentStatus FREE and orderStatus PREPARING and enters the Courier queue immediately. A priced listing returns paymentStatus PAYMENT_PENDING and orderStatus PENDING_PAYMENT; the Recipient is notified to choose Stripe or cash. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out.",
+        "summary": "Record a completed in-person Donor-initiated donation",
+        "description": "Records food already handed to a selected active Recipient at the Donor's premises and atomically decrements stock. The Recipient must not already have a non-cancelled Order for this listing, regardless of whether the existing intake path is RESERVATION or DONOR_INITIATED. Send only recipientEmail and quantity. A priced listing creates a CASH/PAID/DELIVERED Order; a free listing creates a FREE/DELIVERED Order. Neither case creates a Delivery or Payment. Cash received and change are frontend-only values and are not accepted or stored. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
@@ -315,19 +315,14 @@
               "schema": { "$ref": "#/components/schemas/CreateDonorDonationRequest" },
               "example": {
                 "recipientEmail": "recipient@example.com",
-                "quantity": 2,
-                "deliveryAddressText": "123 Example Street, Ho Chi Minh City",
-                "deliveryLocation": {
-                  "latitude": 10.7769,
-                  "longitude": 106.7009
-                }
+                "quantity": 2
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Donor-initiated Order created",
+            "description": "Completed in-person Donor-initiated Order created",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/OrderResponse" }
@@ -495,15 +490,14 @@
             "description": "Must be exactly 0 (free) or greater than or equal to 15000 VND. OpenAPI 3.0 cannot express this disjoint numeric constraint compactly, so clients must enforce both branches."
           },
           "donationLimit": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0
+            "type": "integer",
+            "minimum": 1,
+            "description": "Required positive whole-number quantity; zero, negative, and decimal values are rejected."
           },
           "rationLimitPerPerson": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0,
-            "description": "Omit when no cap is desired; do not send 0 or null."
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional positive whole-number cap. Omit when no cap is desired; do not send 0, a negative value, a decimal, or null."
           }
         }
       },
@@ -543,8 +537,8 @@
           "price": { "type": "number" },
           "city": { "type": "string" },
           "status": { "$ref": "#/components/schemas/ListingStatus" },
-          "donationLimit": { "type": "number" },
-          "rationLimitPerPerson": { "type": "number", "nullable": true },
+          "donationLimit": { "type": "integer", "minimum": 1 },
+          "rationLimitPerPerson": { "type": "integer", "minimum": 1, "nullable": true },
           "quantityRemaining": { "type": "number" },
           "createdAt": { "type": "string", "format": "date-time" }
         }
@@ -659,7 +653,7 @@
       "CreateDonorDonationRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["recipientEmail", "quantity", "deliveryAddressText", "deliveryLocation"],
+        "required": ["recipientEmail", "quantity"],
         "properties": {
           "recipientEmail": {
             "type": "string",
@@ -670,12 +664,7 @@
             "type": "number",
             "exclusiveMinimum": true,
             "minimum": 0
-          },
-          "deliveryAddressText": {
-            "type": "string",
-            "minLength": 1
-          },
-          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocationInput" }
+          }
         }
       },
       "Feedback": {
@@ -708,7 +697,7 @@
       },
       "Order": {
         "type": "object",
-        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "deliveryAddressText", "deliveryLocation", "cancelledByUserId", "feedback", "createdAt"],
+        "required": ["id", "recipientId", "listing", "intakePath", "quantity", "amount", "paymentStatus", "orderStatus", "cancelledByUserId", "feedback", "createdAt"],
         "properties": {
           "id": { "type": "string" },
           "recipientId": { "type": "string" },
@@ -725,7 +714,7 @@
           "paymentMethod": {
             "type": "string",
             "enum": ["STRIPE", "CASH"],
-            "description": "Optional and omitted until selected; free Orders never need one"
+            "description": "CASH for priced manual Orders; omitted for free Orders"
           },
           "paymentStatus": {
             "type": "string",
@@ -735,8 +724,14 @@
             "type": "string",
             "enum": ["PENDING_PAYMENT", "PREPARING", "DELIVERED", "CANCELLED"]
           },
-          "deliveryAddressText": { "type": "string" },
-          "deliveryLocation": { "$ref": "#/components/schemas/GeoLocation" },
+          "deliveryAddressText": {
+            "type": "string",
+            "description": "Required for RESERVATION; omitted for an in-person DONOR_INITIATED Order"
+          },
+          "deliveryLocation": {
+            "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }],
+            "description": "Required for RESERVATION; omitted for an in-person DONOR_INITIATED Order"
+          },
           "cancelledByUserId": { "type": "string", "nullable": true },
           "feedback": {
             "allOf": [{ "$ref": "#/components/schemas/Feedback" }],
@@ -881,12 +876,13 @@
         }
       },
       "DonationNotProcessable": {
-        "description": "The account is not an active Recipient, the listing is inactive or PER_REQUEST, or the requested quantity exceeds a ration/stock constraint",
+        "description": "The account is not an active Recipient, the Recipient already has a non-cancelled Order for the listing, the listing is inactive or PER_REQUEST, or the requested quantity exceeds a ration/stock constraint",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "examples": {
               "inactiveRecipient": { "value": { "message": "The selected account is not an active Recipient." } },
+              "duplicateRecipient": { "value": { "message": "This Recipient already has an order for this listing." } },
               "inactiveListing": { "value": { "message": "The listing is not active." } },
               "perRequest": { "value": { "message": "PER_REQUEST listings do not create Orders." } },
               "rationLimit": { "value": { "message": "Quantity exceeds the ration limit." } },

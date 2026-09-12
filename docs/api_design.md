@@ -67,7 +67,6 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | `listing:sold_out` | `user:<donorId>` |
 | `notification:premium_match` | `user:<recipientId>` |
 | `notification:admin_cancel` | `user:<recipientId>` |
-| `notification:payment_requested` | `user:<recipientId>` |
 | `payment:success` | `user:<recipientId>` |
 | `payment:refunded` | `user:<recipientId>` |
 | `order:status_changed` | `user:<recipientId>` |
@@ -173,8 +172,8 @@ Referenced by multiple endpoints below; defined once here.
 | price | number (0 = free) |
 | city | string |
 | status | `ACTIVE`\|`PAUSED`\|`CANCELLED`\|`SOLD_OUT` |
-| donationLimit | number |
-| rationLimitPerPerson | number \| null |
+| donationLimit | positive integer |
+| rationLimitPerPerson | positive integer \| null |
 | quantityRemaining | number |
 | createdAt | datetime |
 
@@ -190,8 +189,8 @@ Referenced by multiple endpoints below; defined once here.
 | paymentMethod | `STRIPE`\|`CASH` |
 | paymentStatus | `FREE`\|`PAYMENT_PENDING`\|`PAID`\|`REFUND_PENDING`\|`REFUNDED` |
 | orderStatus | `PENDING_PAYMENT`\|`PREPARING`\|`DELIVERED`\|`CANCELLED` (coarse/payment-oriented only — granular delivery progress is `DeliveryDTO.stage`, not this field; see §9) |
-| deliveryAddressText | string |
-| deliveryLocation | GeoLocation |
+| deliveryAddressText | string \| null (required for `RESERVATION`; absent for `DONOR_INITIATED`) |
+| deliveryLocation | GeoLocation \| null (required for `RESERVATION`; absent for `DONOR_INITIATED`) |
 | cancelledByUserId | string \| null |
 | feedback | `{ comment, createdAt }` \| null |
 | delivery | `{ stage, id }` \| null — `id` is `null` on the list (`GET /orders/mine`) and cancel (`DELETE /orders/:id`) responses, which don't need it; only `GET /orders/:id` populates it |
@@ -324,9 +323,9 @@ Covers Donor-side listing management and Recipient-side browsing.
 ### `POST /listings` — *`4.1.1`*
 **Auth:** `DONOR`
 
-Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
+Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). `donationLimit` must be a positive whole number; when supplied, `rationLimitPerPerson` must also be a positive whole number. Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
 Response `201`: `ListingDTO`
-Errors: `400` invalid unit/category enum or `price` fails the "free or >= 15000 VND" rule
+Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VND" rule, or either quantity limit is zero, negative, or fractional
 
 ### `GET /listings/mine` — *`4.1.2`, `4.2.2`*
 **Auth:** `DONOR`
@@ -348,7 +347,7 @@ Errors: `404` listing not found; `403` not the owning Donor
 **Ownership:** the listing must belong to `req.user.id`
 
 Request body: `{ status: 'PAUSED'|'ACTIVE'|'CANCELLED' }`
-Behavior: transitioning to `CANCELLED` cascades — every `ORDER` on this listing still in `DELIVERY.stage=AWAITING_COURIER` (or with no `DELIVERY` yet) is set to `orderStatus=CANCELLED`, `cancelledByUserId=<donor's userId>`; `ASSIGNED`-or-later orders are untouched.
+Behavior: transitioning to `CANCELLED` cascades to each non-terminal `ORDER` whose `DELIVERY.stage=AWAITING_COURIER`, plus a Stripe Reservation still awaiting payment with no `DELIVERY`. Orders already `DELIVERED` or `CANCELLED`, including completed Donor-initiated manual Orders that intentionally have no Delivery, are untouched. `ASSIGNED`-or-later deliveries are also untouched.
 Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number }`
 Errors: `409` invalid transition (e.g. re-cancelling an already-cancelled listing)
 
@@ -363,10 +362,10 @@ Response `200`: paginated `OrderDTO[]` (each including `recipient: { id, usernam
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`
 
-Request body: `{ recipientEmail: string, quantity: number, deliveryAddressText: string, deliveryLocation: { latitude, longitude } }`. The Donor does not choose `paymentMethod`; a priced Order waits for the Recipient's choice through `POST /orders/:id/payment-choice`.
-Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used rather than username since `username` has no uniqueness constraint — see `docs/database_design.md`'s `USER` schema — while `email` does). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING` and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE` and `DeliveryService.createForOrder` fires immediately.
+Request body: `{ recipientEmail: string, quantity: number }`. Delivery address, payment selection, cash received, and calculated change are not accepted by this endpoint.
+Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used because it is unique). Validates listing ownership and eligibility, remaining stock, any ration limit, and that the Recipient has no existing non-cancelled Order for the listing. The browser performs a live pre-check using the existing Donor-owned `GET /listings/:id/orders` data, but this POST remains authoritative. It decrements stock and creates an `ORDER` with `intakePath=DONOR_INITIATED` and `orderStatus=DELIVERED`. A priced listing produces `paymentMethod=CASH` and `paymentStatus=PAID`; a free listing produces `paymentMethod=null` and `paymentStatus=FREE`. This records an in-person handoff at the Donor's premises: no `DELIVERY`, `PAYMENT`, delivery address, cash-received value, or change value is created or stored.
 Response `201`: `OrderDTO`
-Errors: `404` recipient email not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
+Errors: `404` recipient email not found; `422` Recipient already has a non-cancelled Order for this listing; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
 
 ### `POST /listings/:id/reserve` — *`5.1.2`, `5.1.3`, `5.2.3` (revised per PRD §10)*
 **Auth:** `RECIPIENT`
@@ -391,7 +390,7 @@ Response `200`: paginated `ListingDTO[]`
 ### `GET /listings/:id` — *`5.3.4`*
 **Auth:** public
 
-Response `200`: `ListingDTO` with `donor` expanded to full `{ id, companyName, addressText, location }` (needed both as browsing context for Reservation/Donor-initiated listings, and as the literal meetup point for Per-Request listings).
+Response `200`: `ListingDTO` with `donor` expanded to full `{ id, companyName, addressText, location }` (browsing and Reservation pickup context, and the literal in-person handoff point for Donor-initiated manual donations and Per-Request listings).
 Errors: `404`
 
 ---
@@ -418,12 +417,12 @@ Errors: `404` order not found — also returned when the order exists but belong
 
 This is the Recipient's own self-cancel action. Donor- and Admin-initiated cancellation are separate endpoints that apply the identical rule at the listing level — `PATCH /listings/:id/status` and `PATCH /admin/listings/:id/cancel` — cascading to every affected order rather than targeting one `orderId` directly.
 
-Behavior: atomically checks the associated `DELIVERY.stage`. If no Delivery exists yet, or `stage=AWAITING_COURIER`, cancellation proceeds: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<req.user.id>`, `cancelledAt=now`; `LISTING.quantityRemaining` is restored. If `stage=ASSIGNED` or later, the update is rejected — this is the same atomic check that backs the claim endpoint's guarantee (`PATCH /deliveries/:id/claim`, §9), so a claim racing a cancellation can never leave both operations believing they won.
+Behavior: first rejects any terminal Order (`orderStatus=DELIVERED` or `CANCELLED`). For a non-terminal Order, it atomically checks the associated `DELIVERY.stage`. Cancellation proceeds when `stage=AWAITING_COURIER`, or when a Stripe Reservation is still awaiting payment and has no Delivery: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<req.user.id>`, `cancelledAt=now`; `LISTING.quantityRemaining` is restored. A completed Donor-initiated manual Order has no Delivery by design but remains non-cancellable because its status is already `DELIVERED`. If a Delivery is `ASSIGNED` or later, the update is rejected — this is the same atomic check that backs the claim endpoint's guarantee (`PATCH /deliveries/:id/claim`, §9).
 
 **Automatic Stripe refund:** if the cancelled order has `paymentMethod=STRIPE` and `paymentStatus=PAID`, the cancellation additionally triggers a synchronous `stripe.refunds.create()` call against `PAYMENT.stripePaymentIntentId`. On success, `PAYMENT.status`/`ORDER.paymentStatus=REFUND_PENDING` and `PAYMENT.stripeRefundId` is stored — **not** `REFUNDED` yet, since Stripe's synchronous response isn't treated as final; the refund is only confirmed `REFUNDED` by the `charge.refunded` webhook (§8), which also emits `payment:refunded` (§12) to push the update live. If the Stripe API call itself fails, cancellation still proceeds (never blocked on Stripe reachability) and the response reports `refundStatus=FAILED` for manual follow-up. Idempotent: a `PAYMENT` already `REFUND_PENDING` or `REFUNDED` is not refunded again. Orders that are free, cash, or Stripe-but-never-paid (`PENDING_PAYMENT`, no money taken) get `refundStatus=NOT_APPLICABLE` and no Stripe call at all.
 
 Response `200`: `OrderDTO & { refundStatus: 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED' }`
-Errors: `404` order not found; `409` delivery already `ASSIGNED`/`PICKED_UP`/`DELIVERED` — "This order can no longer be cancelled."
+Errors: `404` order not found; `409` Order already terminal or Delivery already `ASSIGNED`/`PICKED_UP`/`DELIVERED` — "This order can no longer be cancelled."
 
 ### `POST /orders/:id/feedback` — *`5.2.4`*
 **Auth:** `RECIPIENT`
@@ -434,7 +433,7 @@ Precondition: `orderStatus=DELIVERED`
 Response `201`: `{ feedback: { comment, createdAt } }`
 Errors: `409` order not yet delivered; `409` feedback already submitted (one per order)
 
-### `POST /orders/:id/checkout-session` — *supports card checkout for Reserve & Pay and Donor-Initiated Donation orders (`5.2.3`, `6.2.1`), including first-time Stripe card registration*
+### `POST /orders/:id/checkout-session` — *supports card checkout for Reservation orders (`5.2.3`, `6.2.1`), including first-time Stripe card registration*
 **Auth:** `RECIPIENT`
 **Ownership:** the order must belong to `req.user.id`
 
@@ -444,15 +443,6 @@ Response `200`: `{ checkoutUrl: string }` (frontend redirects the browser here)
 Errors: `409` order not in a payable state; `502` Stripe API error
 
 Payment confirmation happens asynchronously via the Stripe webhook (§8), **not** as this endpoint's response — Stripe Checkout is a redirect flow.
-
-### `POST /orders/:id/payment-choice` — *supports Recipient choice for priced Donor-initiated Orders*
-**Auth:** `RECIPIENT`
-**Ownership:** the order must belong to `req.user.id`
-
-Request body: `{ paymentMethod: 'STRIPE'|'CASH' }`
-Behavior: records the choice only while `paymentStatus=PAYMENT_PENDING` and no different method has already been selected. Cash sets `orderStatus=PREPARING` and creates the Delivery immediately. Stripe remains `PENDING_PAYMENT`; the client then calls `POST /orders/:id/checkout-session`.
-Response `200`: `OrderDTO`
-Errors: `404` order not found; `409` order is not awaiting a choice or a different method was already selected
 
 ---
 
@@ -545,13 +535,13 @@ Errors: `409` not currently `ASSIGNED`
 **Auth:** `COURIER`
 **Ownership:** must be the Courier assigned to this delivery
 
-Request body: `{ cashConfirmed?: boolean }` — required and must be `true` if the order's `paymentMethod=CASH`; ignored otherwise.
-Behavior: sets `stage=DELIVERED`, `deliveredAt=now`; `ORDER.orderStatus=DELIVERED`; if cash, also flips `ORDER.paymentStatus: PAYMENT_PENDING → PAID` and logs `{ courierId, confirmedAt }` on the order for basic audit traceability (per PRD §9 risk mitigation — no deeper reconciliation than this).
+Request body: `{ cashConfirmed?: boolean }` — required and must be `true` if the associated Reservation has `paymentMethod=CASH` and `paymentStatus=PAYMENT_PENDING`; ignored otherwise.
+Behavior: sets `stage=DELIVERED`, `deliveredAt=now`; `ORDER.orderStatus=DELIVERED`; for a pending cash Reservation, it also flips `ORDER.paymentStatus: PAYMENT_PENDING → PAID` and logs `{ courierId, confirmedAt }` on the order for basic audit traceability. Donor-initiated manual Orders never reach this endpoint because they have no Delivery.
 Response `200`: `DeliveryDTO`
 Errors: `409` not currently `PICKED_UP`; `400` cash order missing `cashConfirmed: true`
 
 ### Internal: `DeliveryService.createForOrder(orderId)` — *(new)*
-Not an HTTP route — a same-process service-interface call (`A.3.1`) invoked by the Listings/Orders module (from `POST /listings/:id/reserve`, `POST /listings/:id/donations`, and the Stripe webhook's `checkout.session.completed` handler) and by nothing else. Creates a `DELIVERY` row (`stage=AWAITING_COURIER`, `orderId`). Documented here for completeness since it's the single convergence point the PRD calls out (§5).
+Not an HTTP route — a same-process service-interface call (`A.3.1`) invoked for queue-eligible Reservation Orders: immediately by `POST /listings/:id/reserve` for free/cash Reservations, or by the Stripe webhook after successful Reservation payment. It creates a `DELIVERY` row (`stage=AWAITING_COURIER`, `orderId`) and must reject or ignore `DONOR_INITIATED` Orders. Donor-initiated manual donations and Per-Request listings never call this interface.
 
 ---
 
@@ -669,7 +659,6 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 | `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name }` | `4.3.1` |
 | `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId }` | `5.3.2` |
 | `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName }` | `7.3.3` |
-| `notification:payment_requested` | `user:<recipientId>` | a Donor-initiated donation creates a priced order awaiting the Recipient's payment choice | `{ orderId, listingName, amount }` | `4.1.4` |
 | `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId }` | `6.1.2` |
 | `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId }` | new |
 | `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage }` | new |
@@ -701,6 +690,7 @@ matching `order:join`.
 Per PRD §8, the following are intentionally **not** part of this API:
 
 - Any endpoint that creates an `ORDER`, `PAYMENT`, or `DELIVERY` for a `PER_REQUEST` listing — enforced by `422` in `POST /listings/:id/reserve` and `POST /listings/:id/donations`.
+- Any endpoint that creates a `DELIVERY` or `PAYMENT` for a `DONOR_INITIATED` manual Order; that path is completed in person and persisted directly as a terminal Order.
 - `POST /deliveries/:id/redo` or any failure/retry endpoint — every claimed delivery is expected to complete.
 - Any Courier self-registration route (`POST /auth/register/courier` does not exist) — Couriers are Admin-created only.
 - Any Admin manual-assignment route (`PATCH /admin/deliveries/:id/assign` does not exist) — claim-based queue only.

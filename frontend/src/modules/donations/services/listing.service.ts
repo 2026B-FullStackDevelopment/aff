@@ -105,7 +105,7 @@ export const listingService = {
       undefined,
     ),
 
-  // Creates a Donor-initiated order for a registered Recipient.
+  // Records a completed in-person Order using only Recipient email and quantity.
   createDonorInitiatedDonation: (
     listingId: string,
     payload: DonorInitiatedDonationPayload,

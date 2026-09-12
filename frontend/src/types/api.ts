@@ -224,8 +224,10 @@ export interface OrderDTO {
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
   delivery: { stage: DeliveryStage; id: string | null } | null;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  /** Present for Reservations; omitted for completed in-person manual donations. */
+  deliveryAddressText?: string;
+  /** Present for Reservations; omitted for completed in-person manual donations. */
+  deliveryLocation?: GeoLocation;
   cancelledByUserId: string | null;
   feedback: {
     comment: string;

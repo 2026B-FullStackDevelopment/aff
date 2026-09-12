@@ -107,7 +107,9 @@ async function getListingDonorData(
   donorId: string,
 ): Promise<ListingDonorData> {
   const [user, donorProfile] = await Promise.all([
-    userInterface.getUserById(donorId),
+    
+    // the database separates the records of a donor: donor record & user record
+    userInterface.getUserById(donorId), 
     userInterface.getDonorByUserId(donorId),
   ]);
 
@@ -458,8 +460,9 @@ async function listListingOrders(
 }
 
 /**
- * Creates a Donor-initiated Order for a registered Recipient.
- * Stock, Order creation, and free-order Delivery creation commit together.
+ * Records a completed in-person Order for a registered Recipient.
+ * Stock and Order creation commit together; manual donations never create a
+ * Delivery or persist the cash tender used by the frontend change calculator.
  */
 async function createDonorInitiatedDonation(
   listingId: string,
@@ -501,6 +504,19 @@ async function createDonorInitiatedDonation(
       }
 
       if (
+        await orderInterface.hasNonCancelledOrderForListing(
+          String(listing._id),
+          String(recipient._id),
+          session,
+        )
+      ) {
+        throw createHttpError(
+          422,
+          'This Recipient already has an order for this listing.',
+        );
+      }
+
+      if (
         listing.rationLimitPerPerson != null &&
         payload.quantity > listing.rationLimitPerPerson
       ) {
@@ -510,6 +526,9 @@ async function createDonorInitiatedDonation(
       if (payload.quantity > listing.quantityRemaining) {
         throw createHttpError(422, 'Quantity exceeds the remaining stock.');
       }
+
+      const isFree = listing.price === 0;
+      const orderAmount = listing.price * payload.quantity;
 
       const updatedListing =
         await listingRepository.decrementStockAtomically(
@@ -526,35 +545,24 @@ async function createDonorInitiatedDonation(
         );
       }
 
-      const isFree = listing.price === 0;
       const order = await orderInterface.createOrder(
         {
           recipientId: recipient._id,
           listingId: listing._id,
           intakePath: 'DONOR_INITIATED',
           quantity: payload.quantity,
-          amount: listing.price * payload.quantity,
-          paymentStatus: isFree ? 'FREE' : 'PAYMENT_PENDING',
-          orderStatus: isFree ? 'PREPARING' : 'PENDING_PAYMENT',
-          deliveryAddressText: payload.deliveryAddressText,
-          deliveryLocation: {
-            ...payload.deliveryLocation,
-            updatedAt: new Date(),
-          },
+          amount: orderAmount,
+          paymentMethod: isFree ? undefined : 'CASH',
+          paymentStatus: isFree ? 'FREE' : 'PAID',
+          orderStatus: 'DELIVERED',
         },
         session,
       );
 
-      if (isFree) {
-        await deliveryInterface.createForOrder(String(order._id), session);
-      }
-
       return {
         order,
         listingName: listing.name,
-        recipientId: String(recipient._id),
         becameSoldOut: updatedListing.status === 'SOLD_OUT',
-        isFree,
       };
     },
   );
@@ -564,14 +572,6 @@ async function createDonorInitiatedDonation(
     emitToUser(donorId, 'listing:sold_out', {
       listingId,
       name: result.listingName,
-    });
-  }
-
-  if (!result.isFree) {
-    emitToUser(result.recipientId, 'notification:payment_requested', {
-      orderId: String(result.order._id),
-      listingName: result.listingName,
-      amount: result.order.amount,
     });
   }
 

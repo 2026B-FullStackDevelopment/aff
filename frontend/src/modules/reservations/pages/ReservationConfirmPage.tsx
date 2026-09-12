@@ -182,6 +182,7 @@ function ReservationConfirmContent({
                 value={paymentMethod}
                 isFree={isFree}
                 onChange={setPaymentMethod}
+                theme="recipient"
               />
 
               <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm">

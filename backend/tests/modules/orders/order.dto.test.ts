@@ -93,6 +93,33 @@ describe('toOrderResponseDto', () => {
 
     expect(result?.delivery).toEqual({ stage: 'ASSIGNED', id: 'd1' });
   });
+
+  it('omits delivery fields for a completed in-person manual Order', () => {
+    const order = {
+      _id: 'o2',
+      recipientId: 'r1',
+      listingId: 'l1',
+      intakePath: 'DONOR_INITIATED',
+      quantity: 1,
+      amount: 15000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      orderStatus: 'DELIVERED',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+
+    const result = toOrderResponseDto(order);
+
+    expect(result).toMatchObject({
+      intakePath: 'DONOR_INITIATED',
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      orderStatus: 'DELIVERED',
+      delivery: null,
+    });
+    expect(result).not.toHaveProperty('deliveryAddressText');
+    expect(result).not.toHaveProperty('deliveryLocation');
+  });
 });
 
 describe('toRecipientOrderResponseDto', () => {

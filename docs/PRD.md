@@ -3,7 +3,7 @@
 
 ## 1. Executive Summary
 
-AFF is a web-based food redistribution platform connecting food-insecure **Recipients** with surplus-holding **Donors**, operated by an **Admin**, and fulfilled in most cases by **Couriers**. The system supports two payment methods (Stripe or cash-on-delivery) across two digitally-tracked order paths (Reservation, Donor-initiated), both of which are delivered by a Courier. A third path — **Per-Request listings** — stays outside the order system entirely: the app simply shows the Donor's location and the Recipient collects in person, exactly as the base SRS originally intended.
+AFF is a web-based food redistribution platform connecting food-insecure **Recipients** with surplus-holding **Donors**, operated by an **Admin**, and fulfilled in most cases by **Couriers**. Standard Reservations support Stripe or cash and use the Courier pipeline. A Donor-initiated manual donation records food handed directly to a registered Recipient at the Donor's premises: priced donations are cash-only, the Donor calculates change in the browser, and the resulting Order is immediately paid and delivered without a Delivery record. A third path — **Per-Request listings** — stays outside the order system entirely: the app simply shows the Donor's location and the Recipient collects in person, exactly as the base SRS originally intended.
 
 The team is targeting **Ultimo tier across Architecture (`A.1`–`A.3`) and all 8 Functional Requirement groups**, with **Courier Delivery & Real-Time Tracking** as the team's sole Additional Feature, deployed on Render with MongoDB Atlas.
 
@@ -20,7 +20,7 @@ The team is targeting **Ultimo tier across Architecture (`A.1`–`A.3`) and all 
 ### What is the problem?
 1. **Global paradox** [SRS Introduction]: ~1.05 billion tonnes of food wasted in 2022 (19% of all food available to consumers) coexists with ~783 million people affected by hunger.
 2. **Discovery friction**: without a structured marketplace, Donors can't efficiently list surplus and Recipients can't efficiently find it.
-3. **Physical access friction**: requiring every Recipient to travel to a Donor excludes people without transport, mobility, or spare time. Courier delivery removes that barrier for the two order paths where it matters most (Reservation, Donor-initiated), while Per-Request — inherently ad hoc, "come as available" donations — keeps the simpler self-collection model the SRS describes.
+3. **Physical access friction**: requiring every Recipient to travel to a Donor excludes people without transport, mobility, or spare time. Courier delivery removes that barrier for standard Reservations. Donor-initiated manual donations and Per-Request listings represent separate in-person collection flows at the Donor's premises.
 4. **Payment access friction**: requiring a card excludes Recipients without one. Supporting both Stripe and cash keeps the marketplace usable regardless of banking access.
 
 ### Evidence
@@ -32,10 +32,10 @@ Academic project — evidence is the SRS's own cited rationale (UNEP Food Waste 
 
 | Persona | Role | Goals | Notes under this design |
 |---|---|---|---|
-| **Recipient** | Registered individual buying/receiving affordable food | Find suitable food, order it, receive it reliably | No address required at signup — delivery address is captured per order. A Stripe card is only requested the first time they choose card payment; cash-on-delivery works with no card at all. |
-| **Donor** | Registered business with surplus food | Redistribute food with minimal admin overhead | Pickup address geocoded at signup (unchanged) — reused for map display and, for Per-Request listings, shown directly to Recipients for self-collection. |
+| **Recipient** | Registered individual buying/receiving affordable food | Find suitable food, order it, receive it reliably | No address required at signup — a delivery address is captured for Reservations. A Stripe card is requested only for Recipient-selected Stripe checkout. Donor-initiated manual donations are completed in person and do not require an address or card. |
+| **Donor** | Registered business with surplus food | Redistribute food with minimal admin overhead | Address geocoded at signup — reused for map display and as the in-person handoff location for Donor-initiated manual donations and Per-Request listings. |
 | **Admin** | Platform operator | Keep the marketplace healthy: accounts, listings, and deliveries | Read-only oversight of the Courier queue in addition to existing account/listing management. |
-| **Courier** | Admin-created delivery agent | Work through a shared delivery queue, one job at a time | Claim-based queue, one active delivery at a time. **Collects cash on delivery when applicable** — exact cash only, no change given. No self-registration. |
+| **Courier** | Admin-created delivery agent | Work through a shared delivery queue, one job at a time | Claim-based queue, one active delivery at a time. **Collects cash only for cash-paid Reservations still marked `PAYMENT_PENDING`** — exact cash only, no change given. Donor-initiated manual donations never enter the Courier queue. No self-registration. |
 
 ---
 
@@ -45,9 +45,9 @@ Academic project — evidence is the SRS's own cited rationale (UNEP Food Waste 
 Milestone 1/2 deliverable for COSC2769. **Confirmed: target Ultimo tier across Architecture (`A.1`–`A.3`) and all 8 Functional Requirement groups.** Tiers are cumulative, so Ultimo means Simplex + Medium + Ultimo all apply — except where explicitly deviated from (§10).
 
 ### Confirmed technical/process decisions
-- **Payment**: Stripe **and** cash. No AFF Wallet, anywhere. Cash orders are marked `PAYMENT_PENDING` until a Courier confirms cash collected at delivery, at which point the order flips to `PAID`. Stripe orders are `PAID` as soon as checkout succeeds. *(Deviation from `5.1.3`/`6.1.1`'s wallet component only — see §10.)*
-- **Fulfillment**: Courier delivery is mandatory for the **Reservation** and **Donor-initiated** intake paths. **Per-Request listings are not tracked as Orders at all** — no payment, no Courier, no digital record; the Recipient sees the Donor's address and collects in person, matching the SRS's original `4.2.1` intent.
-- **Cancellation**: a Recipient (or the Donor/Admin, via listing-level cancel) may cancel an order while it is still unclaimed (`DELIVERY.stage = AWAITING_COURIER`, or no Delivery record yet). Once a Courier claims it (`ASSIGNED` or later), it can no longer be cancelled.
+- **Payment**: Stripe **and** cash. No AFF Wallet, anywhere. For a standard Reservation, the Recipient selects Stripe or cash-on-delivery; cash Reservations enter the Courier queue with `paymentStatus=PAYMENT_PENDING` and become `PAID` when the Courier confirms collection. A priced Donor-initiated manual donation is cash-only. The Donor enters the cash received during the in-person handoff, and the frontend calculates and displays `change = cashReceivedAmount - orderAmount`; the cash amount and change are transient UI values and are never sent to or stored by the backend. Successful submission creates an Order with `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`. A free manual donation creates an Order with `paymentStatus=FREE` and `orderStatus=DELIVERED`. *(Deviation from `4.1.4`, `5.1.3`, and `6.1.1`; see §10.)*
+- **Fulfillment**: Courier delivery is mandatory only for the **Reservation** intake path. A Donor-initiated manual donation records an in-person handoff and creates no `DELIVERY`. **Per-Request listings are not tracked as Orders at all** — no payment, no Courier, no digital record; the Recipient sees the Donor's address and collects in person, matching the SRS's original `4.2.1` intent.
+- **Cancellation**: a pending Reservation may be cancelled while it is still unclaimed (`DELIVERY.stage = AWAITING_COURIER`, or before its delayed Stripe Delivery is created). Once a Courier claims it (`ASSIGNED` or later), it can no longer be cancelled. Donor-initiated manual Orders are created as `DELIVERED` and are terminal, so their lack of a Delivery record must never make them cancellable.
 - **Additional Feature**: Courier Delivery with Real-Time Tracking remains the team's **sole** Additional Feature (Section 8), at Ultimo tier.
 - **Architecture**: Backend Modular Monolith, each bounded-context module internally layered Route → Controller → Service → Repository → Model (`A.1.2`, `A.2.1`), cross-module calls only via exposed service interfaces (`A.3.1`), DTOs on all responses (`A.3.2`), RBAC middleware as the single coarse-grained authorization enforcement point (`A.2.3`) covering all four roles, with fine-grained ownership checks in the Service layer (`A.2.2`). Delivery/Courier is its **own bounded module** with its own MongoDB collection, referenced by ID from the Order module — not embedded fields.
 - **Frontend**: React, Page → Component → Hook → Service → Reusable Component hierarchy (`A.1.3`), global API route config + shared REST helper (`A.2.a`/`A.2.b`), frontend RBAC (`A.2.c`), modularized components with hooks/service-calls/styling split into separate files (`A.3.a`/`A.3.b`), responsive Profile and Admin UIs (`A.3.c`).
@@ -55,29 +55,29 @@ Milestone 1/2 deliverable for COSC2769. **Confirmed: target Ultimo tier across A
 - **Real-time & notifications**: one shared Socket.IO layer delivering a **live, in-session feed** for listing sold out (`4.3.1`), Premium match (`5.3.2`), Admin cancellation (`7.3.3`), payment success (`6.1.2`), and Courier delivery status/location events. Most of these are also persisted as a `NOTIFICATION` row and fetchable via `GET /notifications` (Epic H) — but there is still no read/unread inbox state (§8).
 - **Deployment**: Render (frontend + backend) + MongoDB Atlas — satisfies the maximum available Deployment tier (`D.2.1`, Medium; there is no Ultimo deployment tier).
 - **Process constraints** (unchanged, restated for completeness): GitHub as sole project-management/storage tool, iterative delivery, mandatory sprint reviews at Weeks 2/5/11, grading penalties for weak GitHub usage [`P1`, `P2`, `P3`].
-- **Schema follow-up required**: the current data model has no `paymentMethod` field distinguishing cash from Stripe on `ORDER`/`PAYMENT`. This must be added before Path 1/2 development starts (see §9 Risks).
+- **Manual-donation data boundary**: `cashReceivedAmount` and calculated change are frontend-only values. The Order persists its amount and final payment state, but no cash-tender or change fields.
 
 ---
 
 ## 5. Solution Overview
 
-AFF is a role-based marketplace with four roles: **Recipient, Donor, Admin, Courier**. Two payment methods (Stripe, cash) and two order-intake paths converge on the same Courier delivery pipeline; a third path stays entirely outside the digital order system.
+AFF is a role-based marketplace with four roles: **Recipient, Donor, Admin, Courier**. Standard Reservations use the Courier delivery pipeline and support Stripe or cash. Donor-initiated manual donations record a completed in-person handoff, while Per-Request listings stay entirely outside the digital order system.
 
 **Path 1 — Standard online reservation** [`5.1.2`, revised]: Recipient browses/searches listings, reserves one, and chooses Stripe checkout (charged immediately, order enters the queue on success) or cash-on-delivery (order enters the queue immediately as `PAYMENT_PENDING`, flips to `PAID` when the Courier confirms cash collected).
 
-**Path 2 — Donor-initiated donation** [`4.1.4`, revised]: Donor selects a listing, a *registered* Recipient, and a quantity. If priced, the Recipient chooses Stripe checkout or cash-on-delivery, same as Path 1. If free, the order enters the queue immediately.
+**Path 2 — Donor-initiated manual donation** [`4.1.4`, revised]: At the Donor's premises, the Donor selects a listing, a *registered* Recipient, and a quantity. A priced donation is cash-only. The Donor enters the cash received, and the frontend displays the calculated change and rejects an amount below the total. Submission sends only the Recipient and quantity, then records the Order as `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`. A free donation is recorded as `paymentStatus=FREE` and `orderStatus=DELIVERED`. Neither case creates a Delivery.
 
 **Path 3 — "Per Request" donation (untracked)** [`4.2.1`, unchanged from SRS intent]: Donor creates a Per-Request listing. No online reservation, no Order record, no payment, no Courier. The listing publicly shows the Donor's pickup address; Recipients self-arrange collection, and food may still be available (or not) when they arrive — matching the SRS's original warning language.
 
-All Path 1/2 orders call the same `DeliveryService.createForOrder(orderId, ...)` interface on the dedicated Delivery module, which runs the shared Courier lifecycle:
+Only queue-eligible Path 1 Reservation orders call `DeliveryService.createForOrder(orderId, ...)` on the dedicated Delivery module, which runs the shared Courier lifecycle:
 
 ```
-AWAITING_COURIER --[claim]--> ASSIGNED --[Picked Up]--> PICKED_UP --[Delivered + cash confirmed if applicable]--> DELIVERED
+AWAITING_COURIER --[claim]--> ASSIGNED --[Picked Up]--> PICKED_UP --[Delivered + pending Reservation cash confirmed if applicable]--> DELIVERED
 ```
 
 Any Courier can claim an unclaimed order from a shared, oldest-first queue; claiming is atomic (prevents double-claim races); a Courier holds one active delivery at a time. **Cancellation window**: the Recipient, the Donor (via listing cancel), or Admin may cancel an order while it sits in `AWAITING_COURIER`. Once `ASSIGNED`, cancellation is blocked. Live GPS tracking runs only during `PICKED_UP`, visible only to that order's Recipient over WebSocket; `DELIVERED` is terminal and sole-source-of-truth (no Recipient confirmation step).
 
-**Supporting capabilities**: registration/login/profile management, with delivery address captured per-order rather than at signup [`1A`, `1B`, `2`, `3`]; Donor donation lifecycle management (pause/resume/cancel, rationing, search/filter/sort, statistics) [`4`]; Premium subscription via Stripe recurring billing with preference-based notifications [`5.3.1`, `5.3.2`, `6`]; Admin oversight of accounts (including Couriers), listings, and deliveries [`7`].
+**Supporting capabilities**: registration/login/profile management, with a delivery address captured per Reservation rather than at signup [`1A`, `1B`, `2`, `3`]; Donor donation lifecycle management (pause/resume/cancel, rationing, search/filter/sort, statistics) [`4`]; Premium subscription via Stripe recurring billing with preference-based notifications and location-aware ranking [`5.3`, `6`]; Admin oversight of accounts (including Couriers), listings, and deliveries [`7`].
 
 ---
 
@@ -89,9 +89,9 @@ Any Courier can claim an unclaimed order from a shared, oldest-first queue; clai
 ### Secondary metrics
 - **Real-time tracking latency**: Courier GPS ping → visible on Recipient's live map, target consistently under ~10 seconds.
 - **Claim-race correctness**: zero double-claimed deliveries under concurrent test.
-- **Payment correctness**: zero Path 1/2 orders enter the Courier queue without a payment method assigned (Stripe-paid, cash-pending-confirmation, or free) — no way to bypass payment method selection. Zero Per-Request listings ever produce an Order record.
+- **Payment correctness**: zero priced Reservations enter the Courier queue without a payment method assigned. Stripe Reservations enter only after successful Checkout; cash Reservations enter with cash collection pending. Priced manual donations are recorded immediately as cash-paid and delivered, while their tender and change stay frontend-only. Free orders remain explicitly `FREE`. Zero manual donations create a Delivery, and zero Per-Request listings produce an Order.
 - **Cancellation correctness**: zero orders cancelled after a Courier has already claimed them, enforced atomically alongside the claim check.
-- **Gold Data Set completeness**: all SRS-mandated seeded accounts present and working, plus at least one seeded Courier account with an in-flight (`PICKED_UP`) delivery, and at least one seeded cash order and one seeded Stripe order so both payment demos work without live setup.
+- **Gold Data Set completeness**: all SRS-mandated seeded accounts present and working, plus at least one seeded Courier account with an in-flight (`PICKED_UP`) delivery, one cash Reservation awaiting Courier collection, one completed Donor-initiated cash Order with no Delivery, and one Stripe Reservation so every persisted payment path can be demonstrated without live setup.
 - **Architecture rubric alignment**: layered/modular backend structure, RBAC middleware, DTOs, and the Delivery module's service-interface boundary demonstrably in place and explainable by every team member [Project Interviews].
 
 ### Guardrail metrics
@@ -155,9 +155,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **C1. Create Listing** (`4.1.1`)
 > As a Donor, I want to create a food listing with name, description, unit, category, vegetarian flag, donation limit, and price.
-- UI: creation form; selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
-- API: `POST /listings` validates unit/category enums and price rule (free or >= 15000 VND).
-- Data: creates `LISTING` (status=ACTIVE, quantityRemaining=donationLimit).
+- UI: creation form with live inline validation; required `donationLimit` and optional `rationLimitPerPerson` accept positive whole numbers only. Selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
+- API: `POST /listings` validates unit/category enums, the price rule (free or >= 15000 VND), and both quantity-limit fields as positive whole numbers.
+- Data: creates `LISTING` (`status=ACTIVE`, `quantityRemaining=donationLimit`); `donationLimit` is a positive integer.
 
 **C2. Clone Listing** (`4.1.3`)
 > As a Donor, I want to create a new listing pre-filled from a previous one.
@@ -166,10 +166,10 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - Data: new `LISTING` document; no reference back to the original.
 
 **C3. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
-> As a Donor, I want to manually create a donation for a registered Recipient and quantity, so I can hand out food I've already committed outside the app.
-- UI: Donor searches by Recipient email (no free-text names — email, not username, since `username` is not guaranteed unique); if priced, the Recipient is prompted (via notification) to choose Stripe or cash-on-delivery.
-- API: `POST /listings/:id/donations` creates an `ORDER` (intakePath=DONOR_INITIATED); if priced, `paymentStatus=PAYMENT_PENDING` until Stripe succeeds or cash is confirmed at delivery; if free, `paymentStatus=FREE` and it enters the Courier queue immediately.
-- Data: `ORDER` (recipientId, listingId, intakePath=DONOR_INITIATED, quantity, amount, paymentStatus).
+> As a Donor, I want to record food handed directly to a registered Recipient at my premises, so stock and the completed Order are accurately recorded.
+- UI: Donor searches by Recipient email, selects a listing and quantity, and does not enter a delivery address. The form checks the selected listing's Orders live and blocks a Recipient who already has a non-cancelled Order on it. A priced listing shows a static Cash panel, a cash-received input, the Order total, and live `change = cash received - total`; insufficient cash blocks submission. Free listings show a Free summary. The layout follows the Reservation payment-summary pattern and stacks responsively, but offers no payment selector or Stripe action.
+- API: `POST /listings/:id/donations` accepts only `recipientEmail` and `quantity`. It validates ownership, Recipient, listing eligibility, stock, ration limit, and that the Recipient has no existing non-cancelled Order for the listing before decrementing stock and creating a terminal Order. Priced Orders use `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`; free Orders use `paymentStatus=FREE` and `orderStatus=DELIVERED`. No Delivery is created.
+- Data: `ORDER` stores the transaction outcome and `intakePath=DONOR_INITIATED`. It has no delivery address or location for this path, and it does not persist cash received or calculated change.
 
 **C4. Search/Filter/Sort Own Listings, with Active/Past Grouping** (`4.1.2`, `4.2.2` — absorbs the standalone dashboard story, see §10)
 > As a Donor, I want to filter my listings into Active and Past, and search/filter/sort within them by name, category, date range, and revenue, so I can track my impact and manage my listings from one view.
@@ -185,9 +185,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **C6. Ration Limit Per Person** (`4.2.4`)
 > As a Donor, I want to cap how much a single Recipient can reserve from a listing.
-- UI: optional "ration per person" field on listing creation.
-- API: reservation endpoint rejects quantities above `rationLimitPerPerson`.
-- Data: `LISTING.rationLimitPerPerson`.
+- UI: optional "ration per person" field on listing creation accepts positive whole numbers only (`1`, `2`, `3`, ...).
+- API: listing creation rejects zero, negative, or decimal ration limits; reservation and manual-donation endpoints reject quantities above the stored limit.
+- Data: `LISTING.rationLimitPerPerson` is nullable and, when present, a positive whole number.
 
 **C7. Per-Request Listing (Untracked, Self-Collection)** (`4.2.1`, unchanged SRS intent)
 > As a Donor, I want to post a "Per Request" listing so Recipients can come collect food in person without me managing individual orders.
@@ -196,10 +196,10 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - Data: `LISTING` with `unit=PER_REQUEST`; no `ORDER`, no `PAYMENT`, no `DELIVERY` ever reference it.
 
 **C8. View Orders Against a Listing** (`4.2.5`, status vocabulary aligned to schema)
-> As a Donor, I want to see every tracked order against a listing — Recipient, quantity, delivery status, payment info, and feedback.
-- UI: table per listing, showing Recipient username, quantity, `orderStatus`, payment method + status, and any feedback.
+> As a Donor, I want to see every tracked order against a listing — Recipient, quantity, fulfillment status, payment info, and feedback.
+- UI: table per listing, showing Recipient username, quantity, `orderStatus`, payment method + status, and any feedback. A terminal Donor-initiated Order with no Delivery is labelled "Completed in person" rather than "Not queued".
 - API: `GET /listings/:id/orders` (Reservation + Donor-initiated only — Per-Request has nothing to show here).
-- Data: reads `ORDER` filtered by `listingId`, joined with `PAYMENT` and `feedback`.
+- Data: reads `ORDER` filtered by `listingId`; payment fields and optional feedback come from the Order, while Delivery data is joined only when present.
 
 **C9. Sold-Out Alert** (`4.3.1`)
 > As a Donor, I want a real-time alert when a listing sells out, so I know without having to check manually.
@@ -256,7 +256,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **D8. View Donor Location** (`5.3.4`)
 > As a Recipient, I want to see a Donor's location on a map from a listing page.
-- UI: map marker on the listing page. For Reservation/Donor-initiated listings this is informational context; for Per-Request listings this **is** the actual meetup point.
+- UI: map marker on the listing page. It provides pickup context for Reservations and is the actual in-person handoff point for Donor-initiated manual donations and Per-Request listings.
 - API: `GET /listings/:id` includes `donorId` → `DONOR.location`.
 - Data: reads `DONOR.location` (GeoLocation embedded value object).
 
@@ -302,9 +302,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **E7. Complete Delivery (with Cash Confirmation)** (new)
 > As a Courier, I want to tap "Delivered" as the final action — confirming cash received if applicable.
-- UI: "Delivered" button; if the order's payment method is cash, a confirmation step ("Cash received — exact amount, no change given") must be checked first.
-- API: `PATCH /deliveries/:id/deliver` sets `stage=DELIVERED`, `deliveredAt`; if cash, also flips `ORDER.paymentStatus` from `PAYMENT_PENDING` to `PAID`.
-- Data: `DELIVERY.stage=DELIVERED`; `ORDER.orderStatus=DELIVERED`, `paymentStatus=PAID` (cash case).
+- UI: "Delivered" button; if a cash Reservation is still `PAYMENT_PENDING`, a confirmation step ("Cash received — exact amount, no change given") must be checked first. Donor-initiated manual Orders never appear in the Courier flow.
+- API: `PATCH /deliveries/:id/deliver` sets `stage=DELIVERED`, `deliveredAt`; for a cash Reservation still awaiting collection, it also flips `ORDER.paymentStatus` from `PAYMENT_PENDING` to `PAID`.
+- Data: `DELIVERY.stage=DELIVERED`; `ORDER.orderStatus=DELIVERED`; a pending cash Reservation additionally becomes `paymentStatus=PAID` and records the Courier confirmation fields.
 
 **E8. Live Order Status for Recipient** (new)
 > As a Recipient, I want my order's status to update live without refreshing.
@@ -331,10 +331,10 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - Data: reads `COURIER`, `DELIVERY`.
 
 **E12. Single Delivery Entry Point** (new)
-> As the Delivery module, I want one `createForOrder(orderId, ...)` entry point called identically by the Reservation and Donor-initiated flows, so both paths converge on one pipeline with no divergent logic.
+> As the Delivery module, I want one `createForOrder(orderId, ...)` entry point for queue-eligible Reservation Orders, so every Courier delivery enters one consistent pipeline.
 - UI: n/a.
 - API: internal service interface, not exposed to the frontend.
-- Data: creates `DELIVERY` (stage=AWAITING_COURIER) referencing `orderId`.
+- Data: creates `DELIVERY` (stage=AWAITING_COURIER) referencing an eligible Reservation `orderId`. Donor-initiated manual Orders never call it.
 
 *Explicit scope boundaries: no delivery-failure/redo path, no Courier self-registration, no post-claim cancellation, no Admin manual dispatch. Couriers now do handle cash (see §0) — this replaces the prior "no cash handling" boundary. Donor pickup-leg mapping is now in scope (E5, revised) — this replaces the prior "no Donor-pickup-leg mapping" boundary; it's still a static marker, not live tracking, since the Donor doesn't move.*
 
@@ -442,7 +442,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - **Mandatory Stripe card at signup** — card capture is deferred to the first card-based checkout.
 - **Real customer discovery / TAM-SAM-SOM** — not applicable to a course assignment.
 
-**Future consideration (not this milestone):** multi-item cart/consolidated deliveries, Courier ratings, native mobile push notifications, formal cash reconciliation/audit beyond a courier-confirmed timestamp.
+**Future consideration (not this milestone):** multi-item cart/consolidated deliveries, Courier ratings, native mobile push notifications, and formal cash reconciliation beyond the lightweight Donor/Courier actor-and-timestamp audit.
 
 ---
 
@@ -450,19 +450,19 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 ### Dependencies
 - **Tech stack**: React frontend, Node/Express/MongoDB backend — fixed by the SRS.
-- **Stripe**: two integration surfaces — (1) one-off Checkout Sessions for card-paid food orders (Paths 1–2), and (2) Stripe Subscriptions for recurring Premium billing (Epic F1). Cash orders never touch Stripe. Sandbox/test-mode keys needed early.
+- **Stripe**: two integration surfaces — (1) one-off Checkout Sessions for card-paid Reservations, and (2) Stripe Subscriptions for recurring Premium billing (Epic F1). Manual donations and cash Reservations never touch Stripe. Sandbox/test-mode keys needed early.
 - **Real-time layer**: Socket.IO, shared by the base SRS's notification requirements and Courier tracking.
 - **Geocoding/mapping**: OSM Nominatim (geocoding, rate-limited ~1 req/sec) + Leaflet (rendering) — free, no API key, matches the SRS's "no paid Map SDK" note [`5.3.4`]. Used for Donor addresses only now (Recipient addresses are per-order, not geocoded at signup).
 - **Browser Geolocation API** for Courier tracking — requires HTTPS in production (satisfied by Render) and explicit permission; test on the deployed origin, not just localhost.
 - **Deployment**: Render (frontend + backend) + MongoDB Atlas.
 
 ### Risks & Mitigations
-- **Risk**: schema gap — `ORDER`/`PAYMENT` have no `paymentMethod` field to distinguish cash from Stripe. **Mitigation**: small additive schema change before Path 1/2 development starts; flag to the team now rather than discover it mid-sprint.
+- **Risk**: a user may mistake the manual-donation cash input for persisted accounting data. **Mitigation**: label it as an in-person change aid, keep it only in component state, and send only Recipient email and quantity to the API.
 - **Risk**: concurrent claim races double-assign a delivery. **Mitigation**: atomic conditional DB update, explicitly unit-tested — the same check also enforces the cancellation cutoff (D4/E3).
-- **Risk**: cash confirmed-but-not-actually-collected (Courier error or dishonesty) has no deeper audit trail than a boolean + timestamp. **Mitigation**: accepted as out of scope for a course project — log Courier ID + timestamp on the confirm action for basic traceability, nothing further.
-- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the one-off Checkout Session path first (D2/C3, highest-traffic), treat Subscriptions (F1) as a separable second increment.
+- **Risk**: a completed manual Order has no Delivery record, which could make generic cancellation logic treat it as pending. **Mitigation**: require `orderStatus != DELIVERED` before any no-Delivery cancellation path proceeds.
+- **Risk**: Stripe integration (checkout + subscriptions) takes longer than expected. **Mitigation**: build the Reservation Checkout Session path first (D2, highest-traffic), then treat Subscriptions (F1) as a separable second increment.
 - **Risk**: weak/late GitHub usage costs graded points independent of code quality [`P1`, `P2`]. **Mitigation**: slice the epics above into small, frequently-committed issues.
-- **Risk**: adding cash-handling to the Courier role blurs the "one clean rail" simplicity the team previously relied on. **Mitigation**: keep the rule bright-line simple — exact cash only, no change, confirmed with a single tap — rather than modeling partial payments or disputes.
+- **Risk**: a manual Order could accidentally enter the Courier queue. **Mitigation**: restrict `DeliveryService.createForOrder` to eligible Reservation Orders and test that `DONOR_INITIATED` Orders never produce a Delivery.
 - **Risk**: "Ultimo everywhere" is a large scope commitment. **Mitigation**: the Gold Data Set requirement (§6) forces early, incremental proof that each path — including both payment methods — works end-to-end before the demo.
 
 ---
@@ -473,13 +473,13 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 
 | SRS Requirement | Literal text | Resolved behavior |
 |---|---|---|
-| `5.1.3` | Cash upon collection or wallet | Cash upon **delivery** (Courier collects, exact amount, no change) or Stripe checkout; no wallet |
+| `5.1.3` | Cash upon collection or wallet | For Reservations, cash upon **delivery** (Courier collects exact cash, no change) or Stripe Checkout; no wallet |
 | `5.2.3` | Card via third-party (implied alongside cash/wallet) | Stripe implemented as specified; cash-on-delivery available as the alternative, no wallet |
 | `6.1.1` | Wallet-funded subscription | Not implemented — superseded entirely by `6.2.1` (Stripe recurring) |
 | `5.3.3` | Location-aware ranking of matched listings for Premium Recipients (by granted coordinates, else by city) | **Dropped.** Was Epic F story F4; removed from scope by team decision. `GET /listings` keeps only its base sort (`sort=price`); no `rank=proximity` mode is built. Donor coordinates (`DONOR.location`) are still captured and used for delivery mapping, just not for Recipient-side listing ranking |
 | `4.1.4` | Cash + change display at physical Donor-Recipient handoff; recipient by free-text name | Recipient must be a registered account; if priced, Recipient chooses Stripe or cash-on-delivery; the physical handoff moves from Donor to Courier |
 | `4.2.1` | Recipient may visit pickup location; quantity given in person; no online reservation | Implemented as originally specified — this is intentionally the one path that stays self-service and untracked |
-| Base pickup model (`5.1.2` / general marketplace assumption) | Recipient collects in person from Donor | Reservation + Donor-initiated orders are Courier-delivered; Per-Request remains self-collection |
+| Base pickup model (`5.1.2` / general marketplace assumption) | Recipient collects in person from Donor | Reservations are Courier-delivered; Donor-initiated manual donations and Per-Request remain in-person collection flows |
 | `4.1.2` | Separate Active/Past donations dashboard (originally its own story) | Retired as a standalone story; folded into C4 as an `?status=ACTIVE\|PAST` filter on the same listings endpoint. `ACTIVE` = `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` = `CANCELLED`/`SOLD_OUT` |
 | `4.3.2` | Visual stats/charts on the Donor donation dashboard | Dropped from C9 — C9 is alert-only. C4 still surfaces per-listing `donatedQuantity`/`revenue` inline (carried over from the retired `4.1.2` dashboard), but no aggregate charts are built |
 
@@ -487,7 +487,5 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 
 ## 11. Open Questions (implementation-level — nothing here blocks starting work)
 
-- **Cash confirmation audit depth**: is a Courier-ID + timestamp log sufficient (current assumption), or does the team want anything more before Milestone 2?
-- **Schema change ownership**: who adds the `paymentMethod` field to `ORDER`/`PAYMENT`, and by when — needs to land before Path 1/2 implementation starts.
 - **Transactional email provider** for `6.1.2`/payment-confirmation emails — e.g. Nodemailer + a free SMTP sandbox for development; finalize before the Gold Data Set is built.
 - **Stripe webhook handling** specifics (which events, retry/idempotency handling) — standard integration work, detailed in the implementation plan rather than here.

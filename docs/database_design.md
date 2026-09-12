@@ -122,8 +122,8 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | price | number | | Free or >= 15000 VND |
 | city | string | | |
 | status | ListingStatus (enum) | | ACTIVE, PAUSED, CANCELLED, SOLD_OUT |
-| donationLimit | number | | Total quantity offered |
-| rationLimitPerPerson | number | | Max quantity a single recipient can reserve |
+| donationLimit | integer | | Required positive whole-number total quantity offered |
+| rationLimitPerPerson | integer | | Optional positive whole-number cap per Recipient; null/absent means no ration cap |
 | quantityRemaining | number | | |
 | createdAt | datetime | | |
 | updatedAt | datetime | | |
@@ -142,8 +142,8 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | paymentMethod | PaymentMethod (enum) | | STRIPE, CASH; absent/null when `amount` is 0 (free order) |
 | paymentStatus | PaymentStatus (enum) | | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED. `REFUND_PENDING` is set synchronously when a Stripe-paid order is cancelled before Courier claim (D4); `REFUNDED` only after the `charge.refunded` webhook confirms it (`docs/api_design.md` §8) |
 | orderStatus | OrderStatus (enum) | | PENDING_PAYMENT, PREPARING, DELIVERED, CANCELLED. Coarse/payment-oriented only — granular delivery progress (claimed, picked up) lives on `DELIVERY.stage`, not here; see `docs/api_design.md` §9 |
-| deliveryAddressText | string | | |
-| deliveryLocation | GeoLocation | | Embedded value object |
+| deliveryAddressText | string | | Required for `RESERVATION`; absent for an in-person `DONOR_INITIATED` Order |
+| deliveryLocation | GeoLocation | | Embedded value object; required for `RESERVATION`, absent for `DONOR_INITIATED` |
 | cancelledByUserId | ObjectId | FK → USER._id | Nullable; captures who cancelled (incl. admin) |
 | cashConfirmedByCourierId | ObjectId | FK → COURIER.userId | Set only when a Courier completes a cash Order and confirms receipt |
 | cashConfirmedAt | datetime | | Timestamp of the Courier's cash-receipt confirmation |
@@ -202,7 +202,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 
 | Value Object | Field | Type | Embedded In |
 |---|---|---|---|
-| GeoLocation | latitude | number | DONOR.location, ORDER.deliveryLocation, DELIVERY.courierLastLocation |
+| GeoLocation | latitude | number | DONOR.location, RESERVATION-type ORDER.deliveryLocation, DELIVERY.courierLastLocation |
 | GeoLocation | longitude | number | |
 | GeoLocation | updatedAt | datetime | |
 | Feedback | comment | string | ORDER.feedback |
@@ -227,9 +227,9 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | LISTING | ORDER | 1 : N | ORDER.listingId | is ordered as |
 | LISTING | NOTIFICATION | 1 : N (opt.) | NOTIFICATION.listingId | referenced by |
 | ORDER | NOTIFICATION | 1 : N (opt.) | NOTIFICATION.orderId | referenced by |
-| ORDER | DELIVERY | 1 : 0..1 | DELIVERY.orderId | fulfilled by |
+| ORDER | DELIVERY | 1 : 0..1 | DELIVERY.orderId | Reservation fulfilled by; Donor-initiated manual Orders always have zero Deliveries |
 | COURIER | DELIVERY | 1 : N | DELIVERY.courierId | claims (1 active at a time — business rule, not schema-enforced) |
-| ORDER | PAYMENT | 1 : N (polymorphic) | PAYMENT.payableId, where payableType = ORDER | paid via |
+| ORDER | PAYMENT | 1 : N (polymorphic) | PAYMENT.payableId, where payableType = ORDER | Stripe Reservation paid via; free, cash, and manual Orders have no PAYMENT row |
 | SUBSCRIPTION | PAYMENT | 1 : N (polymorphic) | PAYMENT.payableId, where payableType = SUBSCRIPTIONS | paid via |
 
 ---

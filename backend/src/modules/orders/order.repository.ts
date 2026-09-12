@@ -18,8 +18,8 @@ interface CreateOrderInput {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  deliveryAddressText?: string;
+  deliveryLocation?: GeoLocation;
 }
 
 interface ListingOrderRepositoryItem {
@@ -228,7 +228,7 @@ async function findNonCancelledOrderIdsByListing(
 ): Promise<string[]> {
   const query = Order.find({
     listingId,
-    orderStatus: { $ne: 'CANCELLED' },
+    orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
   }).select({ _id: 1 });
 
   const orders = await (session ? query.session(session) : query)
@@ -291,7 +291,7 @@ async function cancelOrdersByIds(
   const result = await Order.updateMany(
     {
       _id: { $in: orderIds },
-      orderStatus: { $ne: 'CANCELLED' },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
     },
     {
       $set: {
@@ -320,7 +320,7 @@ function cancelOrderById(
   return Order.findOneAndUpdate(
     {
       _id: orderId,
-      orderStatus: { $ne: 'CANCELLED' },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
     },
     {
       $set: {
