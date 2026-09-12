@@ -656,14 +656,14 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 
 | Event | Room | Emitted when | Payload | SRS |
 |---|---|---|---|---|
-| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name }` | `4.3.1` |
-| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId }` | `5.3.2` |
-| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName }` | `7.3.3` |
-| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId }` | `6.1.2` |
+| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name, message }` | `4.3.1` |
+| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId, message }` | `5.3.2` |
+| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName, message }` | `7.3.3` |
+| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId, message }` | `6.1.2` |
 | `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId }` | new |
-| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage }` | new |
+| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage, message }` | new |
 | `delivery:location` | `order:<orderId>` | Courier GPS ping, only while `stage=PICKED_UP` | `{ orderId, latitude, longitude, updatedAt }` | new |
-| `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
+| `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
 

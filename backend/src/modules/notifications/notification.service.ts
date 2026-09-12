@@ -71,9 +71,11 @@ async function sendNotification(params: SendNotificationParams): Promise<void> {
   const { userId, type, event, orderId, listingId, payload, persist = true } = params;
 
   let resolvedEvent: string;
+  let message: string;
   try {
     resolvedEvent = resolveEventName(type, event);
-    emitToUser(userId, resolvedEvent, payload);
+    message = buildMessage(type, resolvedEvent, payload);
+    emitToUser(userId, resolvedEvent, { ...payload, message });
   } catch (error) {
     console.error('Failed to emit a realtime notification event:', error);
     return;
@@ -84,7 +86,6 @@ async function sendNotification(params: SendNotificationParams): Promise<void> {
   }
 
   try {
-    const message = buildMessage(type, resolvedEvent, payload);
     await notificationRepository.create({ userId, type, message, orderId, listingId });
   } catch (error) {
     console.error('Failed to persist a notification:', error);

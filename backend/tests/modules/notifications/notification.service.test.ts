@@ -35,7 +35,11 @@ describe('notification.service', () => {
         payload: { listingId: 'l1', name: 'Bread' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('d1', 'listing:sold_out', { listingId: 'l1', name: 'Bread' });
+      expect(emitToUserMock).toHaveBeenCalledWith('d1', 'listing:sold_out', {
+        listingId: 'l1',
+        name: 'Bread',
+        message: 'Your listing "Bread" just sold out.',
+      });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'd1',
         type: 'SOLD_OUT',
@@ -55,7 +59,10 @@ describe('notification.service', () => {
         payload: { orderId: 'o1' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:success', { orderId: 'o1' });
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:success', {
+        orderId: 'o1',
+        message: 'Your payment was successful.',
+      });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'r1',
         type: 'PAYMENT_SUCCESS',
@@ -76,7 +83,11 @@ describe('notification.service', () => {
         payload: { orderId: 'o1', stage: 'ASSIGNED' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', { orderId: 'o1', stage: 'ASSIGNED' });
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+        orderId: 'o1',
+        stage: 'ASSIGNED',
+        message: "Your order's delivery status is now assigned to a courier.",
+      });
       expect(createMock).toHaveBeenLastCalledWith(
         expect.objectContaining({ message: "Your order's delivery status is now assigned to a courier." }),
       );
@@ -89,7 +100,10 @@ describe('notification.service', () => {
         payload: { orderId: 'o1' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'delivery:delivered', { orderId: 'o1' });
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'delivery:delivered', {
+        orderId: 'o1',
+        message: 'Your order has been delivered.',
+      });
       expect(createMock).toHaveBeenLastCalledWith(
         expect.objectContaining({ message: 'Your order has been delivered.' }),
       );
@@ -134,7 +148,10 @@ describe('notification.service', () => {
         sendNotification({ userId: 'd1', type: 'SOLD_OUT', payload: { name: 'Bread' } }),
       ).resolves.toBeUndefined();
 
-      expect(emitToUserMock).toHaveBeenCalledWith('d1', 'listing:sold_out', { name: 'Bread' });
+      expect(emitToUserMock).toHaveBeenCalledWith('d1', 'listing:sold_out', {
+        name: 'Bread',
+        message: 'Your listing "Bread" just sold out.',
+      });
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
 
       consoleErrorSpy.mockRestore();
@@ -149,7 +166,10 @@ describe('notification.service', () => {
         payload: { listingId: 'l1' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('u1', 'notification:premium_match', { listingId: 'l1' });
+      expect(emitToUserMock).toHaveBeenCalledWith('u1', 'notification:premium_match', {
+        listingId: 'l1',
+        message: 'A new listing matches your notification preferences.',
+      });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'u1',
         type: 'PREMIUM_MATCH',
@@ -169,7 +189,10 @@ describe('notification.service', () => {
         payload: { orderId: 'o1' },
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'notification:admin_cancel', { orderId: 'o1' });
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'notification:admin_cancel', {
+        orderId: 'o1',
+        message: 'Your order was cancelled by an admin.',
+      });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'r1',
         type: 'ADMIN_CANCEL',
@@ -189,7 +212,11 @@ describe('notification.service', () => {
         persist: false,
       });
 
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', { orderId: 'o1', stage: 'DELIVERED' });
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'order:status_changed', {
+        orderId: 'o1',
+        stage: 'DELIVERED',
+        message: "Your order's delivery status is now delivered.",
+      });
       expect(createMock).not.toHaveBeenCalled();
     });
   });
