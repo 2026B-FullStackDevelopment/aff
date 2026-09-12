@@ -3,26 +3,22 @@ import { getStoredToken } from '@/services/authStorage';
 import { courierRealtimeService } from '../services/courierRealtime.service';
 
 /**
- * Keeps the Courier's socket open for as long as they are signed in.
+ * Stops any in-progress GPS watch/ping loop on logout.
  *
- * This lives in the navigation component, which stays mounted across both
- * Courier pages. Putting it in a page would disconnect the socket on
- * navigation and kill the ping loop mid-delivery (spec D2).
+ * The socket connection itself is centralized (useRealtimeConnection,
+ * mounted once at the app root) and survives navigation regardless of role,
+ * so this hook no longer owns it — previously, disconnecting the socket on
+ * logout also implicitly stopped tracking (courierRealtime.service.ts's old
+ * disconnect() called stopTracking()); that coupling is now made explicit
+ * here instead, since centralizing the socket removed it.
  */
 export function useCourierSession() {
   const token = getStoredToken();
 
   useEffect(() => {
     if (!token) {
-      courierRealtimeService.disconnect();
-      return;
+      courierRealtimeService.stopTracking();
     }
-
-    courierRealtimeService.connect(token);
-
-    return () => {
-      courierRealtimeService.disconnect();
-    };
   }, [token]);
 }
 
