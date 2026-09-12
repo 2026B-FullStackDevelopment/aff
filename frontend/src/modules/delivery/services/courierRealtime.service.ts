@@ -1,10 +1,4 @@
-import { io, type Socket } from 'socket.io-client';
-
-interface CourierClientToServerEvents {
-  'delivery:ping': (position: { latitude: number; longitude: number }) => void;
-}
-
-type CourierSocket = Socket<Record<string, never>, CourierClientToServerEvents>;
+import { realtimeSocket } from '@/shared/services/realtimeSocket';
 
 // The PRD targets under ~10 seconds from GPS ping to visible movement, so a
 // 5-second emit interval leaves headroom. watchPosition keeps a fresh fix
@@ -13,19 +7,9 @@ type CourierSocket = Socket<Record<string, never>, CourierClientToServerEvents>;
 // does not control.
 const PING_INTERVAL_MS = 5000;
 
-let activeSocket: CourierSocket | null = null;
-let activeToken: string | null = null;
 let watchId: number | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
 let lastPosition: { latitude: number; longitude: number } | null = null;
-
-function resolveSocketServerUrl(): string {
-  const explicitSocketUrl = import.meta.env.VITE_SOCKET_URL;
-  if (explicitSocketUrl) return explicitSocketUrl;
-
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-  return apiBaseUrl.replace(/\/api\/?$/, '') || window.location.origin;
-}
 
 function stopTracking() {
   if (watchId !== null) {
@@ -69,41 +53,13 @@ function startTracking(onPermissionDenied: () => void) {
   );
 
   pingTimer = setInterval(() => {
-    if (activeSocket && lastPosition) {
-      activeSocket.emit('delivery:ping', lastPosition);
+    if (lastPosition) {
+      realtimeSocket.emit('delivery:ping', lastPosition);
     }
   }, PING_INTERVAL_MS);
 }
 
-function disconnect() {
-  stopTracking();
-
-  if (activeSocket) {
-    activeSocket.disconnect();
-  }
-
-  activeSocket = null;
-  activeToken = null;
-}
-
-function connect(token: string) {
-  if (activeSocket && activeToken === token) {
-    if (!activeSocket.connected) activeSocket.connect();
-    return;
-  }
-
-  disconnect();
-  activeToken = token;
-
-  activeSocket = io(resolveSocketServerUrl(), {
-    auth: { token },
-    transports: ['websocket', 'polling'],
-  }) as CourierSocket;
-}
-
 export const courierRealtimeService = {
-  connect,
-  disconnect,
   startTracking,
   stopTracking,
 };
