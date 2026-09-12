@@ -3,7 +3,7 @@ import { getResponseMessage } from '@/shared/utils/apiError';
 import { notificationService } from '../services/notification.service';
 import type { NotificationDTO } from '@/types/api';
 
-const NOTIFICATIONS_PAGE_SIZE = 20;
+const NOTIFICATIONS_PAGE_SIZE = 5;
 
 let inFlightFirstPage: ReturnType<typeof notificationService.getMyNotifications> | null = null;
 

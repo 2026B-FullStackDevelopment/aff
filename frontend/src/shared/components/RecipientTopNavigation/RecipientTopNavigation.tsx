@@ -59,7 +59,6 @@ export function RecipientTopNavigation({
             <NotificationList onNavigate={close} />
             {!isPremium && (
               <PremiumUpsellPanel
-                onClose={close}
                 onUpgrade={() => {
                   close();
                   navigate('/subscription');

@@ -47,4 +47,27 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
       description: 'Your payment has been refunded.',
     }),
   },
+  {
+    // Handles the DELIVERED stage itself too, with its own copy, rather
+    // than relying on the separate delivery:delivered event — that event
+    // is emitted to both the user's personal room and the order room, and
+    // a Recipient viewing the tracking page is in both simultaneously, so
+    // it arrives twice (once with no `message`, per a documented backend
+    // gap). order:status_changed has no such duplicate-room emission, so
+    // it's the reliable single-fire source for this transition too.
+    event: 'order:status_changed',
+    roles: ['RECIPIENT'],
+    toast: (payload) =>
+      payload.stage === 'DELIVERED'
+        ? {
+            variant: 'success',
+            title: 'Order delivered',
+            description: 'Your order has been delivered.',
+          }
+        : {
+            variant: 'info',
+            title: 'Order update',
+            description: String(payload.message),
+          },
+  },
 ];
