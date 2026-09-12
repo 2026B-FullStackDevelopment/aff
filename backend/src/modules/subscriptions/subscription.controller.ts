@@ -1,15 +1,38 @@
 // Handles subscription HTTP requests and returns subscription DTOs.
-import type { Request, Response } from 'express';
-import { notImplemented } from '../../shared/http/response.js';
+import type { Request, Response, NextFunction } from 'express';
+import * as subscriptionService from './subscription.service.js';
+import { ok } from '../../shared/http/response.js';
+import { parseBody } from '../../shared/validation/parse-body.js';
+import { updateSubscriptionSchema } from './subscription.schemas.js';
 
-// The following need the Stripe recurring-billing integration and the SUBSCRIPTION schema
-// (append-only ledger, RECIPIENT.tier derivation) — see docs/api_design.md §10 and docs/blockers.md.
-async function getMySubscription(_req: Request, res: Response) {
-  return notImplemented(res);
+async function getMySubscription(req: Request, res: Response, next: NextFunction) {
+  try {
+    return ok(res, await subscriptionService.getMySubscriptionStatus(req.user!.id));
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function createSubscriptionCheckoutSession(_req: Request, res: Response) {
-  return notImplemented(res);
+async function createSubscriptionCheckoutSession(req: Request, res: Response, next: NextFunction) {
+  try {
+    return ok(res, await subscriptionService.startCheckout(req.user!.id));
+  } catch (error) {
+    return next(error);
+  }
 }
 
-export { getMySubscription, createSubscriptionCheckoutSession };
+async function updateMySubscription(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { cancelAtPeriodEnd } = parseBody(updateSubscriptionSchema, req.body);
+
+    const subscription = cancelAtPeriodEnd
+      ? await subscriptionService.cancelMySubscription(req.user!.id)
+      : await subscriptionService.resumeMySubscription(req.user!.id);
+
+    return ok(res, { subscription });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export { getMySubscription, createSubscriptionCheckoutSession, updateMySubscription };
