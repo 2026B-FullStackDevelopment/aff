@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
 
+# A rapid sequence of pushes to the same ref should not leave stale runs
+# queued — otherwise an older commit's image could finish pushing after a
+# newer one and end up deployed as `latest`.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -44,7 +51,10 @@ jobs:
             VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/team1-frontend:latest
 
-      - name: Trigger Render deploys
-        run: |
-          curl -fsS -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}"
-          curl -fsS -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}"
+      # Separate steps so one hook failing doesn't stop bash (-e) from ever
+      # reaching the other — the two services are independent.
+      - name: Trigger Render backend deploy
+        run: curl -fsS -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}"
+
+      - name: Trigger Render frontend deploy
+        run: curl -fsS -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}"
