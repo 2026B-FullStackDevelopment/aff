@@ -1,6 +1,7 @@
 // Turns a zod schema failure into the project's standard 400 error.
 import type { ZodType } from 'zod';
 
+// check whether req body is in correct shape
 function parseBody<T>(schema: ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);
 

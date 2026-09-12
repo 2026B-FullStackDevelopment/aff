@@ -3,10 +3,7 @@ import {
     useState,
     type SubmitEvent,
 } from 'react';
-import type {
-    LocationData,
-} from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
-import type { OrderDTO } from '@/types/api';
+import type { OrderDTO } from '@/types/api'; // remove paymentMethod import, only cash
 import { listingService } from '../services/listing.service';
 import { recipientService } from '../services/recipient.service';
 import { getResponseMessage } from '@/shared/utils/apiError';
@@ -14,24 +11,25 @@ import { toast } from '@/shared/components/ui/sonner';
 import type {
     ManagedListingDTO,
     RecipientSearchResult,
+    DonorInitiatedDonationPayload,
 } from '../types';
 
 export interface ManualDonationFieldErrors {
     recipientEmail?: string;
     listingId?: string;
     quantity?: string;
-    deliveryAddressText?: string;
+    cashReceivedAmount?: string;
 }
+
+type ManualDonationTouchedFields = Partial<
+    Record<keyof ManualDonationFieldErrors, boolean>
+>;
 
 interface ManualDonationFormState {
     recipientQuery: string;
     listingId: string;
     quantity: string;
-    deliveryAddressText: string;
-    deliveryLocation: {
-        latitude: number;
-        longitude: number;
-    } | null;
+    cashReceivedAmount: string;
 }
 
 interface SubmittedListingSummary {
@@ -43,10 +41,15 @@ const INITIAL_FORM: ManualDonationFormState = {
     recipientQuery: '',
     listingId: '',
     quantity: '1',
-    deliveryAddressText: '',
-    deliveryLocation: null,
+    cashReceivedAmount: '',
 };
 
+// format money to VND
+const VND_FORMATTER = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+});
 
 function parseQuantity(
     value: string,
@@ -67,10 +70,23 @@ function parseQuantity(
     return quantity;
 }
 
+function parseCashReceivedAmount(value: string): number | null {
+    if (!value.trim()) {
+        return null;
+    }
+
+    const amount = Number(value);
+
+    return Number.isSafeInteger(amount) && amount >= 0
+        ? amount
+        : null;
+}
+
 function validateForm(
     form: ManualDonationFormState,
     selectedRecipient: RecipientSearchResult | null,
     selectedListing: ManagedListingDTO | null,
+    recipientEligibilityError: string | null = null,
 ): ManualDonationFieldErrors {
     const errors: ManualDonationFieldErrors = {};
 
@@ -80,6 +96,8 @@ function validateForm(
     } else if (!selectedRecipient) {
         errors.recipientEmail =
             'Select a registered Recipient from the search results.';
+    } else if (recipientEligibilityError) {
+        errors.recipientEmail = recipientEligibilityError;
     }
 
     if (!selectedListing) {
@@ -123,12 +141,24 @@ function validateForm(
         }
     }
 
-    if (!form.deliveryAddressText.trim()) {
-        errors.deliveryAddressText =
-            'Enter the Recipient delivery address.';
-    } else if (!form.deliveryLocation) {
-        errors.deliveryAddressText =
-            'Select an address suggestion so AFF can save its location.';
+    // cash received logic
+    if (
+        selectedListing
+        && selectedListing.price > 0
+        && quantity !== null
+    ) {
+        const cashReceivedAmount =
+            parseCashReceivedAmount(form.cashReceivedAmount);
+        const orderTotal =
+            selectedListing.price * quantity;
+
+        if (cashReceivedAmount === null) {
+            errors.cashReceivedAmount =
+                'Enter the whole VND amount received.';
+        } else if (cashReceivedAmount < orderTotal) {
+            errors.cashReceivedAmount =
+                'Money received must cover the order total.';
+        }
     }
 
     return errors;
@@ -180,8 +210,20 @@ export function useManualDonation() {
         setIsRecipientSearching,
     ] = useState(false);
 
-    const [fieldErrors, setFieldErrors] =
+    const [serverFieldErrors, setServerFieldErrors] =
         useState<ManualDonationFieldErrors>({});
+
+    const [touchedFields, setTouchedFields] =
+        useState<ManualDonationTouchedFields>({});
+
+    const [nonCancelledRecipientIds, setNonCancelledRecipientIds] =
+        useState<Set<string> | null>(null);
+
+    const [isCheckingRecipientEligibility, setIsCheckingRecipientEligibility] =
+        useState(false);
+
+    const [recipientEligibilityLoadError, setRecipientEligibilityLoadError] =
+        useState<string | null>(null);
 
     const [loadError, setLoadError] =
         useState<string | null>(null);
@@ -365,16 +407,153 @@ export function useManualDonation() {
                 listing.id === form.listingId,
         ) ?? null;
 
+    useEffect(() => {
+        const listingId = form.listingId;
+
+        setNonCancelledRecipientIds(null);
+        setRecipientEligibilityLoadError(null);
+
+        if (!listingId) {
+            setIsCheckingRecipientEligibility(false);
+            return;
+        }
+
+        let ignoreResult = false;
+
+        async function loadExistingOrderRecipients() {
+            const recipientIds = new Set<string>();
+            const pageSize = 100;
+            let page = 1;
+            let loadedOrderCount = 0;
+            let totalOrderCount = 0;
+
+            setIsCheckingRecipientEligibility(true);
+
+            try {
+                do {
+                    const response =
+                        await listingService.getListingOrders(
+                            listingId,
+                            page,
+                            pageSize,
+                        );
+
+                    if (ignoreResult) {
+                        return;
+                    }
+
+                    if (!response.ok || !response.data) {
+                        throw new Error(
+                            getResponseMessage(
+                                response.data,
+                                'Unable to check whether this Recipient already has an order for the listing.',
+                            ),
+                        );
+                    }
+
+                    for (const order of response.data.items) {
+                        if (order.orderStatus !== 'CANCELLED') {
+                            recipientIds.add(order.recipient.id);
+                        }
+                    }
+
+                    loadedOrderCount += response.data.items.length;
+                    totalOrderCount = response.data.total;
+                    page += 1;
+
+                    if (response.data.items.length === 0) {
+                        break;
+                    }
+                } while (loadedOrderCount < totalOrderCount);
+
+                setNonCancelledRecipientIds(recipientIds);
+            } catch (error) {
+                if (!ignoreResult) {
+                    setRecipientEligibilityLoadError(
+                        error instanceof Error
+                            ? error.message
+                            : 'Unable to check whether this Recipient already has an order for the listing.',
+                    );
+                }
+            } finally {
+                if (!ignoreResult) {
+                    setIsCheckingRecipientEligibility(false);
+                }
+            }
+        }
+
+        void loadExistingOrderRecipients();
+
+        return () => {
+            ignoreResult = true;
+        };
+    }, [form.listingId]);
+
     const isPriced =
         Boolean(
             selectedListing
             && selectedListing.price > 0,
         );
 
+    const parsedQuantity = parseQuantity(form.quantity);
+    const orderTotal = selectedListing && parsedQuantity
+        ? selectedListing.price * parsedQuantity
+        : 0;
+    const parsedCashReceivedAmount =
+        parseCashReceivedAmount(form.cashReceivedAmount);
+    const cashChange =
+        isPriced
+        && parsedCashReceivedAmount !== null
+        && parsedCashReceivedAmount >= orderTotal
+            ? parsedCashReceivedAmount - orderTotal
+            : null;
+
+    const recipientEligibilityError =
+        selectedRecipient
+        && selectedListing
+        && recipientEligibilityLoadError
+            ? recipientEligibilityLoadError
+            : selectedRecipient
+              && nonCancelledRecipientIds?.has(
+                  selectedRecipient.id,
+              )
+                ? 'This Recipient already has an order for this listing.'
+                : null;
+
+    const validationErrors = validateForm(
+        form,
+        selectedRecipient,
+        selectedListing,
+        recipientEligibilityError,
+    );
+
+    const fieldErrors: ManualDonationFieldErrors = {
+        recipientEmail:
+            serverFieldErrors.recipientEmail
+            ?? (touchedFields.recipientEmail
+                ? validationErrors.recipientEmail
+                : undefined),
+        listingId:
+            serverFieldErrors.listingId
+            ?? (touchedFields.listingId
+                ? validationErrors.listingId
+                : undefined),
+        quantity:
+            serverFieldErrors.quantity
+            ?? (touchedFields.quantity
+                ? validationErrors.quantity
+                : undefined),
+        cashReceivedAmount:
+            serverFieldErrors.cashReceivedAmount
+            ?? (touchedFields.cashReceivedAmount
+                ? validationErrors.cashReceivedAmount
+                : undefined),
+    };
+
     function clearFieldError(
         field: keyof ManualDonationFieldErrors,
     ) {
-        setFieldErrors((current) => ({
+        setServerFieldErrors((current) => ({
             ...current,
             [field]: undefined,
         }));
@@ -401,6 +580,11 @@ export function useManualDonation() {
                 : null,
         );
 
+        setTouchedFields((current) => ({
+            ...current,
+            recipientEmail: true,
+        }));
+
         clearFieldError('recipientEmail');
         clearSubmissionOutcome();
     }
@@ -413,9 +597,16 @@ export function useManualDonation() {
         setRecipientSearchError(null);
         setHasRecipientSearchRun(false);
 
+        // setForm React local state update function
         setForm((current) => ({
             ...current,
+            // find the recipient.email with input
             recipientQuery: recipient.email,
+        }));
+
+        setTouchedFields((current) => ({
+            ...current,
+            recipientEmail: true,
         }));
 
         clearFieldError('recipientEmail');
@@ -433,20 +624,33 @@ export function useManualDonation() {
             recipientQuery: '',
         }));
 
+        setTouchedFields((current) => ({
+            ...current,
+            recipientEmail: true,
+        }));
+
         clearFieldError('recipientEmail');
         clearSubmissionOutcome();
     }
 
-    function setListingId(
-        nextListingId: string,
-    ) {
+    // runs when Donor selects another listing
+    function setListingId(nextListingId: string) {
         setForm((current) => ({
             ...current,
             listingId: nextListingId,
+            cashReceivedAmount: '',
+        }));
+
+        setTouchedFields((current) => ({
+            ...current,
+            listingId: true,
+            quantity: true,
+            cashReceivedAmount: false,
         }));
 
         clearFieldError('listingId');
         clearFieldError('quantity');
+        clearFieldError('cashReceivedAmount');
         clearSubmissionOutcome();
     }
 
@@ -458,44 +662,32 @@ export function useManualDonation() {
             quantity: nextQuantity,
         }));
 
+        setTouchedFields((current) => ({
+            ...current,
+            quantity: true,
+            cashReceivedAmount:
+                current.cashReceivedAmount,
+        }));
+
         clearFieldError('quantity');
+        clearFieldError('cashReceivedAmount');
         clearSubmissionOutcome();
     }
 
-    function setDeliveryAddressInput(
-        nextAddress: string,
+    function setCashReceivedAmount(
+        cashReceivedAmount: string,
     ) {
         setForm((current) => ({
             ...current,
-            deliveryAddressText: nextAddress,
-            deliveryLocation:
-                nextAddress === current.deliveryAddressText
-                    ? current.deliveryLocation
-                    : null,
+            cashReceivedAmount,
         }));
 
-        clearFieldError(
-            'deliveryAddressText',
-        );
-        clearSubmissionOutcome();
-    }
-
-    function selectDeliveryAddress(
-        location: LocationData,
-    ) {
-        setForm((current) => ({
+        setTouchedFields((current) => ({
             ...current,
-            deliveryAddressText:
-                location.addressText,
-            deliveryLocation: {
-                latitude: location.latitude,
-                longitude: location.longitude,
-            },
+            cashReceivedAmount: true,
         }));
 
-        clearFieldError(
-            'deliveryAddressText',
-        );
+        clearFieldError('cashReceivedAmount');
         clearSubmissionOutcome();
     }
 
@@ -506,28 +698,15 @@ export function useManualDonation() {
             message.toLowerCase();
 
         if (normalized.includes('recipient')) {
-            setFieldErrors((current) => ({
+            setServerFieldErrors((current) => ({
                 ...current,
                 recipientEmail: message,
             }));
             return;
         }
 
-        if (
-            normalized.includes('address')
-            || normalized.includes('location')
-            || normalized.includes('latitude')
-            || normalized.includes('longitude')
-        ) {
-            setFieldErrors((current) => ({
-                ...current,
-                deliveryAddressText: message,
-            }));
-            return;
-        }
-
         if (normalized.includes('quantity')) {
-            setFieldErrors((current) => ({
+            setServerFieldErrors((current) => ({
                 ...current,
                 quantity: message,
             }));
@@ -544,21 +723,28 @@ export function useManualDonation() {
         setSubmitError(null);
         setCreatedOrder(null);
         setSubmittedListing(null);
+        setServerFieldErrors({});
+        setTouchedFields({
+            recipientEmail: true,
+            listingId: true,
+            quantity: true,
+            cashReceivedAmount: true,
+        });
 
         const nextErrors =
             validateForm(
                 form,
                 selectedRecipient,
                 selectedListing,
+                recipientEligibilityError,
             );
-
-        setFieldErrors(nextErrors);
 
         if (
             Object.keys(nextErrors).length > 0
             || !selectedListing
             || !selectedRecipient
-            || !form.deliveryLocation
+            || isCheckingRecipientEligibility
+            || nonCancelledRecipientIds === null
         ) {
             return;
         }
@@ -573,19 +759,17 @@ export function useManualDonation() {
         setIsSubmitting(true);
 
         try {
+            const donationPayload: DonorInitiatedDonationPayload = {
+                recipientEmail:
+                    selectedRecipient.email,
+                quantity,
+            };
+
             const response =
                 await listingService
                     .createDonorInitiatedDonation(
                         selectedListing.id,
-                        {
-                            recipientEmail:
-                                selectedRecipient.email,
-                            quantity,
-                            deliveryAddressText:
-                                form.deliveryAddressText.trim(),
-                            deliveryLocation:
-                                form.deliveryLocation,
-                        },
+                        donationPayload,
                     );
 
             if (response.status === 501) {
@@ -614,12 +798,12 @@ export function useManualDonation() {
                         'listing',
                     )
                 ) {
-                    setFieldErrors((current) => ({
+                    setServerFieldErrors((current) => ({
                         ...current,
                         listingId: message,
                     }));
                 } else {
-                    setFieldErrors((current) => ({
+                    setServerFieldErrors((current) => ({
                         ...current,
                         recipientEmail: message,
                     }));
@@ -639,16 +823,24 @@ export function useManualDonation() {
                     message.toLowerCase();
 
                 if (
+                    normalized.includes('recipient')
+                    || normalized.includes('already has')
+                ) {
+                    setServerFieldErrors((current) => ({
+                        ...current,
+                        recipientEmail: message,
+                    }));
+                } else if (
                     normalized.includes('listing')
                     || normalized.includes('per request')
                     || normalized.includes('per_request')
                 ) {
-                    setFieldErrors((current) => ({
+                    setServerFieldErrors((current) => ({
                         ...current,
                         listingId: message,
                     }));
                 } else {
-                    setFieldErrors((current) => ({
+                    setServerFieldErrors((current) => ({
                         ...current,
                         quantity: message,
                     }));
@@ -688,11 +880,14 @@ export function useManualDonation() {
             const isFree = selectedListing.price === 0;
             if (isFree) {
                 toast.success('Donation recorded', {
-                    description: `${selectedListing.name} is recorded and ready for delivery processing.`,
+                    description: `${selectedListing.name} was handed to the Recipient and recorded as completed.`,
                 });
             } else {
-                toast.warning('Recipient payment required', {
-                    description: `${selectedListing.name} is recorded. The Recipient must now complete payment.`,
+                // temporary success notification
+                toast.success('Cash donation recorded', {
+                    description: `${selectedListing.name} was paid and completed in person with ${
+                        VND_FORMATTER.format(cashChange ?? 0)
+                    } change.`,
                 });
             }
 
@@ -743,7 +938,8 @@ export function useManualDonation() {
         setRecipientResults([]);
         setRecipientSearchError(null);
         setHasRecipientSearchRun(false);
-        setFieldErrors({});
+        setServerFieldErrors({});
+        setTouchedFields({});
         setSubmitError(null);
         setCreatedOrder(null);
         setSubmittedListing(null);
@@ -758,14 +954,10 @@ export function useManualDonation() {
     const canSubmit =
         !isLoading
         && !isSubmitting
+        && !isCheckingRecipientEligibility
         && !createdOrder
-        && Object.keys(
-            validateForm(
-                form,
-                selectedRecipient,
-                selectedListing,
-            ),
-        ).length === 0;
+        && nonCancelledRecipientIds !== null
+        && Object.keys(validationErrors).length === 0;
 
     return {
         form,
@@ -783,7 +975,10 @@ export function useManualDonation() {
         isLoading,
         isSubmitting,
         isRecipientSearching,
+        isCheckingRecipientEligibility,
         isPriced,
+        orderTotal,
+        cashChange,
         isListingsEndpointUnavailable,
         canSubmit,
         setRecipientQuery,
@@ -791,8 +986,7 @@ export function useManualDonation() {
         clearRecipientSelection,
         setListingId,
         setQuantity,
-        setDeliveryAddressInput,
-        selectDeliveryAddress,
+        setCashReceivedAmount,
         handleSubmit,
         clearForm,
         retryListings,

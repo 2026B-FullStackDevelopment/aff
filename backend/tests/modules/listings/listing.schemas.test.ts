@@ -11,6 +11,7 @@ import {
   mineListingsQuerySchema,
   paginationQuerySchema,
   paymentMethodSchema,
+  donationLimitSchema,
   positiveQuantitySchema,
   reserveListingSchema,
   updateListingStatusSchema,
@@ -150,11 +151,11 @@ describe('listing.schemas', () => {
       ).toBe(false);
     });
 
-    it.each([0, -1])('rejects donation limit %s', (donationLimit) => {
+    it.each([0, -1, 0.5])('rejects donation limit %s', (donationLimit) => {
       expect(createListingSchema.safeParse({ ...validListing, donationLimit }).success).toBe(false);
     });
 
-    it.each([0, -1])('rejects ration limit %s', (rationLimitPerPerson) => {
+    it.each([0, -1, 0.5])('rejects ration limit %s', (rationLimitPerPerson) => {
       expect(
         createListingSchema.safeParse({ ...validListing, rationLimitPerPerson }).success,
       ).toBe(false);
@@ -170,6 +171,22 @@ describe('listing.schemas', () => {
         }).success,
       ).toBe(false);
     });
+  });
+
+  describe('donationLimitSchema', () => {
+    it.each([1, 10, Number.MAX_SAFE_INTEGER])(
+      'accepts positive whole-number donation limit %s',
+      (donationLimit) => {
+        expect(donationLimitSchema.safeParse(donationLimit).success).toBe(true);
+      },
+    );
+
+    it.each([0, -1, 0.5, Number.POSITIVE_INFINITY])(
+      'rejects invalid donation limit %s',
+      (donationLimit) => {
+        expect(donationLimitSchema.safeParse(donationLimit).success).toBe(false);
+      },
+    );
   });
 
   describe('paginationQuerySchema', () => {
@@ -407,11 +424,6 @@ describe('listing.schemas', () => {
     const validDonationBody = {
       recipientEmail: 'recipient@example.com',
       quantity: 2,
-      deliveryAddressText: '123 Example Street, Ho Chi Minh City',
-      deliveryLocation: {
-        latitude: 10.7769,
-        longitude: 106.7009,
-      },
     };
 
     it('accepts a valid donor-initiated donation body', () => {
@@ -427,15 +439,6 @@ describe('listing.schemas', () => {
       });
 
       expect(parsed.recipientEmail).toBe('recipient@example.com');
-    });
-
-    it('trims the delivery address', () => {
-      const parsed = donorInitiatedDonationSchema.parse({
-        ...validDonationBody,
-        deliveryAddressText: '  123 Example Street  ',
-      });
-
-      expect(parsed.deliveryAddressText).toBe('123 Example Street');
     });
 
     it('rejects a malformed recipient email', () => {
@@ -456,55 +459,16 @@ describe('listing.schemas', () => {
       ).toBe(false);
     });
 
-    it('rejects a missing delivery address', () => {
-      const {
-        deliveryAddressText: _deliveryAddressText,
-        ...bodyWithoutAddress
-      } = validDonationBody;
-
-      expect(
-        donorInitiatedDonationSchema.safeParse(bodyWithoutAddress).success,
-      ).toBe(false);
-    });
-
-    it('rejects an empty delivery address', () => {
+    it.each([
+      ['deliveryAddressText', '123 Example Street'],
+      ['deliveryLocation', { latitude: 10.7769, longitude: 106.7009 }],
+      ['paymentMethod', 'CASH'],
+      ['cashReceivedAmount', 50000],
+    ])('rejects client-controlled %s', (field, value) => {
       expect(
         donorInitiatedDonationSchema.safeParse({
           ...validDonationBody,
-          deliveryAddressText: '   ',
-        }).success,
-      ).toBe(false);
-    });
-
-    it('rejects an invalid latitude', () => {
-      expect(
-        donorInitiatedDonationSchema.safeParse({
-          ...validDonationBody,
-          deliveryLocation: {
-            latitude: 91,
-            longitude: 106.7009,
-          },
-        }).success,
-      ).toBe(false);
-    });
-
-    it('rejects an invalid longitude', () => {
-      expect(
-        donorInitiatedDonationSchema.safeParse({
-          ...validDonationBody,
-          deliveryLocation: {
-            latitude: 10.7769,
-            longitude: 181,
-          },
-        }).success,
-      ).toBe(false);
-    });
-
-    it('rejects paymentMethod because the Recipient chooses it later', () => {
-      expect(
-        donorInitiatedDonationSchema.safeParse({
-          ...validDonationBody,
-          paymentMethod: 'CASH',
+          [field]: value,
         }).success,
       ).toBe(false);
     });

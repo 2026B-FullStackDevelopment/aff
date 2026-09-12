@@ -47,14 +47,28 @@ const objectIdSchema = z
     message: 'Listing ID must be a valid MongoDB ObjectId.',
   });
 
-// Shared validation for positive quantities.
-//
-// Quantities are not restricted to integers because units such as kilograms
-// and litres may reasonably use decimal values.
+// Shared validation for positive Order quantities. Order quantities may use
+// decimals for measurement units such as kilograms and litres.
 const positiveQuantitySchema = z
   .number({ message: 'Quantity must be a number.' })
   .finite({ message: 'Quantity must be a finite number.' })
   .positive({ message: 'Quantity must be greater than 0.' });
+
+// A Listing starts with a positive, whole-number quantity. This rule is
+// intentionally stricter than the Order-quantity rule above.
+const donationLimitSchema = z
+  .number({ message: 'Donation limit must be a number.' })
+  .finite({ message: 'Donation limit must be a finite number.' })
+  .int({ message: 'Donation limit must be a whole number.' })
+  .positive({ message: 'Donation limit must be greater than 0.' });
+
+// Ration limits represent a count-like per-person cap, unlike quantities for
+// weight or volume units, so decimals are rejected rather than rounded.
+const positiveWholeNumberSchema = z
+  .number({ message: 'Ration limit must be a number.' })
+  .finite({ message: 'Ration limit must be a finite number.' })
+  .int({ message: 'Ration limit must be a whole number.' })
+  .positive({ message: 'Ration limit must be greater than 0.' });
 
 // Listing prices must be free or greater than or equal to 15000 VND.
 const listingPriceSchema = z
@@ -65,7 +79,7 @@ const listingPriceSchema = z
     message: 'Price must be 0 or greater than or equal to 15000 VND.',
   });
 
-// Validates `POST /listings`, the http request to create a listing
+// Validates `POST /listings`, the HTTP request to create a Listing.
 const createListingSchema = z
   .object({
     name: z
@@ -94,11 +108,11 @@ const createListingSchema = z
 
     price: listingPriceSchema,
 
-    donationLimit: positiveQuantitySchema,
+    donationLimit: donationLimitSchema,
 
-    // The field is optional, but it must be greater than zero when supplied.
+    // The field is optional, but it must be a positive integer when supplied.
     // An omitted value means that the listing has no per-person ration limit.
-    rationLimitPerPerson: positiveQuantitySchema.optional(),
+    rationLimitPerPerson: positiveWholeNumberSchema.optional(),
   })
   .strict(); // Reject the entire object if it contains any property that was not explicitly declared.
 
@@ -264,12 +278,6 @@ const updateListingStatusSchema = z
 /**
  * Validates `POST /listings/:id/donations`.
  */
-const deliveryLocationSchema = z.object({
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-});
-
-
 // data validation: ensure data's format is valid
 const donorInitiatedDonationSchema = z
   // the value coming in has to be a JS object
@@ -281,13 +289,6 @@ const donorInitiatedDonationSchema = z
       .transform((email) => email.toLowerCase()), // transform input to lowercase
 
     quantity: positiveQuantitySchema,
-
-    deliveryAddressText: z
-      .string({ message: 'Delivery address is required.' })
-      .trim()
-      .min(1, { message: 'Delivery address is required.' }),
-
-    deliveryLocation: deliveryLocationSchema,
   })
   .strict();
 
@@ -326,6 +327,7 @@ export {
   paymentMethodSchema,
   objectIdSchema,
   positiveQuantitySchema,
+  donationLimitSchema,
   listingPriceSchema,
   createListingSchema,
   paginationQuerySchema,

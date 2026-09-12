@@ -7,50 +7,86 @@ labels: user-story
 
 ## User Story
 As a **Donor**,
-I can **manually create a donation against my listing for a registered Recipient and quantity**
-so that **I can hand out food I've already committed to someone outside the app**.
+I can **record food handed directly to a registered Recipient at my premises**
+so that **the listing stock and completed Order accurately reflect the in-person donation**.
 
 ## Acceptance Criteria
 
-- [ ] **Scenario:** Successful donation to a free listing
-  - **Given** I own an active listing with `price=0` and sufficient `quantityRemaining`
-  - **When** I search for and select a registered Recipient by email and submit a quantity
-  - **Then** `POST /listings/:id/donations` creates an `ORDER` (`intakePath=DONOR_INITIATED`, `paymentStatus=FREE`), and it enters the Courier queue immediately via `DeliveryService.createForOrder`
+- [ ] **Scenario:** Successful priced manual donation
+  - **Given** I selected one of my active, non-`PER_REQUEST` priced listings, a registered Recipient, and a valid quantity
+  - **And** I entered a whole-number VND cash amount at least equal to the Order total
+  - **When** I press "Record Donation"
+  - **Then** the browser submits only `recipientEmail` and `quantity` to `POST /listings/:id/donations`
+  - **And** the API decrements the listing stock and creates an `ORDER` with `intakePath=DONOR_INITIATED`, `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`
+  - **And** no `DELIVERY` or `PAYMENT` record is created
 
-- [ ] **Scenario:** Successful donation to a priced listing
-  - **Given** I own an active listing with `price > 0` and sufficient `quantityRemaining`
-  - **When** I search for and select a registered Recipient by email and submit a quantity
-  - **Then** `POST /listings/:id/donations` creates an `ORDER` (`intakePath=DONOR_INITIATED`, `paymentStatus=PAYMENT_PENDING`), and the Recipient receives a `notification:payment_requested` event prompting them to choose Stripe checkout or cash-on-delivery before the order proceeds
+- [ ] **Scenario:** Successful free manual donation
+  - **Given** I selected a free eligible listing, a registered Recipient, and a valid quantity
+  - **When** I press "Record Donation"
+  - **Then** the API creates an `ORDER` with `intakePath=DONOR_INITIATED`, `paymentMethod=null`, `paymentStatus=FREE`, and `orderStatus=DELIVERED`
+  - **And** no cash input, `DELIVERY`, or `PAYMENT` is required
 
-- [ ] **Scenario:** Recipient must be a registered account, not free text
-  - **Given** I am filling out the donor-initiated donation form
-  - **When** I try to enter a name or address that isn't a registered Recipient's email
-  - **Then** I cannot submit — the field only accepts a Recipient selected from an email search/lookup, and `POST /listings/:id/donations` returns `404` if a nonexistent email is somehow submitted
+- [ ] **Scenario:** Priced listing shows a static Cash panel
+  - **Given** I selected a priced listing
+  - **When** the payment summary is displayed
+  - **Then** it identifies Cash as the only payment method and shows cash received, total, and change
+  - **And** it does not show a payment selector, Stripe option, Checkout message, or Courier-payment message
+  - **And** the desktop layout follows the Reservation summary pattern while stacking on smaller screens
 
-  **Note:** this deviates from `4.1.4`'s literal SRS text, which described a free-text recipient name at a physical handoff — see `docs/PRD.md` §10. Lookup uses **email, not username**, because `username` has no uniqueness constraint (`docs/database_design.md`'s `USER` schema marks only `email` as unique) — searching by username could match more than one account.
+- [ ] **Scenario:** Change is calculated only in the frontend
+  - **Given** the Order total is known from the selected listing and quantity
+  - **When** I enter the cash received
+  - **Then** the browser displays `change = cash received - Order total` immediately
+  - **And** submission is blocked with an inline error when cash received is below the total
+  - **And** neither cash received nor change is sent to the API or stored in MongoDB
+
+- [ ] **Scenario:** Recipient must be a registered account
+  - **Given** I am filling out the manual-donation form
+  - **When** I enter text that has not resolved to a registered Recipient email
+  - **Then** I cannot submit
+  - **And** the API returns `404` if an unknown Recipient email bypasses the frontend
+
+  **Note:** lookup uses email because `USER.email` is unique while `username` is not.
+
+- [ ] **Scenario:** Recipient already has an Order for the listing
+  - **Given** the selected Recipient already has a non-cancelled Reservation or Donor-initiated Order for the selected listing
+  - **When** I choose that Recipient and listing
+  - **Then** the frontend displays the standard inline donor validation error and blocks submission
+  - **And** `POST /listings/:id/donations` returns `422` if the request bypasses or races the frontend check
+  - **And** stock is not decremented and no additional Order is created
 
 - [ ] **Scenario:** Quantity exceeds remaining stock or ration limit
-  - **Given** I own a listing
-  - **When** I submit a quantity greater than `quantityRemaining`, or greater than `rationLimitPerPerson` if one is set
-  - **Then** `POST /listings/:id/donations` rejects the request with `422`, and no order is created
+  - **Given** I own an eligible listing
+  - **When** I submit a quantity greater than `quantityRemaining`, or greater than `rationLimitPerPerson` when set
+  - **Then** the API returns `422`, does not decrement stock, and creates no Order
 
 - [ ] **Scenario:** Per-Request listings are not eligible
   - **Given** I own a listing with `unit=PER_REQUEST`
-  - **When** I attempt to create a donor-initiated donation against it
-  - **Then** `POST /listings/:id/donations` rejects the request with `422`, since Per-Request listings never produce an `ORDER`
+  - **When** I attempt to record a manual donation against it
+  - **Then** the API returns `422`, because Per-Request listings never produce an `ORDER`
 
-- [ ] **Scenario:** Cannot donate against another Donor's listing
-  - **Given** a listing exists that does not belong to me
-  - **When** I attempt `POST /listings/:id/donations` on that listing's ID
-  - **Then** the request is rejected with `403`
+- [ ] **Scenario:** Another Donor's listing is not eligible
+  - **Given** the selected listing does not belong to me
+  - **When** I call `POST /listings/:id/donations`
+  - **Then** the API returns `403`
+
+- [ ] **Scenario:** Completed manual Order cannot be cancelled
+  - **Given** a Donor-initiated manual Order was recorded with `orderStatus=DELIVERED` and has no Delivery
+  - **When** a Recipient, Donor, or Admin cancellation path evaluates it
+  - **Then** it remains unchanged because a terminal Order cannot be cancelled
 
 ## Implementation Flow
 
-1. **The Recipient field must be a resolving search, never free text, and must search by email, not username.** Build it as an autocomplete/typeahead against registered emails; the form should only be submittable once a real Recipient has been selected, not just typed. Don't use username for this lookup — it isn't unique, so a username search could resolve to the wrong account.
-2. **Capture a delivery address and coordinates for this Order.** Recipient signup stores city, not a complete delivery destination, so the Donor supplies the destination for this manual donation.
-3. **Submit `recipientEmail`, `quantity`, `deliveryAddressText`, and `deliveryLocation` in `POST /listings/:id/donations`.** Do not submit `paymentMethod`; a priced Order starts as `PAYMENT_PENDING`, and the Recipient chooses Stripe or cash afterward through `POST /orders/:id/payment-choice`.
-4. **Branch the success UI on the returned `paymentStatus`.** `FREE` means the donation is already queued for delivery — show it as complete. `PAYMENT_PENDING` means the Recipient still has to act (Stripe or cash) — make clear to the Donor that the donation isn't finalized yet, don't show it as done.
-5. **Surface `422` (over stock/ration limit, or listing is `PER_REQUEST`) and `404` (unknown recipient email) as distinct, field-specific inline errors** rather than one generic failure banner.
+1. Build the Recipient field as an email autocomplete that stores a selected registered Recipient, not arbitrary text.
+2. Let the Donor select an owned active listing and enter a quantity. Load all Order pages for the selected listing, ignore cancelled Orders, and validate the selected Recipient against the remaining Recipient IDs live. Reject `PER_REQUEST`, an existing non-cancelled Order for that Recipient, insufficient stock, and quantities above the stored ration limit.
+3. Do not render Delivery Details or collect a delivery address; the handoff already occurred at the Donor's premises.
+4. For a priced listing, render a static Cash summary using the established payment-panel styling. For a free listing, render the Free summary without a cash input.
+5. Calculate `orderTotal = listing.price * quantity` and `change = cashReceivedAmount - orderTotal` in frontend state. Require whole-number VND and block priced submission when the amount is missing or insufficient.
+6. Keep `cashReceivedAmount` and calculated change local to the frontend. Submit only `{ recipientEmail, quantity }`; do not add these transient values to a DTO, schema, model, or database record.
+7. In the Service layer, reload the owned Listing and Recipient, recalculate the trusted Order amount, validate the duplicate-Order and stock/ration rules, and apply the stock decrement and Order creation in the same transaction.
+8. Create priced manual Orders as `CASH`/`PAID`/`DELIVERED` and free manual Orders as `FREE`/`DELIVERED`. Never call `DeliveryService.createForOrder` for this intake path.
+9. Return the created `OrderDTO`, clear the form, and show a success message that describes an in-person completed donation rather than a queued delivery.
+10. Ensure Recipient, Donor listing-cancellation, and Admin listing-cancellation logic excludes terminal manual Orders even though they have no Delivery record.
 
 ## Related Epic
 Donor Food Donation Management (Epic C — #66)

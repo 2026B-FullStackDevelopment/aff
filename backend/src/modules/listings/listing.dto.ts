@@ -11,7 +11,10 @@ import {
   toOrderResponseDto,
   type OrderResponseDto,
 } from '../orders/order.dto.js';
-import type { OrderDocument } from '../orders/order.model.js';
+import type {
+  OrderDocument,
+  PaymentMethod,
+} from '../orders/order.model.js';
 
 /**
  * Donor data required when constructing Listing response DTOs.
@@ -130,11 +133,6 @@ interface UpdateListingStatusResponseDto {
 interface CreateDonorInitiatedDonationRequestDto {
   recipientEmail: string;
   quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: {
-    latitude: number;
-    longitude: number;
-  };
 }
 
 interface ReserveListingRequestDto {
