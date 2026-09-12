@@ -24,12 +24,15 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 
 | Module | Responsibility |
 |---|---|
-| `auth` | Registration, login (with brute-force lockout), logout (server-side token revocation), JWT issuance and verification |
+| `auth` | Registration, login (with brute-force lockout), logout, and session issuance; delegates JWT signing/verification and token revocation to `security` |
+| `security` | JWT signing/verification, the revoked-token denylist, and password hashing. Infrastructure module: no HTTP surface — other modules call it through `security.interface.ts` |
 | `users` | User profile management; Recipient and Donor profile subtypes |
 | `listings` | Donor food listing creation, lifecycle (pause/resume/cancel), search, and donation flows |
 | `orders` | Recipient order and reservation lifecycle, cancellation, feedback |
 | `delivery` | Courier delivery queue, claim, pickup, and delivery completion |
-| `subscriptions` | Premium Recipient subscription and notification preferences |
+| `subscriptions` | Premium Recipient subscription (billing cycles, tier derivation) |
+| `notification-preferences` | A Premium Recipient's saved notification-preference lifecycle (create/update/delete/list) |
+| `notifications` | Centralized notification sending (`notificationService.send`) and a User's own durable notification history |
 | `payments` | Stripe webhook handling for one-off checkouts and subscription billing |
 | `admin` | Admin account, listing, and delivery oversight |
 
@@ -44,6 +47,8 @@ The backend is a **Modular Monolith** built on Express and Mongoose. Each folder
 - **DTOs (`*.dto.ts`):** Shape data crossing the backend's external boundary. Response DTOs (`<Entity>ResponseDto`, built by a `to<Entity>ResponseDto()` mapper) shape outbound data; request DTOs (`<Verb><Entity>RequestDto`) shape inbound HTTP request bodies. Both live in the same module's `*.dto.ts` file.
 - **Interfaces (`*.interface.ts`):** Expose safe public APIs for other modules to call. Cross-module communication must happen via interfaces (e.g. `orders.service -> users.interface`), not directly via services.
 
+Not every module owns an HTTP route. `security` is an infrastructure module — it exposes only `security.interface.ts` (JWT and password primitives) and registers no routes or controllers.
+
 ### Frontend Architecture
 
 The frontend is built with React 19 and Vite. Styling is **Tailwind CSS v4** plus **shadcn/ui** components (Base UI primitives) — shared UI primitives live under `frontend/src/shared/components/ui`, configured in `frontend/components.json`.
@@ -57,8 +62,9 @@ The frontend is built with React 19 and Vite. Styling is **Tailwind CSS v4** plu
 | `browsing` | Recipient-facing listing browse, search, and filter |
 | `donations` | Donor listing creation and management |
 | `reservations` | Recipient order and reservation history |
-| `delivery` | Courier delivery queue |
+| `delivery` | Courier delivery queue, claim, active delivery with pickup and destination maps, real-time GPS broadcasting, and delivery completion with cash confirmation |
 | `subscriptions` | Premium subscription UI |
+| `notifications` | Notification bell dropdown UI (Premium upsell today; reads from `GET /notifications` once Epic H's persisted feed ships) |
 | `admin` | Admin oversight UI |
 
 **Frontend flow:**

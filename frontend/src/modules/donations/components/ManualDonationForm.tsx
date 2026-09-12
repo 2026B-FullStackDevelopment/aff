@@ -6,6 +6,7 @@ import {
 } from 'react';
 import {
   AtSign,
+  Banknote,
   Check,
   LoaderCircle,
   PackageOpen,
@@ -13,7 +14,6 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
-import { AddressAutocomplete } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
 import { Button } from '@/shared/components/Button/Button';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
@@ -23,7 +23,6 @@ import { IconField } from '@/shared/components/IconField/IconField';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { Panel } from '@/shared/components/Panel/Panel';
 import { SelectField } from '@/shared/components/SelectField/SelectField';
-import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { formatUnit } from '@/shared/constants/units';
 import { useManualDonation } from '../hooks/useManualDonation';
 
@@ -53,11 +52,13 @@ export function ManualDonationForm() {
     loadError,
     submitError,
     createdOrder,
-    submittedListing,
     isLoading,
     isSubmitting,
     isRecipientSearching,
+    isCheckingRecipientEligibility,
     isPriced,
+    orderTotal,
+    cashChange,
     isListingsEndpointUnavailable,
     canSubmit,
     setRecipientQuery,
@@ -65,8 +66,7 @@ export function ManualDonationForm() {
     clearRecipientSelection,
     setListingId,
     setQuantity,
-    setDeliveryAddressInput,
-    selectDeliveryAddress,
+    setCashReceivedAmount,
     handleSubmit,
     clearForm,
     retryListings,
@@ -99,9 +99,6 @@ export function ManualDonationForm() {
           listing.quantityRemaining,
         )} ${formatUnit(listing.unit)} remaining`,
     }));
-
-  const isFreeDonation =
-    createdOrder?.paymentStatus === 'FREE';
 
   const isOverRationLimit =
     selectedListing !== null
@@ -172,15 +169,20 @@ export function ManualDonationForm() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit}
-        aria-busy={isSubmitting}
+        aria-busy={
+          isSubmitting
+          || isCheckingRecipientEligibility
+        }
         noValidate
       >
-        <Panel
-          title="Donation Details"
-          description="Record food committed to a registered AFF Recipient."
-          className="shadow-sm"
-          contentClassName="space-y-7 p-5 sm:p-7"
-        >
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1">
+            <Panel
+              title="Donation Details"
+              description="Record food handed directly to a registered AFF Recipient at your premises."
+              className="shadow-sm"
+              contentClassName="space-y-7 p-5 sm:p-7"
+            >
           <section>
             <FormSectionHeader
               title="Recipient Details"
@@ -189,6 +191,7 @@ export function ManualDonationForm() {
 
             <div className="relative">
               <IconField
+                // input field
                 id="manualDonationRecipientEmail"
                 name="recipientEmail"
                 type="email"
@@ -201,7 +204,7 @@ export function ManualDonationForm() {
                     event.target.value,
                   );
                   setIsRecipientFieldFocused(
-                    true,
+                    true, // keeps the dropdown list to choose recipient in place
                   );
                 }}
                 onFocus={() =>
@@ -471,8 +474,23 @@ export function ManualDonationForm() {
                     />
                   </div>
 
+                  {selectedRecipient
+                    && isCheckingRecipientEligibility && (
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"
+                      >
+                        <LoaderCircle
+                          className="size-3.5 animate-spin"
+                          aria-hidden="true"
+                        />
+                        Checking this Recipient&apos;s existing orders…
+                      </p>
+                    )}
+
                   {selectedListing && (
-                    <dl className="grid grid-cols-1 gap-3 rounded-xl border border-[#E4E2E1] bg-[#FBF9F8] p-4 text-sm sm:grid-cols-3">
+                    <dl className="grid grid-cols-1 gap-4 rounded-xl border border-[#E4E2E1] bg-[#FBF9F8] p-4 text-sm sm:grid-cols-3">
                       <div>
                         <dt className="font-semibold text-[#6B7280]">
                           Remaining
@@ -492,7 +510,7 @@ export function ManualDonationForm() {
                       <div
                         className={
                           isOverRationLimit
-                            ? 'rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 -mx-3 -my-2'
+                            ? 'rounded-lg border border-amber-300 bg-amber-50 px-3 py-2'
                             : undefined
                         }
                       >
@@ -555,89 +573,119 @@ export function ManualDonationForm() {
                     </dl>
                   )}
 
-                  {isPriced && (
-                    <WarningCallout title="Recipient chooses payment">
-                      <p>
-                        The Donor does not select a payment
-                        method. After this donation is
-                        recorded, the Recipient chooses
-                        Stripe or cash from their order.
-                      </p>
-                    </WarningCallout>
-                  )}
                 </div>
               )}
           </section>
 
-          <section>
-            <FormSectionHeader
-              title="Delivery Details"
-              theme="donor"
-            />
-
-            <AddressAutocomplete
-              id="manualDonationDeliveryAddress"
-              label="Recipient delivery address"
-              placeholder="Start typing the Recipient address..."
-              value={
-                form.deliveryAddressText
-              }
-              onInputChange={
-                setDeliveryAddressInput
-              }
-              onSelect={
-                selectDeliveryAddress
-              }
-              error={
-                fieldErrors
-                  .deliveryAddressText
-              }
-              theme="donor"
-            />
-
-            <p className="mt-2 text-xs leading-5 text-[#6B7280]">
-              Select an address suggestion or use the
-              current-location button so AFF can save
-              valid delivery coordinates.
-            </p>
-          </section>
-
-          <FormErrorAlert
-            message={submitError}
-          />
-
-          <div className="flex flex-col-reverse gap-3 border-t border-[#E4E2E1] pt-5 sm:flex-row sm:items-center sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearForm}
-              disabled={isSubmitting}
-              className="h-11 border-[#C1C8C2] px-5 text-[#805300] transition-all duration-200 hover:border-[#805300] hover:bg-[#FFF6E3] hover:shadow-md active:scale-[0.98]"
-            >
-              {createdOrder
-                ? 'Record another'
-                : 'Clear Form'}
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={!canSubmit}
-              className="h-11 bg-[#805300] px-6 font-bold text-white transition-all duration-200 hover:bg-[#694400] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle
-                    className="size-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                  Recording donation…
-                </>
-              ) : (
-                'Record Donation'
-              )}
-            </Button>
+            </Panel>
           </div>
-        </Panel>
+
+          <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-6 lg:w-80">
+            <Panel title="Payment Method" className="shadow-sm">
+              <div className="flex flex-col gap-4">
+                {isPriced ? (
+                  <>
+                    <div className="flex items-center gap-3 rounded-xl border border-[#D5B77D] bg-[#FFF6E3] p-4">
+                      <span className="flex size-10 items-center justify-center rounded-full bg-white text-[#805300]">
+                        {/* cash icon component */}
+                        <Banknote className="size-5" aria-hidden="true" /> 
+                      </span>
+
+                      <div>
+                        <p className="font-bold text-[#1B1C1C]">Cash</p>
+                        <p className="text-xs text-[#694400]">
+                          The Recipient pays you directly during this in-person donation.
+                        </p>
+                      </div>                                            
+                    </div>
+
+                    {/* input field to input cash received */}
+                    <IconField
+                      id="manualDonationCashReceived"
+                      name="cashReceivedAmount"
+                      type="number"
+                      label="Cash received"
+                      required
+                      icon={Banknote}
+                      min={orderTotal}
+                      step="1"
+                      inputMode="numeric"
+                      value={form.cashReceivedAmount}
+                      onChange={(event) =>
+                        setCashReceivedAmount(event.target.value)
+                      }
+                      placeholder={String(orderTotal)}
+                      error={fieldErrors.cashReceivedAmount}
+                      helperText="Enter the cash received from the Recipient in VND."
+                      theme="donor"
+                    />
+                  </>
+                ) : (
+                  <p className="text-sm text-[#6B7280]">
+                    {selectedListing
+                      ? 'This donation is free. No payment method is required.'
+                      : 'Select a listing to see its payment options.'}
+                  </p>
+                )}
+
+                <dl className="space-y-3 border-t border-slate-100 pt-4 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="font-semibold text-[#414844]">Total</dt>
+                    <dd className="text-base font-extrabold text-[#1B1C1C]">
+                      {selectedListing
+                        ? VND_FORMATTER.format(orderTotal)
+                        : '—'}
+                    </dd>
+                  </div>
+                  
+                  {/* if the listing is not free */}
+                  {isPriced && (
+                    <div className="flex items-center justify-between gap-4" aria-live="polite">
+                      <dt className="font-semibold text-[#414844]">Change</dt>
+                      <dd className="text-base font-extrabold text-[#805300]">
+                        {cashChange === null
+                          ? '—'
+                          : VND_FORMATTER.format(cashChange)}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                <FormErrorAlert message={submitError} />
+
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="h-11 w-full bg-[#805300] px-6 font-bold text-white transition-all duration-200 hover:bg-[#694400] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <LoaderCircle
+                        className="size-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Recording donation…
+                    </>
+                  ) : (
+                    'Record Donation'
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={clearForm}
+                  disabled={isSubmitting}
+                  className="h-11 w-full border-[#C1C8C2] px-5 text-[#805300] transition-all duration-200 hover:border-[#805300] hover:bg-[#FFF6E3] hover:shadow-md active:scale-[0.98]"
+                >
+                  {createdOrder
+                    ? 'Record another'
+                    : 'Clear Form'}
+                </Button>
+              </div>
+            </Panel>
+          </div>
+        </div>
       </form>
     </div>
   );

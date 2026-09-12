@@ -40,11 +40,11 @@ async function listMyOrders(req: Request, res: Response, next: NextFunction) {
 async function getOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(orderIdParamsSchema, req.params);
-    const { order, deliveryStage } = await orderService.getOrderForRecipient(
+    const { order, deliveryStage, deliveryId } = await orderService.getOrderForRecipient(
       id,
       req.user!.id,
     );
-    return ok(res, toOrderResponseDto(order, deliveryStage));
+    return ok(res, toOrderResponseDto(order, deliveryStage, deliveryId));
   } catch (error) {
     return next(error);
   }

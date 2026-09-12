@@ -15,6 +15,9 @@ export const API_ROUTES = {
   media: {
     uploadUrl: '/media/upload-url',
   },
+  notifications: {
+    mine: '/notifications',
+  },
   listings: {
     create: '/listings',          // POST — donor creates a listing
     available: '/listings',       // GET  — public browse
@@ -43,10 +46,9 @@ export const API_ROUTES = {
     feedback: (orderId: string) => 
       `/orders/${orderId}/feedback`,
   },
-
-  food: {
-    list: '/food',
-    create: '/food',
+  recipients: {
+    preferences: '/recipients/me/preferences',
+    preferenceDetail: (id: string) => `/recipients/me/preferences/${id}`,
   },
   reservations: {
     mine: '/reservations/me',
@@ -55,6 +57,14 @@ export const API_ROUTES = {
   subscriptions: {
     me: '/subscriptions/me',
     checkoutSession: '/subscriptions/checkout-session',
+  },
+  deliveries: {
+    queue: '/deliveries/queue',
+    active: '/deliveries/active',
+    detail: (deliveryId: string) => `/deliveries/${deliveryId}`,
+    claim: (deliveryId: string) => `/deliveries/${deliveryId}/claim`,
+    pickup: (deliveryId: string) => `/deliveries/${deliveryId}/pickup`,
+    deliver: (deliveryId: string) => `/deliveries/${deliveryId}/deliver`,
   },
   admin: {
     dashboard: '/admin/dashboard',

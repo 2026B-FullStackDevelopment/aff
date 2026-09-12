@@ -22,7 +22,20 @@ export interface NotificationPreference {
   priceMin: number | null;
   priceMax: number | null;
   city: string | null;
+  isActive: boolean;
 }
+
+export interface CreateNotificationPreferencePayload {
+  preferenceTitle: string;
+  categories?: FoodCategory[];
+  vegetarian?: boolean | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  city?: string | null;
+  isActive?: boolean;
+}
+
+export type UpdateNotificationPreferencePayload = Partial<CreateNotificationPreferencePayload>;
 
 // --- Users ---
 
@@ -41,7 +54,6 @@ export interface UserDTO {
 export interface RecipientDTO extends UserDTO {
   role: 'RECIPIENT';
   tier: 'STANDARD' | 'PREMIUM';
-  notificationPreferences: NotificationPreference[];
   hasStripeCard: boolean;
 }
 
@@ -211,9 +223,11 @@ export interface OrderDTO {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  delivery: { stage: DeliveryStage } | null;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  delivery: { stage: DeliveryStage; id: string | null } | null;
+  /** Present for Reservations; omitted for completed in-person manual donations. */
+  deliveryAddressText?: string;
+  /** Present for Reservations; omitted for completed in-person manual donations. */
+  deliveryLocation?: GeoLocation;
   cancelledByUserId: string | null;
   feedback: {
     comment: string;
@@ -265,12 +279,43 @@ export interface DeliveryDTO {
   orderId: string;
   courierId: string | null;
   stage: DeliveryStage;
-  pickupAddressText: string;
-  pickupAddressLocation: GeoLocation;
+  // Denormalised from the Order's Donor. Null only when the Listing or Donor
+  // profile could not be loaded — a queue row is still shown without a pin.
+  pickupAddressText: string | null;
+  pickupAddressLocation: GeoLocation | null;
+  deliveryAddressText: string | null;
+  deliveryLocation: GeoLocation | null;
+  // Derived server-side. The Courier is told whether to collect money, never
+  // how the Recipient paid.
+  requiresCashCollection: boolean;
+  amount: number | null;
   pickedUpAt: string | null;
   deliveredAt: string | null;
   courierLastLocation: GeoLocation | null;
   createdAt: string;
+}
+
+/**
+ * A queue row (E2): a deliberately lean shape, NOT a `DeliveryDTO`. An
+ * unclaimed row has no courier, no timestamps and a constant stage, so those
+ * are not sent. Each block nulls as a unit when its join could not be loaded.
+ */
+export interface QueueDeliveryDTO {
+  id: string;
+  createdAt: string;
+  listing: {
+    name: string | null;
+    pickupAddressText: string | null;
+    pickupAddressLocation: GeoLocation | null;
+  };
+  order: {
+    quantity: number | null;
+    deliveryAddressText: string | null;
+    deliveryLocation: GeoLocation | null;
+    amount: number | null;
+    requiresCashCollection: boolean;
+  };
+  donor: { companyName: string | null };
 }
 
 // --- Subscriptions (api_design.md §3, §10) ---
@@ -279,6 +324,15 @@ export interface SubscriptionDTO {
   id: string;
   status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
   currentPeriodEnd: string;
+  createdAt: string;
+}
+
+export interface NotificationDTO {
+  id: string;
+  type: 'SOLD_OUT' | 'PREMIUM_MATCH' | 'ADMIN_CANCEL' | 'PAYMENT_SUCCESS' | 'PAYMENT_REFUNDED' | 'DELIVERY_STATUS';
+  message: string;
+  orderId: string | null;
+  listingId: string | null;
   createdAt: string;
 }
 

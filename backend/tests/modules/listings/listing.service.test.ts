@@ -20,6 +20,7 @@ const {
   findProtectedOrderIdsMock,
   cancelAwaitingDeliveriesByOrderIdsMock,
   emitToUserMock,
+  sendNotificationMock,
 } = vi.hoisted(() => ({
   findAvailableListingsMock: vi.fn(),
   createListingMock: vi.fn(),
@@ -40,6 +41,7 @@ const {
   findProtectedOrderIdsMock: vi.fn(),
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   emitToUserMock: vi.fn(),
+  sendNotificationMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
@@ -84,6 +86,12 @@ vi.mock('../../../src/realtime/socket.js', () => ({
   emitToUser: emitToUserMock,
 }));
 
+vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
+  notificationInterface: {
+    sendNotification: sendNotificationMock,
+  },
+}));
+
 // import real listing service functions to test
 import {
   listMyListings,
@@ -124,6 +132,7 @@ describe('listing.service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    hasNonCancelledOrderForListingMock.mockResolvedValue(false);
     withTransactionMock.mockImplementation(
       async (operation) => operation(databaseSession),
     );
@@ -487,11 +496,6 @@ describe('listing.service', () => {
     const payload = {
       recipientEmail: 'recipient@example.com',
       quantity: 2,
-      deliveryAddressText: '1 Recipient Street',
-      deliveryLocation: {
-        latitude: 10.8,
-        longitude: 106.7,
-      },
     };
 
     function prepareDonation(options: {
@@ -536,7 +540,7 @@ describe('listing.service', () => {
       return { listing, order };
     }
 
-    it('creates a free Order and immediately uses the shared Delivery entry point', async () => {
+    it('creates a free, delivered Order without a Delivery', async () => {
       prepareDonation();
 
       const result = await createDonorInitiatedDonation(
@@ -553,32 +557,39 @@ describe('listing.service', () => {
           quantity: 2,
           amount: 0,
           paymentStatus: 'FREE',
-          orderStatus: 'PREPARING',
-          deliveryAddressText: '1 Recipient Street',
+          orderStatus: 'DELIVERED',
         }),
         databaseSession,
       );
-      expect(createForOrderMock).toHaveBeenCalledWith(
-        'o1',
-        databaseSession,
+      expect(createForOrderMock).not.toHaveBeenCalled();
+      expect(emitToUserMock).not.toHaveBeenCalledWith(
+        'r1',
+        'notification:payment_requested',
+        expect.anything(),
       );
       expect(result).toMatchObject({ _id: 'o1' });
     });
 
-    it('creates a priced pending Order and notifies only the Recipient', async () => {
-      prepareDonation({ price: 5000 });
+    it('creates a priced cash-paid, delivered Order without a Delivery or payment request', async () => {
+      prepareDonation({ price: 15000 });
 
       await createDonorInitiatedDonation('l1', 'd1', payload);
 
+      expect(createOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intakePath: 'DONOR_INITIATED',
+          amount: 30000,
+          paymentMethod: 'CASH',
+          paymentStatus: 'PAID',
+          orderStatus: 'DELIVERED',
+        }),
+        databaseSession,
+      );
       expect(createForOrderMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).toHaveBeenCalledWith(
+      expect(emitToUserMock).not.toHaveBeenCalledWith(
         'r1',
         'notification:payment_requested',
-        {
-          orderId: 'o1',
-          listingName: 'Bread',
-          amount: 10000,
-        },
+        expect.anything(),
       );
     });
 
@@ -618,6 +629,26 @@ describe('listing.service', () => {
         createDonorInitiatedDonation('l1', 'd1', payload),
       ).rejects.toMatchObject({ statusCode: 422 });
 
+      expect(createOrderMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a Recipient who already has a non-cancelled Order for the Listing', async () => {
+      prepareDonation();
+      hasNonCancelledOrderForListingMock.mockResolvedValue(true);
+
+      await expect(
+        createDonorInitiatedDonation('l1', 'd1', payload),
+      ).rejects.toMatchObject({
+        statusCode: 422,
+        message: 'This Recipient already has an order for this listing.',
+      });
+
+      expect(hasNonCancelledOrderForListingMock).toHaveBeenCalledWith(
+        'l1',
+        'r1',
+        databaseSession,
+      );
+      expect(decrementStockAtomicallyMock).not.toHaveBeenCalled();
       expect(createOrderMock).not.toHaveBeenCalled();
     });
 
@@ -668,12 +699,13 @@ describe('listing.service', () => {
 
       expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
       expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
-      expect(emitToUserMock).toHaveBeenCalledTimes(1);
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'd1',
-        'listing:sold_out',
-        { listingId: 'l1', name: 'Bread' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'd1',
+        type: 'SOLD_OUT',
+        listingId: 'l1',
+        payload: { listingId: 'l1', name: 'Bread' },
+      });
     });
   });
 
@@ -860,11 +892,12 @@ describe('listing.service', () => {
 
       await reserveListing('l1', 'r1', payload);
 
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'd1',
-        'listing:sold_out',
-        { listingId: 'l1', name: 'Bread' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'd1',
+        type: 'SOLD_OUT',
+        listingId: 'l1',
+        payload: { listingId: 'l1', name: 'Bread' },
+      });
     });
 
     it('notifies the Recipient when the reservation is priced', async () => {

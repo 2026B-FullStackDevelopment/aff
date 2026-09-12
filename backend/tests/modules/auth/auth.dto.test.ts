@@ -38,15 +38,13 @@ describe('auth.dto', () => {
     expect(dto.user).not.toHaveProperty('lockedUntil');
   });
 
-  it('toRecipientAuthDto adds tier and notification preferences', () => {
+  it('toRecipientAuthDto adds tier', () => {
     const dto = toRecipientAuthDto(session, {
       tier: 'PREMIUM',
-      notificationPreferences: [{ id: 'p1' }],
       stripeCustomerId: 'cus_123',
     });
 
     expect(dto.user.tier).toBe('PREMIUM');
-    expect(dto.user.notificationPreferences).toEqual([{ id: 'p1' }]);
     expect(dto.user.email).toBe('alice@example.com');
   });
 
@@ -57,12 +55,6 @@ describe('auth.dto', () => {
     expect(withCard.user.hasStripeCard).toBe(true);
     expect(withCard.user).not.toHaveProperty('stripeCustomerId');
     expect(withoutCard.user.hasStripeCard).toBe(false);
-  });
-
-  it('toRecipientAuthDto defaults notificationPreferences to an empty array', () => {
-    const dto = toRecipientAuthDto(session, { tier: 'STANDARD', stripeCustomerId: null });
-
-    expect(dto.user.notificationPreferences).toEqual([]);
   });
 
   it('toDonorAuthDto adds the company profile and location', () => {

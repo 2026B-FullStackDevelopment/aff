@@ -203,14 +203,15 @@ export function CreateListingForm({
               label="Donation limit"
               required
               icon={Scale}
-              min="0"
-              step="any"
-              inputMode="decimal"
+              min="1"
+              step="1"
+              inputMode="numeric"
               value={form.donationLimit}
               onChange={updateField(
                 'donationLimit',
               )}
               placeholder="0"
+              helperText="Enter a positive whole-number quantity."
               error={errors.donationLimit}
               theme="donor"
               className="h-12 border-[#C1C8C2] bg-[#FBF9F8]"
@@ -222,9 +223,9 @@ export function CreateListingForm({
               type="number"
               label="Ration per person"
               icon={Scale}
-              min="0"
-              step="any"
-              inputMode="decimal"
+              min="1"
+              step="1"
+              inputMode="numeric"
               value={
                 form.rationLimitPerPerson
               }
@@ -232,7 +233,7 @@ export function CreateListingForm({
                 'rationLimitPerPerson',
               )}
               placeholder="No limit"
-              helperText="Optional per-Recipient cap."
+              helperText="Optional positive whole-number cap per Recipient."
               error={
                 errors.rationLimitPerPerson
               }

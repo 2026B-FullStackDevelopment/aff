@@ -3,12 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from '@/shared/components/ui/sonner';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import { reservationService } from '../services/reservation.service';
-import { useOrderPaymentNotifications } from './useOrderPaymentNotifications';
+import { useOrderRealtime } from './useOrderRealtime';
+import { useDeliveryTracking } from './useDeliveryTracking';
 import type { OrderDTO, RefundStatus } from '@/types/api';
 
 export function useOrderTracking(orderId: string | undefined) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [order, setOrder] = useState<OrderDTO | null>(null);
+  const deliveryTracking = useDeliveryTracking(orderId, order?.delivery ?? null);
   const [refundStatus, setRefundStatus] = useState<RefundStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotFound, setIsNotFound] = useState(false);
@@ -71,7 +73,31 @@ export function useOrderTracking(orderId: string | undefined) {
     setRefundStatus('REFUNDED' as unknown as RefundStatus);
   }, []);
 
-  useOrderPaymentNotifications(orderId, reload, handleRefunded);
+  // I1 — `OrderFeedbackSection` gates on `order.orderStatus === 'DELIVERED'`,
+  // but `useDeliveryTracking`'s `handleDelivered` only updates its own local
+  // `stage`/`deliveredAt` state, never `order`. Patch `orderStatus` locally
+  // here too (matching `handleRefunded`'s local-patch style above) so a live
+  // `delivery:delivered` event makes "Leave Feedback" actually work instead
+  // of scrolling to an empty wrapper with no textarea to focus.
+  const handleDelivered = useCallback(
+    (event: Parameters<typeof deliveryTracking.handleDelivered>[0]) => {
+      deliveryTracking.handleDelivered(event);
+      setOrder((prev) =>
+        prev && prev.orderStatus !== 'DELIVERED'
+          ? { ...prev, orderStatus: 'DELIVERED' }
+          : prev,
+      );
+    },
+    [deliveryTracking.handleDelivered],
+  );
+
+  useOrderRealtime(orderId, {
+    onPaymentSuccess: reload,
+    onPaymentRefunded: handleRefunded,
+    onStageChanged: deliveryTracking.handleStageChanged,
+    onLocationUpdate: deliveryTracking.handleLocationUpdate,
+    onDelivered: handleDelivered,
+  });
 
   const paymentWasCancelled = searchParams.get('payment') === 'cancelled';
   const paymentSucceeded = searchParams.get('payment') === 'success';
@@ -215,5 +241,8 @@ export function useOrderTracking(orderId: string | undefined) {
     isRetrying, isCancelling, actionError,
     retryPayment, cancelOrder, reload,
     isSubmittingFeedback, feedbackError, submitFeedback,
+    stage: deliveryTracking.stage,
+    courierPosition: deliveryTracking.courierPosition,
+    deliveredAt: deliveryTracking.deliveredAt,
   };
 }

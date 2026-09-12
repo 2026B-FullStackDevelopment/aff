@@ -46,7 +46,11 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Delivery (§9) | `PATCH /deliveries/:id/deliver` | COURIER |
 | Subscriptions (§10) | `GET /subscriptions/me` | RECIPIENT |
 | Subscriptions (§10) | `POST /subscriptions/checkout-session` | RECIPIENT |
-| Subscriptions (§10) | `PUT /recipients/me/preferences` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `DELETE /subscriptions/me` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `GET /recipients/me/preferences` | RECIPIENT |
+| Subscriptions (§10) | `POST /recipients/me/preferences` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `PATCH /recipients/me/preferences/:id` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `DELETE /recipients/me/preferences/:id` | RECIPIENT (Premium) |
 | Admin (§11) | `POST /admin/couriers` | ADMIN |
 | Admin (§11) | `GET /admin/couriers` | ADMIN |
 | Admin (§11) | `GET /admin/deliveries` | ADMIN |
@@ -54,6 +58,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Admin (§11) | `PATCH /admin/users/:id/status` | ADMIN |
 | Admin (§11) | `PATCH /admin/listings/:id/cancel` | ADMIN |
 | Admin (§11) | `GET /admin/listings` | ADMIN |
+| Notifications (§14) | `GET /notifications` | any role |
 
 ### 1.2 Real-Time Event Quick Reference (§12)
 
@@ -62,7 +67,6 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | `listing:sold_out` | `user:<donorId>` |
 | `notification:premium_match` | `user:<recipientId>` |
 | `notification:admin_cancel` | `user:<recipientId>` |
-| `notification:payment_requested` | `user:<recipientId>` |
 | `payment:success` | `user:<recipientId>` |
 | `payment:refunded` | `user:<recipientId>` |
 | `order:status_changed` | `user:<recipientId>` |
@@ -143,7 +147,7 @@ Referenced by multiple endpoints below; defined once here.
 | avatarUrl | string \| null |
 | createdAt | datetime |
 
-**RecipientDTO** = UserDTO + `{ tier: 'STANDARD'|'PREMIUM', notificationPreferences: NotificationPreference[], hasStripeCard: boolean }`
+**RecipientDTO** = UserDTO + `{ tier: 'STANDARD'|'PREMIUM', hasStripeCard: boolean }`
 (`hasStripeCard` is derived from `stripeCustomerId` presence — the raw Stripe customer ID is never sent to the client.)
 
 **DonorDTO** = UserDTO + `{ companyName: string, taxCode: string, addressText: string, location: GeoLocation }`
@@ -152,7 +156,7 @@ Referenced by multiple endpoints below; defined once here.
 
 **GeoLocation**: `{ latitude: number, longitude: number, updatedAt: datetime }`
 
-**NotificationPreference**: `{ id: string, preferenceTitle: string, categories: FoodCategory[], vegetarian: boolean|null, priceMin: number|null, priceMax: number|null, city: string|null }`
+**NotificationPreference**: `{ id: string, preferenceTitle: string, categories: FoodCategory[], vegetarian: boolean|null, priceMin: number|null, priceMax: number|null, city: string|null, isActive: boolean }`
 
 **ListingDTO**
 | Field | Type |
@@ -168,8 +172,8 @@ Referenced by multiple endpoints below; defined once here.
 | price | number (0 = free) |
 | city | string |
 | status | `ACTIVE`\|`PAUSED`\|`CANCELLED`\|`SOLD_OUT` |
-| donationLimit | number |
-| rationLimitPerPerson | number \| null |
+| donationLimit | positive integer |
+| rationLimitPerPerson | positive integer \| null |
 | quantityRemaining | number |
 | createdAt | datetime |
 
@@ -185,10 +189,11 @@ Referenced by multiple endpoints below; defined once here.
 | paymentMethod | `STRIPE`\|`CASH` |
 | paymentStatus | `FREE`\|`PAYMENT_PENDING`\|`PAID`\|`REFUND_PENDING`\|`REFUNDED` |
 | orderStatus | `PENDING_PAYMENT`\|`PREPARING`\|`DELIVERED`\|`CANCELLED` (coarse/payment-oriented only — granular delivery progress is `DeliveryDTO.stage`, not this field; see §9) |
-| deliveryAddressText | string |
-| deliveryLocation | GeoLocation |
+| deliveryAddressText | string \| null (required for `RESERVATION`; absent for `DONOR_INITIATED`) |
+| deliveryLocation | GeoLocation \| null (required for `RESERVATION`; absent for `DONOR_INITIATED`) |
 | cancelledByUserId | string \| null |
 | feedback | `{ comment, createdAt }` \| null |
+| delivery | `{ stage, id }` \| null — `id` is `null` on the list (`GET /orders/mine`) and cancel (`DELETE /orders/:id`) responses, which don't need it; only `GET /orders/:id` populates it |
 | createdAt | datetime |
 
 **DeliveryDTO**
@@ -198,14 +203,22 @@ Referenced by multiple endpoints below; defined once here.
 | orderId | string |
 | courierId | string \| null |
 | stage | `AWAITING_COURIER`\|`ASSIGNED`\|`PICKED_UP`\|`DELIVERED`\|`CANCELLED` |
-| pickupAddressText | string (denormalized from the order's Donor) |
-| pickupAddressLocation | GeoLocation (denormalized from `DONOR.location` — static, for a map marker; not live-updating, unlike `courierLastLocation`) |
+| pickupAddressText | string \| null (denormalized from the order's Donor; `null` only when the Listing/Donor profile could not be loaded) |
+| pickupAddressLocation | GeoLocation \| null (denormalized from `DONOR.location` — static, for a map marker; not live-updating, unlike `courierLastLocation`; `null` only on a failed Donor join) |
 | pickedUpAt | datetime \| null |
 | deliveredAt | datetime \| null |
 | courierLastLocation | GeoLocation \| null |
 | createdAt | datetime |
+| deliveryAddressText | string \| null (where the order is being delivered to — the Recipient's address, from `ORDER.deliveryAddressText`) |
+| deliveryLocation | GeoLocation \| null (delivery destination coordinates, from `ORDER.deliveryLocation`; the Courier's map re-centres here after pickup) |
+| requiresCashCollection | boolean — derived server-side from `ORDER.paymentMethod === 'CASH'`; `paymentMethod` itself is never exposed on this DTO. A Courier needs to know whether to collect money, not how the Recipient paid. |
+| amount | number \| null — `ORDER.amount`; `null` only when the Order behind this Delivery could not be loaded |
 
-**SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, createdAt: datetime }`
+**SubscriptionDTO**: `{ id, status: 'ACTIVE'|'PAST_DUE'|'CANCELLED', currentPeriodEnd: datetime, cancelAtPeriodEnd: boolean, createdAt: datetime }`
+(`cancelAtPeriodEnd` is `true` after `DELETE /subscriptions/me` — the subscription stays `ACTIVE` and the tier stays `PREMIUM` until `currentPeriodEnd`, then the `customer.subscription.deleted` webhook flips `status` to `CANCELLED`.)
+
+**NotificationDTO**: `{ id, type: 'SOLD_OUT'|'PREMIUM_MATCH'|'ADMIN_CANCEL'|'PAYMENT_SUCCESS'|'DELIVERY_STATUS', message: string, orderId: string|null, listingId: string|null, createdAt: datetime }`
+(A thin, direct mapping of the `NOTIFICATION` model, §14. `orderId`/`listingId` are cross-references, not denormalized detail — the client fetches the Order/Listing itself if the user taps through.)
 
 ---
 
@@ -310,9 +323,9 @@ Covers Donor-side listing management and Recipient-side browsing.
 ### `POST /listings` — *`4.1.1`*
 **Auth:** `DONOR`
 
-Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
+Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). `donationLimit` must be a positive whole number; when supplied, `rationLimitPerPerson` must also be a positive whole number. Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
 Response `201`: `ListingDTO`
-Errors: `400` invalid unit/category enum or `price` fails the "free or >= 15000 VND" rule
+Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VND" rule, or either quantity limit is zero, negative, or fractional
 
 ### `GET /listings/mine` — *`4.1.2`, `4.2.2`*
 **Auth:** `DONOR`
@@ -334,7 +347,7 @@ Errors: `404` listing not found; `403` not the owning Donor
 **Ownership:** the listing must belong to `req.user.id`
 
 Request body: `{ status: 'PAUSED'|'ACTIVE'|'CANCELLED' }`
-Behavior: transitioning to `CANCELLED` cascades — every `ORDER` on this listing still in `DELIVERY.stage=AWAITING_COURIER` (or with no `DELIVERY` yet) is set to `orderStatus=CANCELLED`, `cancelledByUserId=<donor's userId>`; `ASSIGNED`-or-later orders are untouched.
+Behavior: transitioning to `CANCELLED` cascades to each non-terminal `ORDER` whose `DELIVERY.stage=AWAITING_COURIER`, plus a Stripe Reservation still awaiting payment with no `DELIVERY`. Orders already `DELIVERED` or `CANCELLED`, including completed Donor-initiated manual Orders that intentionally have no Delivery, are untouched. `ASSIGNED`-or-later deliveries are also untouched.
 Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number }`
 Errors: `409` invalid transition (e.g. re-cancelling an already-cancelled listing)
 
@@ -349,10 +362,10 @@ Response `200`: paginated `OrderDTO[]` (each including `recipient: { id, usernam
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`
 
-Request body: `{ recipientEmail: string, quantity: number, deliveryAddressText: string, deliveryLocation: { latitude, longitude } }`. The Donor does not choose `paymentMethod`; a priced Order waits for the Recipient's choice through `POST /orders/:id/payment-choice`.
-Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used rather than username since `username` has no uniqueness constraint — see `docs/database_design.md`'s `USER` schema — while `email` does). Creates an `ORDER` (`intakePath=DONOR_INITIATED`). If priced, `paymentStatus=PAYMENT_PENDING` and a `notification:payment_requested` event (§12) prompts the Recipient to complete payment; if free, `paymentStatus=FREE` and `DeliveryService.createForOrder` fires immediately.
+Request body: `{ recipientEmail: string, quantity: number }`. Delivery address, payment selection, cash received, and calculated change are not accepted by this endpoint.
+Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used because it is unique). Validates listing ownership and eligibility, remaining stock, any ration limit, and that the Recipient has no existing non-cancelled Order for the listing. The browser performs a live pre-check using the existing Donor-owned `GET /listings/:id/orders` data, but this POST remains authoritative. It decrements stock and creates an `ORDER` with `intakePath=DONOR_INITIATED` and `orderStatus=DELIVERED`. A priced listing produces `paymentMethod=CASH` and `paymentStatus=PAID`; a free listing produces `paymentMethod=null` and `paymentStatus=FREE`. This records an in-person handoff at the Donor's premises: no `DELIVERY`, `PAYMENT`, delivery address, cash-received value, or change value is created or stored.
 Response `201`: `OrderDTO`
-Errors: `404` recipient email not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
+Errors: `404` recipient email not found; `422` Recipient already has a non-cancelled Order for this listing; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
 
 ### `POST /listings/:id/reserve` — *`5.1.2`, `5.1.3`, `5.2.3` (revised per PRD §10)*
 **Auth:** `RECIPIENT`
@@ -366,17 +379,18 @@ Behavior — eligibility checks (all `422` on failure): listing `status=ACTIVE`,
 Response `201`: `OrderDTO`
 Errors: `422` see eligibility checks above; `400` missing `paymentMethod` on a priced listing
 
-### `GET /listings` — *`5.1.1`, `5.2.1`, `5.2.2`, `5.3.3`*
-**Auth:** public (unauthenticated browsing allowed; ranking/preferences require auth)
+### `GET /listings` — *`5.1.1`, `5.2.1`, `5.2.2`*
+**Auth:** public (unauthenticated browsing allowed)
 
-Query params: `status=ACTIVE` (default, only value supported publicly), `search=` (case-insensitive partial match on `name`), `city=`, `category=`, `priceMin=`, `priceMax=`, `sort=price&order=asc|desc`, `rank=proximity` (Premium only), plus pagination.
-Behavior for `rank=proximity` (**Auth:** `RECIPIENT`, tier must be `PREMIUM`, else `403`): if the request includes `?lat=&lng=` (browser geolocation was granted), rank by distance from those coordinates; otherwise fall back to ranking by match against `RECIPIENT.city`.
+Query params: `status=ACTIVE` (default, only value supported publicly), `search=` (case-insensitive partial match on `name`), `city=`, `category=`, `priceMin=`, `priceMax=`, `sort=price&order=asc|desc`, plus pagination.
 Response `200`: paginated `ListingDTO[]`
+
+*(SRS `5.3.3` location-aware ranking was dropped — see PRD §10. There is no `rank=proximity` mode.)*
 
 ### `GET /listings/:id` — *`5.3.4`*
 **Auth:** public
 
-Response `200`: `ListingDTO` with `donor` expanded to full `{ id, companyName, addressText, location }` (needed both as browsing context for Reservation/Donor-initiated listings, and as the literal meetup point for Per-Request listings).
+Response `200`: `ListingDTO` with `donor` expanded to full `{ id, companyName, addressText, location }` (browsing and Reservation pickup context, and the literal in-person handoff point for Donor-initiated manual donations and Per-Request listings).
 Errors: `404`
 
 ---
@@ -403,12 +417,12 @@ Errors: `404` order not found — also returned when the order exists but belong
 
 This is the Recipient's own self-cancel action. Donor- and Admin-initiated cancellation are separate endpoints that apply the identical rule at the listing level — `PATCH /listings/:id/status` and `PATCH /admin/listings/:id/cancel` — cascading to every affected order rather than targeting one `orderId` directly.
 
-Behavior: atomically checks the associated `DELIVERY.stage`. If no Delivery exists yet, or `stage=AWAITING_COURIER`, cancellation proceeds: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<req.user.id>`, `cancelledAt=now`; `LISTING.quantityRemaining` is restored. If `stage=ASSIGNED` or later, the update is rejected — this is the same atomic check that backs the claim endpoint's guarantee (`PATCH /deliveries/:id/claim`, §9), so a claim racing a cancellation can never leave both operations believing they won.
+Behavior: first rejects any terminal Order (`orderStatus=DELIVERED` or `CANCELLED`). For a non-terminal Order, it atomically checks the associated `DELIVERY.stage`. Cancellation proceeds when `stage=AWAITING_COURIER`, or when a Stripe Reservation is still awaiting payment and has no Delivery: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<req.user.id>`, `cancelledAt=now`; `LISTING.quantityRemaining` is restored. A completed Donor-initiated manual Order has no Delivery by design but remains non-cancellable because its status is already `DELIVERED`. If a Delivery is `ASSIGNED` or later, the update is rejected — this is the same atomic check that backs the claim endpoint's guarantee (`PATCH /deliveries/:id/claim`, §9).
 
 **Automatic Stripe refund:** if the cancelled order has `paymentMethod=STRIPE` and `paymentStatus=PAID`, the cancellation additionally triggers a synchronous `stripe.refunds.create()` call against `PAYMENT.stripePaymentIntentId`. On success, `PAYMENT.status`/`ORDER.paymentStatus=REFUND_PENDING` and `PAYMENT.stripeRefundId` is stored — **not** `REFUNDED` yet, since Stripe's synchronous response isn't treated as final; the refund is only confirmed `REFUNDED` by the `charge.refunded` webhook (§8), which also emits `payment:refunded` (§12) to push the update live. If the Stripe API call itself fails, cancellation still proceeds (never blocked on Stripe reachability) and the response reports `refundStatus=FAILED` for manual follow-up. Idempotent: a `PAYMENT` already `REFUND_PENDING` or `REFUNDED` is not refunded again. Orders that are free, cash, or Stripe-but-never-paid (`PENDING_PAYMENT`, no money taken) get `refundStatus=NOT_APPLICABLE` and no Stripe call at all.
 
 Response `200`: `OrderDTO & { refundStatus: 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED' }`
-Errors: `404` order not found; `409` delivery already `ASSIGNED`/`PICKED_UP`/`DELIVERED` — "This order can no longer be cancelled."
+Errors: `404` order not found; `409` Order already terminal or Delivery already `ASSIGNED`/`PICKED_UP`/`DELIVERED` — "This order can no longer be cancelled."
 
 ### `POST /orders/:id/feedback` — *`5.2.4`*
 **Auth:** `RECIPIENT`
@@ -419,7 +433,7 @@ Precondition: `orderStatus=DELIVERED`
 Response `201`: `{ feedback: { comment, createdAt } }`
 Errors: `409` order not yet delivered; `409` feedback already submitted (one per order)
 
-### `POST /orders/:id/checkout-session` — *supports card checkout for Reserve & Pay and Donor-Initiated Donation orders (`5.2.3`, `6.2.1`), including first-time Stripe card registration*
+### `POST /orders/:id/checkout-session` — *supports card checkout for Reservation orders (`5.2.3`, `6.2.1`), including first-time Stripe card registration*
 **Auth:** `RECIPIENT`
 **Ownership:** the order must belong to `req.user.id`
 
@@ -429,15 +443,6 @@ Response `200`: `{ checkoutUrl: string }` (frontend redirects the browser here)
 Errors: `409` order not in a payable state; `502` Stripe API error
 
 Payment confirmation happens asynchronously via the Stripe webhook (§8), **not** as this endpoint's response — Stripe Checkout is a redirect flow.
-
-### `POST /orders/:id/payment-choice` — *supports Recipient choice for priced Donor-initiated Orders*
-**Auth:** `RECIPIENT`
-**Ownership:** the order must belong to `req.user.id`
-
-Request body: `{ paymentMethod: 'STRIPE'|'CASH' }`
-Behavior: records the choice only while `paymentStatus=PAYMENT_PENDING` and no different method has already been selected. Cash sets `orderStatus=PREPARING` and creates the Delivery immediately. Stripe remains `PENDING_PAYMENT`; the client then calls `POST /orders/:id/checkout-session`.
-Response `200`: `OrderDTO`
-Errors: `404` order not found; `409` order is not awaiting a choice or a different method was already selected
 
 ---
 
@@ -454,7 +459,8 @@ Single endpoint handling both one-off order payments and subscription billing, d
 | `checkout.session.completed` (subscription mode) | Create initial `SUBSCRIPTION` row, `status=ACTIVE` |
 | `invoice.paid` | Append a new `SUBSCRIPTION` row for the new billing cycle (append-only ledger per `docs/database_design.md`); send confirmation email (Nodemailer) |
 | `invoice.payment_failed` | Latest `SUBSCRIPTION.status=PAST_DUE` |
-| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` |
+| `customer.subscription.updated` | Reconcile `cancelAtPeriodEnd` on the latest `SUBSCRIPTION` row from `event.data.object.cancel_at_period_end` (keeps the local flag in sync if a cancellation is ever toggled outside `DELETE /subscriptions/me`). Optional — the `DELETE`/`PATCH` response is the primary source of truth for the flag |
+| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` (fires at `currentPeriodEnd` for a `cancel_at_period_end` cancellation — see `DELETE /subscriptions/me`, §10) |
 | `charge.refunded` | Confirms a refund initiated by `DELETE /orders/:id` (§7) actually settled. Look up `PAYMENT` via `stripeRefundId` → `PAYMENT.status=REFUNDED`, `refundedAt=now`; `ORDER.paymentStatus=REFUNDED`; emit `payment:refunded` (§12). If no matching `PAYMENT` (e.g. `stripeRefundId` not yet persisted when the event arrives), safe to ignore — the event isn't retried indefinitely, but this ordering shouldn't occur since the id is stored synchronously before the webhook can fire |
 
 Idempotency: `PAYMENT.lastProcessedEventId` (per `docs/database_design.md`) is checked before applying any event, guarding against Stripe's at-least-once webhook delivery.
@@ -470,7 +476,30 @@ Response: `200` (always, once the event is durably processed or recognized as a 
 **Auth:** `COURIER`
 
 Query params: pagination (default sort is fixed — oldest-first, not client-selectable).
-Response `200`: paginated `DeliveryDTO[]` where `stage=AWAITING_COURIER`, sorted by the underlying `ORDER.createdAt` ascending, each entry including `order: { id, quantity, deliveryAddressText }` and `donor: { companyName }`.
+
+Response `200`: paginated **`QueueDeliveryDTO[]`** where `stage=AWAITING_COURIER`, sorted by `DELIVERY.createdAt` ascending — the moment the Order became claimable; see E2's amendment note. This is a deliberately lean shape, **not** a `DeliveryDTO`: an unclaimed row has no courier, no pickup/deliver timestamps and a constant stage, so none of that is sent.
+
+```jsonc
+{
+  "id": "string",                       // DELIVERY id — the value passed to /claim
+  "createdAt": "datetime",              // became claimable; the sort key
+  "listing": {
+    "name": "string | null",
+    "pickupAddressText": "string | null",
+    "pickupAddressLocation": "GeoLocation | null"
+  },
+  "order": {
+    "quantity": "number | null",
+    "deliveryAddressText": "string | null",
+    "deliveryLocation": "GeoLocation | null",
+    "amount": "number | null",
+    "requiresCashCollection": "boolean"                    // same rule as DeliveryDTO — known before claiming, not just after
+  },
+  "donor": { "companyName": "string | null" }
+}
+```
+
+`listing.*`, `order.*`, and `donor.*` each come from one bulk join (Listing→Donor, and the Orders) — no per-row query — and each block degrades to `null` as a unit when its join fails for a row, rather than the row being dropped. A Courier can see what the load is and weigh both ends of the trip before claiming. The Donor's address is already public via `GET /listings/:id` (§6) for every listing, so surfacing it pre-claim exposes nothing new; see E5.
 
 ### `GET /deliveries/active` — *(new)*
 **Auth:** `COURIER`
@@ -506,13 +535,13 @@ Errors: `409` not currently `ASSIGNED`
 **Auth:** `COURIER`
 **Ownership:** must be the Courier assigned to this delivery
 
-Request body: `{ cashConfirmed?: boolean }` — required and must be `true` if the order's `paymentMethod=CASH`; ignored otherwise.
-Behavior: sets `stage=DELIVERED`, `deliveredAt=now`; `ORDER.orderStatus=DELIVERED`; if cash, also flips `ORDER.paymentStatus: PAYMENT_PENDING → PAID` and logs `{ courierId, confirmedAt }` on the order for basic audit traceability (per PRD §9 risk mitigation — no deeper reconciliation than this).
+Request body: `{ cashConfirmed?: boolean }` — required and must be `true` if the associated Reservation has `paymentMethod=CASH` and `paymentStatus=PAYMENT_PENDING`; ignored otherwise.
+Behavior: sets `stage=DELIVERED`, `deliveredAt=now`; `ORDER.orderStatus=DELIVERED`; for a pending cash Reservation, it also flips `ORDER.paymentStatus: PAYMENT_PENDING → PAID` and logs `{ courierId, confirmedAt }` on the order for basic audit traceability. Donor-initiated manual Orders never reach this endpoint because they have no Delivery.
 Response `200`: `DeliveryDTO`
 Errors: `409` not currently `PICKED_UP`; `400` cash order missing `cashConfirmed: true`
 
 ### Internal: `DeliveryService.createForOrder(orderId)` — *(new)*
-Not an HTTP route — a same-process service-interface call (`A.3.1`) invoked by the Listings/Orders module (from `POST /listings/:id/reserve`, `POST /listings/:id/donations`, and the Stripe webhook's `checkout.session.completed` handler) and by nothing else. Creates a `DELIVERY` row (`stage=AWAITING_COURIER`, `orderId`). Documented here for completeness since it's the single convergence point the PRD calls out (§5).
+Not an HTTP route — a same-process service-interface call (`A.3.1`) invoked for queue-eligible Reservation Orders: immediately by `POST /listings/:id/reserve` for free/cash Reservations, or by the Stripe webhook after successful Reservation payment. It creates a `DELIVERY` row (`stage=AWAITING_COURIER`, `orderId`) and must reject or ignore `DONOR_INITIATED` Orders. Donor-initiated manual donations and Per-Request listings never call this interface.
 
 ---
 
@@ -531,12 +560,39 @@ Behavior: creates a Stripe Checkout Session in subscription mode ($5/month), cre
 Response `200`: `{ checkoutUrl: string }`
 Confirmation happens via the `POST /webhooks/stripe` handler (§8), which creates the `SUBSCRIPTION` row and sends the confirmation email.
 
-### `PUT /recipients/me/preferences` — *`5.3.1`*
+### `DELETE /subscriptions/me` — *(new — not tied to an original PRD story; see `docs/user-story/F-premium-subscription/F5-cancel-subscription.md`)*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — the caller must have an `ACTIVE` subscription)
+
+Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end: true })` on the caller's own latest subscription, then sets `cancelAtPeriodEnd=true` on that `SUBSCRIPTION` row. **Access is not revoked now** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`POST`/`PATCH`/`DELETE /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`.
+Idempotent: calling again while `cancelAtPeriodEnd` is already `true` is a no-op success, no second Stripe call.
+Reversible: a follow-up `POST /subscriptions/checkout-session` is **not** needed to undo a not-yet-lapsed cancellation — a client may re-call this route's inverse (`cancel_at_period_end: false`) via `PATCH /subscriptions/me { cancelAtPeriodEnd: false }` while `currentPeriodEnd` is still in the future. *(If the team prefers a single toggle endpoint over `DELETE` + `PATCH`, collapse both into `PATCH /subscriptions/me { cancelAtPeriodEnd: boolean }` — the F5 story is written against the observable behavior, not the verb.)*
+Response `200`: `SubscriptionDTO` (with `cancelAtPeriodEnd=true`)
+Errors: `409` no `ACTIVE` subscription to cancel (never subscribed, or already lapsed)
+
+### `GET /recipients/me/preferences` — *`5.3.1`*
+**Auth:** `RECIPIENT`
+
+Response `200`: `NotificationPreference[]` — the caller's own rows, regardless of tier (a downgraded Recipient can still see stored preferences, just not edit them).
+
+### `POST /recipients/me/preferences` — *`5.3.1`*
 **Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
 
-Request body: `{ preferences: NotificationPreference[] }` (full replace of the list, supports multiple saved preferences)
-Response `200`: `{ notificationPreferences: NotificationPreference[] }`
+Request body: `{ preferenceTitle, categories, vegetarian?, priceMin?, priceMax?, city?, isActive? }`
+Response `201`: `NotificationPreference`
 Errors: `403` not a Premium Recipient; `400` invalid category enum / malformed price range
+
+### `PATCH /recipients/me/preferences/:id` — *`5.3.1`*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
+
+Request body: any subset of the `POST` fields (e.g. `{ isActive: false }` to pause)
+Response `200`: `NotificationPreference`
+Errors: `403` not a Premium Recipient; `404` `:id` doesn't belong to the caller; `400` invalid category enum / malformed price range
+
+### `DELETE /recipients/me/preferences/:id` — *`5.3.1`*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — `403` otherwise)
+
+Response `200`
+Errors: `403` not a Premium Recipient; `404` `:id` doesn't belong to the caller
 
 ---
 
@@ -590,7 +646,7 @@ Response `200`: paginated `ListingDTO[]` with full detail (no status filter — 
 
 ## 12. Real-Time Events (Socket.IO)
 
-One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed only** — nothing is persisted with read/unread state (explicit Out-of-Scope item, PRD §8).
+One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed**. As of Epic H, the six events that map to a `NotificationType` (marked below) are never emitted directly by their owning module — they go through one `notificationService.send(...)` call (§14) that both emits the event and persists it as a `NOTIFICATION` row (`docs/database_design.md`), so they survive a reload. There is still no read/unread state (that stays out of scope, PRD §8). `delivery:location` (GPS pings) is the one exception: it calls `emitToUser(...)` directly and is never persisted — too frequent to justify a row.
 
 ### Connection
 
@@ -600,17 +656,33 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 
 | Event | Room | Emitted when | Payload | SRS |
 |---|---|---|---|---|
-| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name }` | `4.3.1` |
-| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId }` | `5.3.2` |
-| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName }` | `7.3.3` |
-| `notification:payment_requested` | `user:<recipientId>` | a Donor-initiated donation creates a priced order awaiting the Recipient's payment choice | `{ orderId, listingName, amount }` | `4.1.4` |
-| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId }` | `6.1.2` |
-| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId }` | new |
-| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage }` | new |
+| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name, message }` | `4.3.1` |
+| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId, message }` | `5.3.2` |
+| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName, message }` | `7.3.3` |
+| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId, message }` | `6.1.2` |
+| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId, message }` | new |
+| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage, message }` | new |
 | `delivery:location` | `order:<orderId>` | Courier GPS ping, only while `stage=PICKED_UP` | `{ orderId, latitude, longitude, updatedAt }` | new |
-| `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
+| `delivery:delivered` | `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |
+| `delivery:delivered` | `order:<orderId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
+
+**Send mapping (Epic H):** `listing:sold_out` → `NOTIFICATION.type=SOLD_OUT`; `notification:premium_match` → `PREMIUM_MATCH`; `notification:admin_cancel` → `ADMIN_CANCEL`; `payment:success` → `PAYMENT_SUCCESS`; `payment:refunded` → `PAYMENT_REFUNDED`; `order:status_changed`/`delivery:delivered` → `DELIVERY_STATUS`. Each of these is emitted *and* persisted from inside a single `notificationService.send(...)` call — the owning module (`listings`, `payments`, `delivery`, and eventually `subscriptions`/`admin`) never calls `emitToUser(...)` directly for these types. See §14 and `docs/epic/H-notifications.md`.
+
+### Client → server events
+
+| Event | Sent by | Effect | Payload |
+|---|---|---|---|
+| `order:join` | `RECIPIENT` | Joins `order:<orderId>` after an ownership check, so this Recipient receives `delivery:location` for that order | `orderId` |
+| `order:leave` | any | Leaves `order:<orderId>` | `orderId` |
+| `delivery:ping` | `COURIER` | Writes `DELIVERY.courierLastLocation` on whichever Delivery this Courier is carrying, then emits `delivery:location` to that order's room | `{ latitude, longitude }` |
+
+`delivery:ping` deliberately carries **no delivery id**: the server resolves the
+target from the authenticated socket's user id and the `PICKED_UP` stage, so a
+Courier can only ever write to their own in-progress Delivery. Invalid or
+unauthorized pings are ignored silently rather than answered with an error,
+matching `order:join`.
 
 ---
 
@@ -619,9 +691,24 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 Per PRD §8, the following are intentionally **not** part of this API:
 
 - Any endpoint that creates an `ORDER`, `PAYMENT`, or `DELIVERY` for a `PER_REQUEST` listing — enforced by `422` in `POST /listings/:id/reserve` and `POST /listings/:id/donations`.
+- Any endpoint that creates a `DELIVERY` or `PAYMENT` for a `DONOR_INITIATED` manual Order; that path is completed in person and persisted directly as a terminal Order.
 - `POST /deliveries/:id/redo` or any failure/retry endpoint — every claimed delivery is expected to complete.
 - Any Courier self-registration route (`POST /auth/register/courier` does not exist) — Couriers are Admin-created only.
 - Any Admin manual-assignment route (`PATCH /admin/deliveries/:id/assign` does not exist) — claim-based queue only.
-- `GET /notifications` or any persisted-notification route — live feed only, per §8.
+- A mark-as-read/unread action, or any read-state field on `NOTIFICATION` — `GET /notifications` (§14, Epic H) returns a durable history, but there is no read/unread tracking, per §8.
 - Cancellation on an `ASSIGNED`-or-later delivery — enforced by the same atomic check backing the claim/cancel endpoints above, always `409`.
 - An AFF Wallet balance endpoint of any kind.
+
+---
+
+## 14. Notifications Module — `/api/notifications`
+
+*New in Epic H.* Centralizes both halves of sending one of the six notification-worthy events in §12's catalog: `notificationService.send({ userId, type, orderId?, listingId?, payload })` emits the matching Socket.IO event *and* writes a `NOTIFICATION` row (`docs/database_design.md`) in one call, so a user can look it up after the live toast is gone. This module doesn't own any of the triggering business logic — the Listings, Payments, Delivery, Subscriptions, and Admin services each call `sendNotification(...)` (exposed via `notification.interface.ts`, per `AGENTS.md`'s cross-module rule) at the point they used to call `emitToUser(...)` directly (§12's send mapping); no other module calls `emitToUser(...)` or writes to `NOTIFICATION` for these six types.
+
+### `GET /notifications` — *`H2`*
+**Auth:** any authenticated role
+**Ownership:** implicit — always scoped to `req.user.id` as `userId`
+
+Query params: pagination only (§2.4).
+Response `200`: paginated `NotificationDTO[]` (§3), newest (`createdAt`) first.
+Errors: `401` missing/invalid/revoked token — same as every other protected route.

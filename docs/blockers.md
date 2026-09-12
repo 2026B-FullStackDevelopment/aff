@@ -1,6 +1,6 @@
 # AFF Platform — User Story Blockers Assessment
 
-Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked against the current codebase state (`backend/src/modules/` — `listings`/`orders` exist but still use the pre-PRD-v2 schema; no `delivery` module exists yet; `.env.example` has placeholder-only Stripe/Supabase/Nodemailer credentials) and the PRD's own §9 Risks / §11 Open Questions.
+Based on `docs/PRD.md` (all 47 stories across Epics A–H), cross-checked against the current codebase state (`backend/src/modules/` — `listings`/`orders` exist but still use the pre-PRD-v2 schema; no `delivery` module exists yet; `.env.example` has placeholder-only Stripe/Supabase/Nodemailer credentials) and the PRD's own §9 Risks / §11 Open Questions.
 
 ---
 
@@ -45,13 +45,16 @@ Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked agains
 | F — Premium Subscription | F1. Stripe Recurring Subscription | Real Stripe keys not provisioned; transactional email provider unfinalized (§11); Stripe webhook event/idempotency handling unspecified (§11); flagged in §9 as likely to take longer than expected | 🟡 Partial |
 | F — Premium Subscription | F2. Notification Preferences | Depends on F1 (must reach Premium tier first) | 🟡 Partial |
 | F — Premium Subscription | F3. Real-Time Match Alerts | Depends on F2, C1 rebuild (listing creation trigger), Socket.IO layer | 🔴 Blocked |
-| F — Premium Subscription | F4. Location-Aware Ranking | Depends on F1, D1/D6, Browser Geolocation API | 🔴 Blocked |
+| F — Premium Subscription | ~~F4. Location-Aware Ranking~~ | **Dropped from scope** — SRS `5.3.3` is now a PRD §10 deviation. Not implemented | — |
+| F — Premium Subscription | F5. Cancel Premium Subscription | Same Stripe-credential gap as F1 (`cancel_at_period_end` call needs test-mode keys); reuses the existing `customer.subscription.deleted` webhook, so otherwise self-contained | 🟡 Partial |
 | G — Admin Functionality | G1. View All Accounts | Depends on A1/A2/E1 (Courier accounts need E1 to exist first) | 🟡 Partial |
 | G — Admin Functionality | G2. Deactivate/Reactivate Account | Depends on G1 + A4 (`REVOKED_TOKEN` revocation on deactivate) | 🟡 Partial |
 | G — Admin Functionality | G3. Cancel Any Active Listing | Depends on C1 rebuild, C5, Delivery module (cascade needs `DELIVERY.stage`) | 🔴 Blocked |
 | G — Admin Functionality | G4. Searchable Listing Directory | Depends on C1 rebuild | 🔴 Blocked |
 | G — Admin Functionality | G5. Real-Time Cancellation Notice | Depends on G3 + Socket.IO layer | 🔴 Blocked |
 | G — Admin Functionality | G6. Read-Only Courier Oversight | Depends on E1/E11 | 🔴 Blocked |
+| H — Notifications | H1. Persist Notifications at Trigger | No `notifications` module exists yet; depends on C1/C9, C3, and the payments/delivery modules already emitting the events it hooks into | 🔴 Blocked |
+| H — Notifications | H2. View My Notifications | Depends on H1 (nothing to fetch until rows exist) | 🔴 Blocked |
 
 ---
 
@@ -62,7 +65,7 @@ Based on `docs/PRD.md` (all 45 stories across Epics A–G), cross-checked agains
 | `listing.model.ts` / `order.model.ts` still on pre-PRD-v2 schema | All of Epic C, D | Rebuild per `docs/database_design.md` + `docs/api_design.md` (category/unit/price rule, intakePath/paymentMethod/paymentStatus/orderStatus, etc.) |
 | No `delivery` module in codebase | All of Epic E, plus C3/C5/D2/D4/D7/G3 | Build the module from scratch (own MongoDB collection, `DeliveryService.createForOrder`) |
 | Socket.IO real-time layer not yet implemented | C9, D4 (`payment:refunded` only — not the Cancel button, which needs no live update), E6, E8, E9, F3, G5 | Stand up the shared layer before any of these can be demoed |
-| Stripe/Supabase/SMTP credentials are placeholders in `.env.example` | B1, D2, D3, D4 (refund), F1 | Provision real sandbox/test-mode credentials |
+| Stripe/Supabase/SMTP credentials are placeholders in `.env.example` | B1, D2, D3, D4 (refund), F1, F5 | Provision real sandbox/test-mode credentials |
 | Open PRD questions (§11) not yet decided | F1 (email provider, webhook event set) | Team decision — PRD marks these as non-blocking for starting work, but each story is incomplete without a decision |
 
-**Summary:** 3 of 45 stories are fully unblocked today (A1, A3, A4). A2, B1, F1, F2, G1, and G2 are partially blocked (each has one remaining gap — see rows above). Everything in Donor/Recipient ordering and Courier Delivery is blocked on two structural gaps: the `listings`/`orders` schema rebuild and the not-yet-built `delivery` module — both are prerequisites the team should tackle first, since nearly every other story in Epics C–G transitively depends on one or both.
+**Summary:** 3 of 47 stories are fully unblocked today (A1, A3, A4). A2, B1, F1, F2, F5, G1, and G2 are partially blocked (each has one remaining gap — see rows above). F4 (Location-Aware Ranking) was dropped from scope (PRD §10). Everything in Donor/Recipient ordering and Courier Delivery is blocked on two structural gaps: the `listings`/`orders` schema rebuild and the not-yet-built `delivery` module — both are prerequisites the team should tackle first, since nearly every other story in Epics C–G transitively depends on one or both. H1/H2 (Epic H, new) are blocked on nothing structural — they just haven't been built yet — but H1 hooks into emit sites owned by C9/C3/F3/G5/payments/delivery, so it's easiest to pick up once those are further along.

@@ -23,8 +23,8 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   },
 }));
 
-vi.mock('../../../src/modules/auth/auth.token.service.js', () => ({
-  issueSession: issueSessionMock,
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: { issueSession: issueSessionMock },
 }));
 
 import {

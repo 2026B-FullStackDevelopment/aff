@@ -2,19 +2,48 @@
 import * as userRepository from './user.repository.js';
 import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
-import { hashPassword } from '../../shared/security/password.js';
-import { authInterface } from '../auth/auth.interface.js';
+import * as courierRepository from './courier.repository.js';
+import { securityInterface } from '../security/security.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
-import type { LoginStateUpdate } from './user.repository.js';
+import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
-import type { Role } from './user.model.js';
+import type { Role, UserDocument } from './user.model.js';
+import type { CourierDocument } from './courier.model.js';
 import type { Types } from 'mongoose';
 
 /** The presented token's claims, from `req.auth` (set by `requireAuth`). */
 interface RequestAuth {
   jti: string;
   expiresAt: Date;
+}
+
+/** The fields an Admin supplies when creating a Courier account (E1). */
+interface CreateCourierAccountInput {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+}
+
+/** A Courier account: the base `USER` row plus its `COURIER` profile. */
+interface CourierAccount {
+  user: UserDocument;
+  courier: CourierDocument;
+}
+
+/** One Courier account in a listing; `courier` is null if the profile row is missing. */
+interface CourierAccountSummary {
+  user: UserDocument;
+  courier: CourierDocument | null;
+}
+
+/** One page of Courier accounts for the Admin roster. */
+interface CourierAccountPage {
+  items: CourierAccountSummary[];
+  page: number;
+  limit: number;
+  total: number;
 }
 
 interface CreateDonorProfileInput {
@@ -42,7 +71,7 @@ async function createUser(payload: CreateUserRequestDto) {
     return await userRepository.createUser({
       username: payload.username,
       email: payload.email,
-      passwordHash: await hashPassword(payload.password),
+      passwordHash: await securityInterface.hashPassword(payload.password),
       role: payload.role || 'RECIPIENT',
       // AFF operates in Vietnam; the registration forms do not ask for a country.
       country: payload.country || 'Vietnam',
@@ -126,6 +155,100 @@ async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
 
+/**
+ * Creates a Courier account: the `USER` row, then the `COURIER` profile.
+ * Only an Admin reaches this (`POST /admin/couriers`, E1) — there is no
+ * public registration path that accepts `role=COURIER`.
+ *
+ * Both writes live here because this module owns both collections. There is
+ * no transaction across them, so a failed profile write deletes the
+ * just-created user rather than leaving an orphan `USER` that would block
+ * that email address forever. Like the equivalent guard in registration, this
+ * is a compensating action, not a transaction: a process crash between the
+ * two writes can still orphan a row.
+ *
+ * @param input - The Admin-supplied account fields; `password` is the
+ *   temporary password the Admin sets at creation time.
+ * @throws {Error} `409` if the email is already registered.
+ */
+async function createCourierAccount(
+  input: CreateCourierAccountInput,
+): Promise<CourierAccount> {
+  const user = await createUser({
+    username: input.username,
+    email: input.email,
+    password: input.password,
+    role: 'COURIER',
+  });
+
+  const userId = String(user._id);
+
+  try {
+    const courier = await courierRepository.createCourier({
+      userId,
+      fullName: input.fullName,
+    });
+
+    return { user, courier };
+  } catch (error) {
+    await userRepository.deleteUser(userId);
+    throw error;
+  }
+}
+
+/**
+ * Loads a set of Courier profiles by user id, for a caller joining against
+ * Couriers — currently the Admin Delivery table (E11), which needs each
+ * assigned Courier's name.
+ */
+async function findCourierProfilesByUserIds(userIds: string[]) {
+  if (userIds.length === 0) return [];
+
+  return courierRepository.findCouriersByUserIds(userIds);
+}
+
+/**
+ * Loads a set of Donor profiles by user id, for a caller joining against
+ * Donors — currently the Courier queue (E2), which needs each Donor's
+ * company name and pickup address/location.
+ */
+async function findDonorsByUserIds(userIds: string[]) {
+  if (userIds.length === 0) return [];
+
+  return donorRepository.findDonorsByUserIds(userIds);
+}
+
+/**
+ * Reads one page of Courier accounts for the Admin roster (E11), pairing each
+ * `USER` with its `COURIER` profile in a single follow-up query rather than
+ * one per row. An account whose profile row is missing is still listed, with
+ * `courier: null`, so a half-written account stays visible to the Admin
+ * instead of silently disappearing from oversight.
+ */
+async function listCouriers(query: RolePageQuery): Promise<CourierAccountPage> {
+  const page = await userRepository.findUsersByRole('COURIER', query);
+
+  if (page.items.length === 0) {
+    return { ...page, items: [] };
+  }
+
+  const profiles = await courierRepository.findCouriersByUserIds(
+    page.items.map((user) => String(user._id)),
+  );
+
+  const profileByUserId = new Map(
+    profiles.map((profile) => [String(profile.userId), profile]),
+  );
+
+  return {
+    ...page,
+    items: page.items.map((user) => ({
+      user,
+      courier: profileByUserId.get(String(user._id)) ?? null,
+    })),
+  };
+}
+
 function donorFieldsRejectedError(): Error {
   const error: Error = new Error('Only Donors can edit company profile fields.');
   error.statusCode = 400;
@@ -185,12 +308,13 @@ async function updateUserProfile(userId: string, role: Role, patch: UpdateUserRe
  * credential it relies on changes; no new token is issued, mirroring `logout`.
  */
 async function changePassword(userId: string, newPassword: string, auth: RequestAuth): Promise<void> {
-  const passwordHash = await hashPassword(newPassword);
+  const passwordHash = await securityInterface.hashPassword(newPassword);
   await userRepository.updateUser(userId, { passwordHash });
-  await authInterface.revokeTokenForPasswordChange({
+  await securityInterface.revokeToken({
     userId,
     jti: auth.jti,
     expiresAt: auth.expiresAt,
+    reason: 'PASSWORD_CHANGE',
   });
 }
 
@@ -240,6 +364,10 @@ export {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  createCourierAccount,
+  listCouriers,
+  findCourierProfilesByUserIds,
+  findDonorsByUserIds,
   getDonorByUserId,
   findRecipientByUserId,
   searchRecipientsByEmail,
@@ -249,4 +377,10 @@ export {
   changePassword,
   changeEmail,
 };
-export type { CreateDonorProfileInput };
+export type {
+  CreateDonorProfileInput,
+  CreateCourierAccountInput,
+  CourierAccount,
+  CourierAccountSummary,
+  CourierAccountPage,
+};

@@ -67,12 +67,12 @@ const VARIANT_STYLES: Record<
     iconButton: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
   },
   courier: {
-    header: 'border-amber-200 bg-white',
-    brand: 'text-amber-700',
-    activeLink: 'bg-amber-100 text-amber-800',
-    inactiveLink: 'text-slate-600 hover:bg-amber-50 hover:text-amber-700',
-    avatar: 'bg-amber-100 text-amber-700',
-    iconButton: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+    header: 'border-courier-primary bg-courier-primary',
+    brand: 'text-white',
+    activeLink: 'bg-white/20 text-white',
+    inactiveLink: 'text-white/80 hover:bg-white/10 hover:text-white',
+    avatar: 'bg-white/20 text-white',
+    iconButton: 'text-white/80 hover:bg-white/10 hover:text-white',
   },
 };
 
@@ -179,14 +179,14 @@ export function PortalTopNavigation({
 
         {/* Desktop Right Actions */}
         <div className="hidden md:flex shrink-0 items-center gap-2">
-          {variant === 'recipient' && renderBell()}
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
         </div>
 
         {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
-          {variant === 'recipient' && renderBell()}
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

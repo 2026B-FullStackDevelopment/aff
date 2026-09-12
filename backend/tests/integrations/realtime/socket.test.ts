@@ -22,17 +22,21 @@ import {
 const {
   verifyAccessTokenMock,
   verifyOrderOwnershipMock,
+  recordCourierLocationMock,
 } = vi.hoisted(() => ({
   // Pretends to check whether a login token is valid.
   verifyAccessTokenMock: vi.fn(),
 
   // Pretends to check whether a user owns an order.
   verifyOrderOwnershipMock: vi.fn(),
+
+  // Pretends to record a Courier's GPS position.
+  recordCourierLocationMock: vi.fn(),
 }));
 
 // Replace the real login checker with our fake, avoids using real login information during the tests.
-vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
-  authInterface: {
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: {
     verifyAccessToken: verifyAccessTokenMock,
   },
 }));
@@ -41,6 +45,13 @@ vi.mock('../../../src/modules/auth/auth.interface.js', () => ({
 vi.mock('../../../src/modules/orders/order.interface.js', () => ({
   orderInterface: {
     verifyOrderOwnership: verifyOrderOwnershipMock,
+  },
+}));
+
+// Replace the real delivery module with fake, avoids pulling in Mongoose
+vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
+  deliveryInterface: {
+    recordCourierLocation: recordCourierLocationMock,
   },
 }));
 
@@ -54,6 +65,7 @@ vi.mock('../../../src/config/env.js', () => ({
 // Ids for testing
 const RECIPIENT_ID = '507f191e810c19729de860ea';
 const OTHER_RECIPIENT_ID = '507f191e810c19729de860eb';
+const COURIER_ID = '507f191e810c19729de860ec';
 const ORDER_ID = '507f191e810c19729de86001';
 const OTHER_ORDER_ID = '507f191e810c19729de86002';
 const NONEXISTENT_ORDER_ID = '507f191e810c19729de86003';
@@ -569,6 +581,88 @@ describe('Socket.IO authentication', () => {
         expect(trackingHandler).toHaveBeenCalledWith(payload);
         expect(notTrackingHandler).not.toHaveBeenCalled();
         expect(otherOrderHandler).not.toHaveBeenCalled();
+    });
+
+    describe('delivery:ping', () => {
+        beforeEach(() => {
+            recordCourierLocationMock.mockReset();
+        });
+
+        it('broadcasts a Courier position to the watchers of that order', async () => {
+            recordCourierLocationMock.mockResolvedValue({
+                _id: 'd1',
+                orderId: ORDER_ID,
+                stage: 'PICKED_UP',
+                courierLastLocation: {
+                    latitude: 10.8,
+                    longitude: 106.6,
+                    updatedAt: new Date('2026-09-07T10:00:00.000Z'),
+                },
+            });
+
+            const recipient = await connectUser('recipient-token', RECIPIENT_ID);
+            verifyOrderOwnershipMock.mockResolvedValue(true);
+            await joinOrder(recipient, ORDER_ID);
+
+            const received = vi.fn();
+            recipient.on('delivery:location', received);
+
+            const courier = await connectUser('courier-token', COURIER_ID, 'COURIER');
+            courier.emit('delivery:ping', { latitude: 10.8, longitude: 106.6 });
+
+            await waitUntil(
+                () => received.mock.calls.length > 0,
+                'Recipient never received delivery:location.',
+            );
+
+            expect(recordCourierLocationMock).toHaveBeenCalledWith(COURIER_ID, {
+                latitude: 10.8,
+                longitude: 106.6,
+            });
+            expect(received).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    orderId: ORDER_ID,
+                    latitude: 10.8,
+                    longitude: 106.6,
+                }),
+            );
+        });
+
+        it('ignores a ping from a non-Courier', async () => {
+            const recipient = await connectUser('recipient-token', RECIPIENT_ID);
+
+            recipient.emit('delivery:ping', { latitude: 10.8, longitude: 106.6 });
+
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(recordCourierLocationMock).not.toHaveBeenCalled();
+        });
+
+        it('ignores a ping with coordinates outside the valid range', async () => {
+            const courier = await connectUser('courier-token', COURIER_ID, 'COURIER');
+
+            courier.emit('delivery:ping', { latitude: 999, longitude: 106.6 });
+
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(recordCourierLocationMock).not.toHaveBeenCalled();
+        });
+
+        it('emits nothing when the Courier has no picked-up Delivery', async () => {
+            recordCourierLocationMock.mockResolvedValue(null);
+
+            const recipient = await connectUser('recipient-token', RECIPIENT_ID);
+            verifyOrderOwnershipMock.mockResolvedValue(true);
+            await joinOrder(recipient, ORDER_ID);
+
+            const received = vi.fn();
+            recipient.on('delivery:location', received);
+
+            const courier = await connectUser('courier-token', COURIER_ID, 'COURIER');
+            courier.emit('delivery:ping', { latitude: 10.8, longitude: 106.6 });
+
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(recordCourierLocationMock).toHaveBeenCalled();
+            expect(received).not.toHaveBeenCalled();
+        });
     });
 
 });

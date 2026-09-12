@@ -1,0 +1,273 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Notification Preferences API",
+    "version": "0.1.0",
+    "description": "The Recipient-facing notification-preference lifecycle endpoints (Epic F, F2). Reflects backend/src/modules/notification-preferences/notification-preference.controller.ts as implemented. GET has no tier gate (a downgraded Recipient can still read stored rows); POST/PATCH/DELETE require an active PREMIUM tier.",
+    "contact": { "name": "AFF Backend" }
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Notification Preferences", "description": "Create, list, update, and delete a Premium Recipient's saved alert criteria (F2)" }
+  ],
+  "paths": {
+    "/recipients/me/preferences": {
+      "get": {
+        "tags": ["Notification Preferences"],
+        "operationId": "listMyPreferences",
+        "summary": "List the caller's saved notification preferences",
+        "description": "No tier gate — a Recipient whose subscription lapsed to STANDARD can still read their previously-saved rows, they just can't write them.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "The caller's saved preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/NotificationPreference" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" }
+        }
+      },
+      "post": {
+        "tags": ["Notification Preferences"],
+        "operationId": "createMyPreference",
+        "summary": "Create a notification preference",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateNotificationPreferenceRequest" },
+              "examples": {
+                "full": {
+                  "value": {
+                    "preferenceTitle": "Vegetarian bakery under $5 in District 1",
+                    "categories": ["BAKED_GOODS"],
+                    "vegetarian": true,
+                    "priceMin": null,
+                    "priceMax": 5,
+                    "city": "District 1"
+                  }
+                },
+                "categoryOnly": {
+                  "value": {
+                    "preferenceTitle": "Any meat listing",
+                    "categories": ["MEAT"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created preference",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/NotificationPreference" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/PremiumRequired" }
+        }
+      }
+    },
+    "/recipients/me/preferences/{id}": {
+      "patch": {
+        "tags": ["Notification Preferences"],
+        "operationId": "updateMyPreference",
+        "summary": "Update one notification preference",
+        "description": "Any subset of the create fields; {\"isActive\": false} pauses the preference without deleting it.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/PreferenceId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateNotificationPreferenceRequest" },
+              "examples": {
+                "pause": { "value": { "isActive": false } },
+                "priceRange": { "value": { "priceMin": 1000, "priceMax": 20000 } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated preference",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/NotificationPreference" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/PremiumRequired" },
+          "404": { "$ref": "#/components/responses/PreferenceNotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Notification Preferences"],
+        "operationId": "deleteMyPreference",
+        "summary": "Delete one notification preference",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/PreferenceId" }],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "nullable": true, "example": null } }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/PremiumRequired" },
+          "404": { "$ref": "#/components/responses/PreferenceNotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "parameters": {
+      "PreferenceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": { "message": { "type": "string" } }
+      },
+      "FoodCategory": {
+        "type": "string",
+        "enum": ["FRUIT", "VEGETABLE", "MEAT", "COOKED_DISH", "BAKED_GOODS", "DRINK"]
+      },
+      "NotificationPreference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "preferenceTitle", "categories", "vegetarian", "priceMin", "priceMax", "city", "isActive"],
+        "properties": {
+          "id": { "type": "string" },
+          "preferenceTitle": { "type": "string" },
+          "categories": { "type": "array", "items": { "$ref": "#/components/schemas/FoodCategory" } },
+          "vegetarian": { "type": "boolean", "nullable": true },
+          "priceMin": { "type": "number", "nullable": true },
+          "priceMax": { "type": "number", "nullable": true },
+          "city": { "type": "string", "nullable": true },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "CreateNotificationPreferenceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["preferenceTitle"],
+        "properties": {
+          "preferenceTitle": { "type": "string", "minLength": 1 },
+          "categories": { "type": "array", "items": { "$ref": "#/components/schemas/FoodCategory" } },
+          "vegetarian": { "type": "boolean", "nullable": true },
+          "priceMin": { "type": "number", "minimum": 0, "nullable": true },
+          "priceMax": { "type": "number", "minimum": 0, "nullable": true },
+          "city": { "type": "string", "minLength": 1, "nullable": true },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "UpdateNotificationPreferenceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "preferenceTitle": { "type": "string", "minLength": 1 },
+          "categories": { "type": "array", "items": { "$ref": "#/components/schemas/FoodCategory" } },
+          "vegetarian": { "type": "boolean", "nullable": true },
+          "priceMin": { "type": "number", "minimum": 0, "nullable": true },
+          "priceMax": { "type": "number", "minimum": 0, "nullable": true },
+          "city": { "type": "string", "minLength": 1, "nullable": true },
+          "isActive": { "type": "boolean" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Request body validation failed — unknown category, malformed price range, or an empty/missing preferenceTitle",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "priceRange": { "value": { "message": "Minimum price cannot be greater than maximum price." } },
+              "missingTitle": { "value": { "message": "Preference title is required." } }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Authentication is required." }
+          }
+        }
+      },
+      "RecipientRoleRequired": {
+        "description": "The authenticated account is not a Recipient",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "PremiumRequired": {
+        "description": "The authenticated Recipient is not on the PREMIUM tier",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Only Premium Recipients can manage notification preferences." }
+          }
+        }
+      },
+      "PreferenceNotFound": {
+        "description": "The id does not exist, or belongs to a different Recipient",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "Notification preference not found." }
+          }
+        }
+      }
+    }
+  }
+}
