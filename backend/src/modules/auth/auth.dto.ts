@@ -63,7 +63,9 @@ function toRecipientAuthDto(
   return {
     // hasStripeCard is derived from stripeCustomerId inside toRecipientResponseDto — the
     // raw Stripe ID is never sent to the client (docs/api_design.md §3).
-    user: toRecipientResponseDto(session.user, recipient),
+    // tier is always 'STANDARD' here — a Recipient can't have an active subscription
+    // before their account (and this response) even exists.
+    user: toRecipientResponseDto(session.user, recipient, 'STANDARD'),
     token: session.accessToken,
   };
 }

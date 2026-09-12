@@ -18,7 +18,7 @@ interface UserResponseDto {
 
 /** The shape returned for a Recipient — base fields plus tier, notification preferences, and Stripe card status. */
 interface RecipientResponseDto extends UserResponseDto {
-  tier: string;
+  tier: 'STANDARD' | 'PREMIUM';
   hasStripeCard: boolean;
 }
 
@@ -62,11 +62,12 @@ function toUserResponseDto(user: UserDocument | null): UserResponseDto | null {
  */
 function toRecipientResponseDto(
   user: UserDocument,
-  recipient: Partial<RecipientDocument>
+  recipient: Partial<RecipientDocument>,
+  tier: 'STANDARD' | 'PREMIUM'
 ): RecipientResponseDto {
   return {
     ...toUserResponseDto(user),
-    tier: recipient.tier,
+    tier,
     hasStripeCard: Boolean(recipient.stripeCustomerId),
   };
 }
