@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CheckCircle2, ChevronRight, PackageX, Sparkles, Truck, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, PackageX, RotateCcw, Sparkles, Truck, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { NotificationDTO } from '@/types/api';
 
@@ -15,6 +15,7 @@ interface NotificationListItemProps {
 const TYPE_PRESENTATION: Record<NotificationDTO['type'], { icon: LucideIcon; badge: string }> = {
   SOLD_OUT: { icon: PackageX, badge: 'bg-amber-50 text-amber-700' },
   PAYMENT_SUCCESS: { icon: CheckCircle2, badge: 'bg-emerald-50 text-emerald-700' },
+  PAYMENT_REFUNDED: { icon: RotateCcw, badge: 'bg-blue-50 text-blue-700' },
   DELIVERY_STATUS: { icon: Truck, badge: 'bg-sky-50 text-sky-700' },
   PREMIUM_MATCH: { icon: Sparkles, badge: 'bg-[#e9f5ee] text-[#3D6852]' },
   ADMIN_CANCEL: { icon: XCircle, badge: 'bg-red-50 text-red-700' },

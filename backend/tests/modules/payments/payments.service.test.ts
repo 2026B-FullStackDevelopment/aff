@@ -545,8 +545,11 @@ describe('payments.service', () => {
         refundedAt: expect.any(Date),
       });
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:refunded', {
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'PAYMENT_REFUNDED',
         orderId: 'o1',
+        payload: { orderId: 'o1' },
       });
     });
 
@@ -571,7 +574,7 @@ describe('payments.service', () => {
 
       expect(updatePaymentEventMock).toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('does not emit payment:refunded when the Order was not in REFUND_PENDING (race)', async () => {
@@ -586,7 +589,7 @@ describe('payments.service', () => {
       await processWebhookEvent(chargeRefundedEvent());
 
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the refund id', async () => {

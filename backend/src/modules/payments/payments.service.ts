@@ -5,7 +5,6 @@ import * as paymentRepository from './payment.repository.js';
 import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
-import { emitToUser } from '../../realtime/socket.js';
 import { notificationInterface } from '../notifications/notification.interface.js';
 import type { PayableType } from './payment.model.js';
 import type { ClientSession, Types } from 'mongoose';
@@ -343,8 +342,8 @@ async function cancelPendingOrderPayment(
 /**
  * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
  * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
- * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and emitting
- * payment:refunded (docs/api_design.md §8/§12) is D4's job, mirroring handlePaymentCheckoutCompleted.
+ * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and sending the
+ * PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors handlePaymentCheckoutCompleted.
  */
 async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
   const refundId = charge.refunds?.data[0]?.id;
@@ -381,8 +380,11 @@ async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
   );
 
   if (updatedOrder) {
-    emitToUser(String(updatedOrder.recipientId), 'payment:refunded', {
+    void notificationInterface.sendNotification({
+      userId: String(updatedOrder.recipientId),
+      type: 'PAYMENT_REFUNDED',
       orderId: String(updatedOrder._id),
+      payload: { orderId: String(updatedOrder._id) },
     });
   }
 }

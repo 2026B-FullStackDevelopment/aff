@@ -72,6 +72,29 @@ describe('notification.service', () => {
       });
     });
 
+    it('emits the default event for PAYMENT_REFUNDED and persists a matching message', async () => {
+      createMock.mockResolvedValue({ _id: 'n1' });
+
+      await sendNotification({
+        userId: 'r1',
+        type: 'PAYMENT_REFUNDED',
+        orderId: 'o1',
+        payload: { orderId: 'o1' },
+      });
+
+      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:refunded', {
+        orderId: 'o1',
+        message: 'Your payment was refunded.',
+      });
+      expect(createMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'PAYMENT_REFUNDED',
+        message: 'Your payment was refunded.',
+        orderId: 'o1',
+        listingId: undefined,
+      });
+    });
+
     it('builds a distinct message for each DELIVERY_STATUS event, using the caller-supplied event', async () => {
       createMock.mockResolvedValue({ _id: 'n1' });
 

@@ -329,7 +329,7 @@ export interface SubscriptionDTO {
 
 export interface NotificationDTO {
   id: string;
-  type: 'SOLD_OUT' | 'PREMIUM_MATCH' | 'ADMIN_CANCEL' | 'PAYMENT_SUCCESS' | 'DELIVERY_STATUS';
+  type: 'SOLD_OUT' | 'PREMIUM_MATCH' | 'ADMIN_CANCEL' | 'PAYMENT_SUCCESS' | 'PAYMENT_REFUNDED' | 'DELIVERY_STATUS';
   message: string;
   orderId: string | null;
   listingId: string | null;

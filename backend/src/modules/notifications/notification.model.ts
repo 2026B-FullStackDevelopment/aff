@@ -6,6 +6,7 @@ type NotificationType =
   | 'PREMIUM_MATCH'
   | 'ADMIN_CANCEL'
   | 'PAYMENT_SUCCESS'
+  | 'PAYMENT_REFUNDED'
   | 'DELIVERY_STATUS';
 
 interface NotificationAttrs {
@@ -25,7 +26,7 @@ const notificationSchema = new Schema<NotificationDocument>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     type: {
       type: String,
-      enum: ['SOLD_OUT', 'PREMIUM_MATCH', 'ADMIN_CANCEL', 'PAYMENT_SUCCESS', 'DELIVERY_STATUS'],
+      enum: ['SOLD_OUT', 'PREMIUM_MATCH', 'ADMIN_CANCEL', 'PAYMENT_SUCCESS', 'PAYMENT_REFUNDED', 'DELIVERY_STATUS'],
       required: true,
     },
     message: { type: String, required: true },

@@ -19,6 +19,7 @@ interface SendNotificationParams {
 const DEFAULT_EVENT_BY_TYPE: Partial<Record<NotificationType, string>> = {
   SOLD_OUT: 'listing:sold_out',
   PAYMENT_SUCCESS: 'payment:success',
+  PAYMENT_REFUNDED: 'payment:refunded',
   PREMIUM_MATCH: 'notification:premium_match',
   ADMIN_CANCEL: 'notification:admin_cancel',
 };
@@ -47,6 +48,8 @@ function buildMessage(type: NotificationType, event: string, payload: Record<str
       return `Your listing "${String(payload.name)}" just sold out.`;
     case 'PAYMENT_SUCCESS':
       return 'Your payment was successful.';
+    case 'PAYMENT_REFUNDED':
+      return 'Your payment was refunded.';
     case 'DELIVERY_STATUS':
       return event === 'delivery:delivered'
         ? 'Your order has been delivered.'
