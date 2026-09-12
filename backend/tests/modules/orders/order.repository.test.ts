@@ -6,13 +6,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // findOneMock represents Order.findOne().
 // createMock represents Order.create().
 // leanMock represents the .lean() method returned
-const { findMock, findOneMock, createMock, existsMock, findOneAndUpdateMock, aggregateMock, leanMock } = vi.hoisted(() => {
+const { findMock, findOneMock, createMock, existsMock, updateManyMock, findOneAndUpdateMock, aggregateMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     findMock: vi.fn(() => ({ lean: leanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
     existsMock: vi.fn(),
+    updateManyMock: vi.fn(),
     findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     aggregateMock: vi.fn(),
     leanMock,
@@ -25,6 +26,7 @@ vi.mock('../../../src/modules/orders/order.model.js', () => ({
     findOne: findOneMock,
     create: createMock,
     exists: existsMock,
+    updateMany: updateManyMock,
     findOneAndUpdate: findOneAndUpdateMock,
     aggregate: aggregateMock,
   },
@@ -35,6 +37,7 @@ import {
   findOrderByIdAndRecipient,
   createOrder,
   hasNonCancelledOrderForListing,
+  cancelOrdersByIds,
   cancelOrderById,
   markOrderPaid,
   markOrderRefunded,
@@ -48,6 +51,7 @@ describe('order.repository', () => {
     findOneMock.mockClear();
     createMock.mockClear();
     existsMock.mockClear();
+    updateManyMock.mockClear();
     findOneAndUpdateMock.mockClear();
     aggregateMock.mockClear();
     leanMock.mockClear();
@@ -122,7 +126,7 @@ describe('order.repository', () => {
   });
 
   describe('cancelOrderById', () => {
-    it('atomically cancels an Order not already CANCELLED', async () => {
+    it('atomically cancels only a non-terminal Order', async () => {
       const cancelledAt = new Date('2026-01-01T00:00:00.000Z');
       leanMock.mockResolvedValue({
         _id: 'o1',
@@ -136,7 +140,7 @@ describe('order.repository', () => {
       expect(findOneAndUpdateMock).toHaveBeenCalledWith(
         {
           _id: 'o1',
-          orderStatus: { $ne: 'CANCELLED' },
+          orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
         },
         {
           $set: {
@@ -156,6 +160,35 @@ describe('order.repository', () => {
       const result = await cancelOrderById('o1', 'r1', new Date());
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('cancelOrdersByIds', () => {
+    it('excludes delivered manual Orders from listing cancellation', async () => {
+      updateManyMock.mockResolvedValue({ modifiedCount: 1 });
+      const cancelledAt = new Date('2026-01-01T00:00:00.000Z');
+
+      const result = await cancelOrdersByIds(
+        ['o1', 'o2'],
+        'd1',
+        cancelledAt,
+      );
+
+      expect(updateManyMock).toHaveBeenCalledWith(
+        {
+          _id: { $in: ['o1', 'o2'] },
+          orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
+        },
+        {
+          $set: {
+            orderStatus: 'CANCELLED',
+            cancelledByUserId: 'd1',
+            cancelledAt,
+          },
+        },
+        { session: undefined },
+      );
+      expect(result).toBe(1);
     });
   });
 

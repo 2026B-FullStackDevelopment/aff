@@ -446,6 +446,19 @@ async function createDonorInitiatedDonation(
       }
 
       if (
+        await orderInterface.hasNonCancelledOrderForListing(
+          String(listing._id),
+          String(recipient._id),
+          session,
+        )
+      ) {
+        throw createHttpError(
+          422,
+          'This Recipient already has an order for this listing.',
+        );
+      }
+
+      if (
         listing.rationLimitPerPerson != null &&
         payload.quantity > listing.rationLimitPerPerson
       ) {

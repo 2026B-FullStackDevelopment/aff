@@ -38,7 +38,15 @@ const listingSchema = new Schema<ListingDocument>(
     price: { type: Number, default: 0 },
     city: { type: String },
     status: { type: String, enum: ['ACTIVE', 'PAUSED', 'CANCELLED', 'SOLD_OUT'], default: 'ACTIVE' },
-    donationLimit: { type: Number, required: true },
+    donationLimit: {
+      type: Number,
+      required: true,
+      min: [1, 'Donation limit must be greater than 0.'],
+      validate: {
+        validator: Number.isSafeInteger,
+        message: 'Donation limit must be a whole number.',
+      },
+    },
     rationLimitPerPerson: {
       type: Number,
       min: 1,

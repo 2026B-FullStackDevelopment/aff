@@ -47,14 +47,20 @@ const objectIdSchema = z
     message: 'Listing ID must be a valid MongoDB ObjectId.',
   });
 
-// Shared validation for positive quantities.
-//
-// Quantities are not restricted to integers because units such as kilograms
-// and litres may reasonably use decimal values.
+// Shared validation for positive Order quantities. Order quantities may use
+// decimals for measurement units such as kilograms and litres.
 const positiveQuantitySchema = z
   .number({ message: 'Quantity must be a number.' })
   .finite({ message: 'Quantity must be a finite number.' })
   .positive({ message: 'Quantity must be greater than 0.' });
+
+// A Listing starts with a positive, whole-number quantity. This rule is
+// intentionally stricter than the Order-quantity rule above.
+const donationLimitSchema = z
+  .number({ message: 'Donation limit must be a number.' })
+  .finite({ message: 'Donation limit must be a finite number.' })
+  .int({ message: 'Donation limit must be a whole number.' })
+  .positive({ message: 'Donation limit must be greater than 0.' });
 
 // Ration limits represent a count-like per-person cap, unlike quantities for
 // weight or volume units, so decimals are rejected rather than rounded.
@@ -73,7 +79,7 @@ const listingPriceSchema = z
     message: 'Price must be 0 or greater than or equal to 15000 VND.',
   });
 
-// Validates `POST /listings`, the http request to create a listing
+// Validates `POST /listings`, the HTTP request to create a Listing.
 const createListingSchema = z
   .object({
     name: z
@@ -102,7 +108,7 @@ const createListingSchema = z
 
     price: listingPriceSchema,
 
-    donationLimit: positiveQuantitySchema,
+    donationLimit: donationLimitSchema,
 
     // The field is optional, but it must be a positive integer when supplied.
     // An omitted value means that the listing has no per-person ration limit.
@@ -321,6 +327,7 @@ export {
   paymentMethodSchema,
   objectIdSchema,
   positiveQuantitySchema,
+  donationLimitSchema,
   listingPriceSchema,
   createListingSchema,
   paginationQuerySchema,
