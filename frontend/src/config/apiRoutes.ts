@@ -68,5 +68,9 @@ export const API_ROUTES = {
   },
   admin: {
     dashboard: '/admin/dashboard',
+    listings: '/admin/listings',
+    cancelListing: (listingId: string) =>
+      `/admin/listings/${listingId}/cancel`,
+    deliveries: '/admin/deliveries',
   },
 };

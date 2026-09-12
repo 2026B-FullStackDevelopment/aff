@@ -48,6 +48,19 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
     }),
   },
   {
+    event: 'notification:admin_cancel',
+    roles: ['RECIPIENT'],
+    toast: (payload) => ({
+      variant: 'error',
+      title: 'Order cancelled',
+      description:
+        typeof payload.message === 'string'
+          ? payload.message
+          : 'An Admin cancelled a listing in your order.',
+      duration: 8000,
+    }),
+  },
+  {
     // Handles the DELIVERED stage itself too, with its own copy, rather
     // than relying on the separate delivery:delivered event — that event
     // is emitted to both the user's personal room and the order room, and

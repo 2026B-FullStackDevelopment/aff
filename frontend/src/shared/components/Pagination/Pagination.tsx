@@ -11,6 +11,7 @@ interface PaginationProps {
   itemLabel?: string;
   isDisabled?: boolean;
   className?: string;
+  theme?: 'admin' | 'donor';
   onPageChange: (page: number) => void;
 }
 
@@ -48,6 +49,7 @@ export function Pagination({
   itemLabel = 'items',
   isDisabled = false,
   className,
+  theme = 'donor',
   onPageChange,
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -76,7 +78,10 @@ export function Pagination({
     <nav
       aria-label="Pagination"
       className={cn(
-        'flex flex-col gap-3 border-t border-[#C1C8C2] bg-[#FFF6E3] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6',
+        'flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6',
+        theme === 'admin'
+          ? 'border-[#dce3ec] bg-slate-50'
+          : 'border-[#C1C8C2] bg-[#FFF6E3]',
         className,
       )}
     >
@@ -125,7 +130,9 @@ export function Pagination({
               className={cn(
                 'size-8 transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98]',
                 isCurrent
-                  ? 'bg-[#805300] text-white hover:bg-[#694400]'
+                  ? theme === 'admin'
+                    ? 'bg-[#5b7bc0] text-white hover:bg-[#4a6ab0]'
+                    : 'bg-[#805300] text-white hover:bg-[#694400]'
                   : 'border-[#727972] bg-transparent text-[#414844] hover:bg-white',
               )}
             >

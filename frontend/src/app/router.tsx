@@ -6,10 +6,13 @@ import {
   Routes,
 } from 'react-router-dom';
 import { CourierLayout } from './CourierLayout';
+import { AdminLayout } from './AdminLayout';
 import { GuestRoute } from './GuestRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RootRedirect } from './RootRedirect';
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage';
+import { AdminListingsPage } from '../modules/admin/pages/AdminListingsPage';
+import { AdminDeliveriesPage } from '../modules/admin/pages/AdminDeliveriesPage';
 import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
@@ -203,15 +206,25 @@ export function AppRouter() {
         />
 
         <Route
-          path="/admin/user-directory"
           element={
-            <ProtectedRoute
-              allowedRoles={['ADMIN']}
-            >
-              <AdminDashboardPage />
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route
+            path="/admin/user-directory"
+            element={<AdminDashboardPage />}
+          />
+          <Route
+            path="/admin/listings"
+            element={<AdminListingsPage />}
+          />
+          <Route
+            path="/admin/deliveries"
+            element={<AdminDeliveriesPage />}
+          />
+        </Route>
 
         <Route
           element={

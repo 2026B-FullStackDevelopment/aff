@@ -175,6 +175,16 @@ export interface ListingDTO {
   createdAt: string;
 }
 
+/** A Listing row in the Admin directory, including its current cancel impact. */
+export interface AdminListingDTO extends ListingDTO {
+  pendingOrderCount: number;
+}
+
+export interface CancelAdminListingResponseDto {
+  listing: ListingDTO;
+  cancelledOrderCount: number;
+}
+
 export interface ListingDetailDTO extends Omit<ListingDTO, 'donor'> {
   donor: {
     id: string;
@@ -293,6 +303,12 @@ export interface DeliveryDTO {
   deliveredAt: string | null;
   courierLastLocation: GeoLocation | null;
   createdAt: string;
+}
+
+/** A read-only Delivery row enriched for Admin oversight. */
+export interface AdminDeliveryDTO extends DeliveryDTO {
+  courier: { id: string; fullName: string } | null;
+  order: { id: string; recipientId: string | null };
 }
 
 /**
