@@ -18,6 +18,7 @@ const userInterface = {
   getDonorByUserId: userService.getDonorByUserId,
   findRecipientByUserId: userService.findRecipientByUserId,
   setRecipientStripeCustomerId: userService.setRecipientStripeCustomerId,
+  findRecipientByStripeCustomerId: userService.findRecipientByStripeCustomerId,
 };
 
 export { userInterface };

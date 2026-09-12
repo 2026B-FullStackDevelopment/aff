@@ -18,5 +18,9 @@ function setStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: 
   return Recipient.findOneAndUpdate({ userId }, { stripeCustomerId }, { new: true }).lean<RecipientDocument>();
 }
 
-export { createRecipient, findRecipientByUserId, setStripeCustomerId };
+function findRecipientByStripeCustomerId(stripeCustomerId: string) {
+  return Recipient.findOne({ stripeCustomerId }).lean<RecipientDocument>();
+}
+
+export { createRecipient, findRecipientByUserId, setStripeCustomerId, findRecipientByStripeCustomerId };
 export type { CreateRecipientInput };

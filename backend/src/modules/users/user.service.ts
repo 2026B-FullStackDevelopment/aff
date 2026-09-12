@@ -4,6 +4,7 @@ import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import * as courierRepository from './courier.repository.js';
 import { securityInterface } from '../security/security.interface.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
@@ -151,6 +152,10 @@ async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, str
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
 }
 
+async function findRecipientByStripeCustomerId(stripeCustomerId: string) {
+  return recipientRepository.findRecipientByStripeCustomerId(stripeCustomerId);
+}
+
 async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
@@ -270,7 +275,8 @@ async function getMyProfileDto(userId: string) {
 
   if (user.role === 'RECIPIENT') {
     const recipient = await recipientRepository.findRecipientByUserId(userId);
-    return toRecipientResponseDto(user, recipient || {});
+    const { tier } = await subscriptionInterface.getMySubscriptionStatus(userId);
+    return toRecipientResponseDto(user, recipient || {}, tier);
   }
 
   return toUserResponseDto(user);
@@ -372,6 +378,7 @@ export {
   findRecipientByUserId,
   searchRecipientsByEmail,
   setRecipientStripeCustomerId,
+  findRecipientByStripeCustomerId,
   getMyProfileDto,
   updateUserProfile,
   changePassword,
