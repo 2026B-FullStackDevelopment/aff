@@ -5,7 +5,6 @@ import {
 import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
 import { NotificationList } from '@/modules/notifications/components/NotificationList';
 import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';
-import { useSoldOutNotifications } from '@/modules/donations/hooks/useSoldOutNotifications';
 
 const DONOR_NAV_ITEMS:
   readonly PortalNavItem[] = [
@@ -45,7 +44,6 @@ export function DonorTopNavigation({
   avatarUrl,
   avatarAlt = 'Donor profile',
 }: DonorTopNavigationProps) {
-  useSoldOutNotifications();
   const { isOpen, toggle, close } = useNotificationBell();
 
   return (
