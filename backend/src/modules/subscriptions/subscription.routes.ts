@@ -14,5 +14,6 @@ router.post(
   requireRole('RECIPIENT'),
   subscriptionController.createSubscriptionCheckoutSession
 );
+router.patch('/me', requireAuth, requireRole('RECIPIENT'), subscriptionController.updateMySubscription);
 
 export default router;
