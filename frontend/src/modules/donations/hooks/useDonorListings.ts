@@ -12,9 +12,10 @@ import type {
   ListingSortField,
   ManagedListingDTO,
   MyListingsQuery,
+  SoldOutEvent,
   SortDirection,
 } from '../types';
-import { donorRealtimeService } from '../services/donorRealtime.service';
+import { realtimeSocket } from '@/shared/services/realtimeSocket';
 
 const FOOD_CATEGORIES: FoodCategory[] = [
   'FRUIT',
@@ -289,8 +290,9 @@ export function useDonorListings() {
   }
 
  useEffect(() => {
-  return donorRealtimeService
-    .subscribeToSoldOut(
+  return realtimeSocket
+    .on<SoldOutEvent>(
+      'listing:sold_out',
       (event) => {
         setListings((current) =>
           current

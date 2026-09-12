@@ -175,15 +175,19 @@ export function PortalTopNavigation({
 
         {/* Desktop Right Actions */}
         <div className="hidden md:flex shrink-0 items-center gap-2">
-          {variant === 'recipient' && renderBell()}
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
         </div>
 
         {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
+<<<<<<< HEAD
           {variant === 'recipient' && renderBell()}
           {extraRightActions}
+=======
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
+>>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

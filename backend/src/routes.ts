@@ -11,6 +11,7 @@ import notificationPreferenceRoutes from './modules/notification-preferences/not
 import adminRoutes from './modules/admin/admin.routes.js';
 import deliveryRoutes from './modules/delivery/delivery.routes.js';
 import paymentsRoutes from './modules/payments/payments.routes.js';
+import notificationRoutes from './modules/notifications/notification.routes.js';
 
 function registerRoutes(app: Express) {
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -27,6 +28,7 @@ function registerRoutes(app: Express) {
   app.use('/api/admin', adminRoutes);
   app.use('/api/deliveries', deliveryRoutes);
   app.use('/api/webhooks', paymentsRoutes);
+  app.use('/api/notifications', notificationRoutes);
 }
 
 export { registerRoutes };

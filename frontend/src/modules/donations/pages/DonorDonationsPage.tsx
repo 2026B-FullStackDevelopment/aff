@@ -104,8 +104,6 @@ export function DonorDonationsPage() {
             ? `${donor.companyName} profile`
             : 'Donor profile'
         }
-        hasUnreadNotifications={false}
-        onNotificationsClick={() => {}}
       />
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">

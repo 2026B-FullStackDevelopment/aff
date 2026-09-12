@@ -20,6 +20,7 @@ const {
   findProtectedOrderIdsMock,
   cancelAwaitingDeliveriesByOrderIdsMock,
   emitToUserMock,
+  sendNotificationMock,
 } = vi.hoisted(() => ({
   findAvailableListingsMock: vi.fn(),
   createListingMock: vi.fn(),
@@ -40,6 +41,7 @@ const {
   findProtectedOrderIdsMock: vi.fn(),
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   emitToUserMock: vi.fn(),
+  sendNotificationMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
@@ -82,6 +84,12 @@ vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
 
 vi.mock('../../../src/realtime/socket.js', () => ({
   emitToUser: emitToUserMock,
+}));
+
+vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
+  notificationInterface: {
+    sendNotification: sendNotificationMock,
+  },
 }));
 
 // import real listing service functions to test
@@ -691,12 +699,13 @@ describe('listing.service', () => {
 
       expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
       expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
-      expect(emitToUserMock).toHaveBeenCalledTimes(1);
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'd1',
-        'listing:sold_out',
-        { listingId: 'l1', name: 'Bread' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'd1',
+        type: 'SOLD_OUT',
+        listingId: 'l1',
+        payload: { listingId: 'l1', name: 'Bread' },
+      });
     });
   });
 
@@ -883,11 +892,12 @@ describe('listing.service', () => {
 
       await reserveListing('l1', 'r1', payload);
 
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'd1',
-        'listing:sold_out',
-        { listingId: 'l1', name: 'Bread' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'd1',
+        type: 'SOLD_OUT',
+        listingId: 'l1',
+        payload: { listingId: 'l1', name: 'Bread' },
+      });
     });
 
     it('notifies the Recipient when the reservation is priced', async () => {

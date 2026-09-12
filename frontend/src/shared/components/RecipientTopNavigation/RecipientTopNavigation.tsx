@@ -6,6 +6,7 @@ import {
 } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
 import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
 import { PremiumUpsellPanel } from '@/modules/notifications/components/PremiumUpsellPanel';
+import { NotificationList } from '@/modules/notifications/components/NotificationList';
 import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';
 
 const RECIPIENT_NAV_ITEMS: readonly PortalNavItem[] = [
@@ -54,23 +55,17 @@ export function RecipientTopNavigation({
       isNotificationPanelOpen={isOpen}
       notificationPanel={
         <NotificationBellPanel open={isOpen} onClose={close}>
-          {isPremium ? (
-            // TODO (SRS 5.3.2): render the live, in-session notification
-            // history here — latest first, each item navigating to its
-            // listing on click — once the notification:premium_match
-            // socket listener exists. No GET /notifications endpoint
-            // exists per api_design.md §13, so this must be a
-            // session-scoped store fed by the socket event, not a fetch.
-            null
-          ) : (
-            <PremiumUpsellPanel
-              onClose={close}
-              onUpgrade={() => {
-                close();
-                navigate('/subscription');
-              }}
-            />
-          )}
+          <div className="flex flex-col gap-2">
+            <NotificationList onNavigate={close} />
+            {!isPremium && (
+              <PremiumUpsellPanel
+                onUpgrade={() => {
+                  close();
+                  navigate('/subscription');
+                }}
+              />
+            )}
+          </div>
         </NotificationBellPanel>
       }
       profileTo="/profile"

@@ -23,10 +23,14 @@ const {
   markOrderRefundedMock,
   createForOrderMock,
   emitToUserMock,
+<<<<<<< HEAD
   appendBillingCycleMock,
   markLatestPastDueMock,
   markLatestCancelledMock,
   sendSubscriptionConfirmationMock,
+=======
+  sendNotificationMock,
+>>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 } = vi.hoisted(() => ({
   createStripeCustomerMock: vi.fn(),
   createCheckoutSessionMock: vi.fn(),
@@ -49,10 +53,14 @@ const {
   markOrderRefundedMock: vi.fn(),
   createForOrderMock: vi.fn(),
   emitToUserMock: vi.fn(),
+<<<<<<< HEAD
   appendBillingCycleMock: vi.fn(),
   markLatestPastDueMock: vi.fn(),
   markLatestCancelledMock: vi.fn(),
   sendSubscriptionConfirmationMock: vi.fn(),
+=======
+  sendNotificationMock: vi.fn(),
+>>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 }));
 
 vi.mock('../../../src/integrations/payment/payment.provider.js', () => ({
@@ -112,6 +120,12 @@ vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
 
 vi.mock('../../../src/realtime/socket.js', () => ({
   emitToUser: emitToUserMock,
+}));
+
+vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
+  notificationInterface: {
+    sendNotification: sendNotificationMock,
+  },
 }));
 
 import {
@@ -203,11 +217,15 @@ describe('payments.service', () => {
     markOrderRefundedMock.mockReset();
     createForOrderMock.mockReset();
     emitToUserMock.mockReset();
+<<<<<<< HEAD
     updateSubscriptionCancelAtPeriodEndMock.mockReset();
     appendBillingCycleMock.mockReset();
     markLatestPastDueMock.mockReset();
     markLatestCancelledMock.mockReset();
     sendSubscriptionConfirmationMock.mockReset();
+=======
+    sendNotificationMock.mockReset();
+>>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 
     withTransactionMock.mockImplementation(
       async (operation) => operation(databaseSession),
@@ -539,12 +557,13 @@ describe('payments.service', () => {
         'o1',
         databaseSession,
       );
-      expect(emitToUserMock).toHaveBeenCalledTimes(1);
-      expect(emitToUserMock).toHaveBeenCalledWith(
-        'r1',
-        'payment:success',
-        { orderId: 'o1' },
-      );
+      expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'PAYMENT_SUCCESS',
+        orderId: 'o1',
+        payload: { orderId: 'o1' },
+      });
     });
 
     it('captures stripePaymentIntentId from the session when present', async () => {
@@ -574,7 +593,7 @@ describe('payments.service', () => {
       expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
       expect(markOrderPaidMock).not.toHaveBeenCalled();
       expect(createForOrderMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the session', async () => {
@@ -582,7 +601,7 @@ describe('payments.service', () => {
 
       await expect(processWebhookEvent(checkoutSessionCompletedEvent())).resolves.toBeUndefined();
       expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('creates nothing for a subscription-mode checkout.session.completed event (the row is appended by invoice.paid)', async () => {
@@ -687,8 +706,11 @@ describe('payments.service', () => {
         refundedAt: expect.any(Date),
       });
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
-      expect(emitToUserMock).toHaveBeenCalledWith('r1', 'payment:refunded', {
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'PAYMENT_REFUNDED',
         orderId: 'o1',
+        payload: { orderId: 'o1' },
       });
     });
 
@@ -713,7 +735,7 @@ describe('payments.service', () => {
 
       expect(updatePaymentEventMock).toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('does not emit payment:refunded when the Order was not in REFUND_PENDING (race)', async () => {
@@ -728,7 +750,7 @@ describe('payments.service', () => {
       await processWebhookEvent(chargeRefundedEvent());
 
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
-      expect(emitToUserMock).not.toHaveBeenCalled();
+      expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
     it('no-ops when no Payment row matches the refund id', async () => {
