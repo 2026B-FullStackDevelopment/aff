@@ -640,7 +640,7 @@ Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number }`
 **Auth:** `ADMIN`
 
 Query params: `search=` (matches Donor name/ID or listing ID), pagination.
-Response `200`: paginated `ListingDTO[]` with full detail (no status filter — Admin sees all statuses, unlike the public `GET /listings`).
+Response `200`: paginated `AdminListingDTO[]`, where `AdminListingDTO = ListingDTO & { pendingOrderCount: number }`. `pendingOrderCount` is the current number of unclaimed Orders the cancel action would affect, allowing the UI to show its confirmation before the mutation; the PATCH response's `cancelledOrderCount` is authoritative if the queue changes meanwhile. There is no status filter — Admin sees all statuses, unlike the public `GET /listings`.
 
 ---
 

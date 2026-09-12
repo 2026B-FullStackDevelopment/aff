@@ -177,7 +177,7 @@
       "patch": {
         "tags": ["Admin Listings"],
         "summary": "Cancel an active or paused listing",
-        "description": "Sets the listing to CANCELLED and applies the shared listing-cancellation cascade. Only Orders with no Delivery or a Delivery still in AWAITING_COURIER are cancelled; ASSIGNED, PICKED_UP, and DELIVERED Orders are preserved. Each cancelled Order records the Admin's user ID and its Recipient receives the transient notification:admin_cancel Socket.IO event.",
+        "description": "Sets the listing to CANCELLED and applies the shared listing-cancellation cascade. Only Orders with no Delivery or a Delivery still in AWAITING_COURIER are cancelled; ASSIGNED, PICKED_UP, and DELIVERED Orders are preserved. Each cancelled Order records the Admin's user ID and its Recipient receives the live notification:admin_cancel Socket.IO event backed by a persisted ADMIN_CANCEL notification.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/ListingId" }],
         "responses": {
@@ -456,6 +456,22 @@
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
+      "AdminListingDTO": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ListingDTO" },
+          {
+            "type": "object",
+            "required": ["pendingOrderCount"],
+            "properties": {
+              "pendingOrderCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Current number of unclaimed Orders that would be cancelled by the Admin cancel action. The PATCH response remains authoritative if state changes after this page is loaded."
+              }
+            }
+          }
+        ]
+      },
       "DeliveryStage": {
         "type": "string",
         "enum": ["AWAITING_COURIER", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"]
@@ -550,7 +566,7 @@
             "type": "object",
             "required": ["items", "page", "limit", "total"],
             "properties": {
-              "items": { "type": "array", "items": { "$ref": "#/components/schemas/ListingDTO" } },
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/AdminListingDTO" } },
               "page": { "type": "integer", "minimum": 1 },
               "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
               "total": { "type": "integer", "minimum": 0 }
