@@ -6,7 +6,8 @@ import userRoutes from './modules/users/user.routes.js';
 import mediaRoutes from './modules/media/media.routes.js';
 import listingRoutes from './modules/listings/listing.routes.js';
 import orderRoutes from './modules/orders/order.routes.js';
-import subscriptionRoutes, { recipientPreferencesRoutes } from './modules/subscriptions/subscription.routes.js';
+import subscriptionRoutes from './modules/subscriptions/subscription.routes.js';
+import notificationPreferenceRoutes from './modules/notification-preferences/notification-preference.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import deliveryRoutes from './modules/delivery/delivery.routes.js';
 import paymentsRoutes from './modules/payments/payments.routes.js';
@@ -22,7 +23,7 @@ function registerRoutes(app: Express) {
   app.use('/api/listings', listingRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/subscriptions', subscriptionRoutes);
-  app.use('/api/recipients', recipientPreferencesRoutes);
+  app.use('/api/recipients', notificationPreferenceRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/deliveries', deliveryRoutes);
   app.use('/api/webhooks', paymentsRoutes);

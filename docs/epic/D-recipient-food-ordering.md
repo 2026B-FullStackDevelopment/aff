@@ -32,7 +32,7 @@ Let Recipients browse, search, and reserve active listings; pay by Stripe or cas
 ## Out of Scope
 - Listing creation and Donor-side lifecycle management (pause/resume/cancel, ration limits, sold-out alerts) — Epic C (Donor Food Donation Management)
 - Courier claim, pickup, live tracking, and delivery completion — Epic E (Courier Delivery & Real-Time Tracking)
-- Premium subscription checkout, notification preferences, and location-aware ranking beyond the base `GET /listings` sort — Epic F (Premium Subscription)
+- Premium subscription checkout and notification preferences — Epic F (Premium Subscription). *(Location-aware ranking was cut — SRS `5.3.3`, PRD §10 — so `GET /listings` offers only its base `sort=price`.)*
 - Admin-initiated order/listing cancellation — Epic G (Admin Functionality), story G3
 - Partial refunds — D4's refund is always for the full order amount; there's no partial-cancellation concept
 - Manual Admin refund handling — only the rare case a Stripe refund *attempt itself* errors (`refundStatus=FAILED`) is still an unaddressed edge case; the normal path is fully automatic

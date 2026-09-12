@@ -12,6 +12,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | DONOR | Role-specific profile for a User who donates/sells food |
 | RECIPIENT | Role-specific profile for a User who collects food |
 | COURIER | Role-specific profile for a User who delivers orders |
+| NOTIFICATION_PREFERENCE | A Premium Recipient's saved alert criteria for new listings |
 | REVOKED_TOKEN | Denylist of revoked JWTs (TTL-indexed) |
 | SUBSCRIPTION | Append-only ledger of a Recipient's Premium billing cycles |
 | LISTING | A food donation/sale posted by a Donor |
@@ -58,8 +59,23 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 |---|---|---|---|
 | userId | ObjectId | PK, FK → USER._id | Subtype of USER |
 | tier | Tier (enum) | | STANDARD, PREMIUM |
-| notificationPreferences | List\<NotificationPreference\> | | Embedded value objects |
 | stripeCustomerId | string | | |
+
+### NOTIFICATION_PREFERENCE
+
+| Field | Type | Key | Description |
+|---|---|---|---|
+| _id | ObjectId | PK | |
+| recipientId | ObjectId | FK → RECIPIENT.userId | |
+| preferenceTitle | string | | |
+| categories | List\<FoodCategory\> | | |
+| vegetarian | boolean | | Nullable — null means "no constraint on that dimension" |
+| priceMin | number | | Nullable |
+| priceMax | number | | Nullable |
+| city | string | | Nullable |
+| isActive | boolean | | Default true; false pauses matching without deleting the row |
+| createdAt | datetime | | |
+| updatedAt | datetime | | |
 
 ### COURIER
 
@@ -88,6 +104,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | stripeSubscriptionId | string | | |
 | status | SubscriptionStatus (enum) | | ACTIVE, PAST_DUE, CANCELLED |
 | currentPeriodEnd | datetime | | |
+| cancelAtPeriodEnd | boolean | | Default `false`. Set `true` by `DELETE /subscriptions/me` (F5) — subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
 | createdAt | datetime | | Append-only: new row per billing cycle |
 
 ### LISTING
@@ -188,12 +205,6 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | GeoLocation | latitude | number | DONOR.location, RESERVATION-type ORDER.deliveryLocation, DELIVERY.courierLastLocation |
 | GeoLocation | longitude | number | |
 | GeoLocation | updatedAt | datetime | |
-| NotificationPreference | preferenceTitle | string | RECIPIENT.notificationPreferences (list) |
-| NotificationPreference | categories | List\<FoodCategory\> | |
-| NotificationPreference | vegetarian | boolean | |
-| NotificationPreference | priceMin | number | |
-| NotificationPreference | priceMax | number | |
-| NotificationPreference | city | string | |
 | Feedback | comment | string | ORDER.feedback |
 | Feedback | createdAt | datetime | |
 
@@ -211,6 +222,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | USER | ORDER | 0..1 : N | ORDER.cancelledByUserId | cancelled by (optional) |
 | DONOR | LISTING | 1 : N | LISTING.donorId | creates |
 | RECIPIENT | SUBSCRIPTION | 1 : N | SUBSCRIPTION.recipientId | subscribes |
+| RECIPIENT | NOTIFICATION_PREFERENCE | 1 : N | NOTIFICATION_PREFERENCE.recipientId | saves |
 | RECIPIENT | ORDER | 1 : N | ORDER.recipientId | places |
 | LISTING | ORDER | 1 : N | ORDER.listingId | is ordered as |
 | LISTING | NOTIFICATION | 1 : N (opt.) | NOTIFICATION.listingId | referenced by |
@@ -242,3 +254,49 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | DeliveryStage | AWAITING_COURIER, ASSIGNED, PICKED_UP, DELIVERED, CANCELLED |
 | PayableType | ORDER, SUBSCRIPTIONS |
 | TransactionStatus | PENDING, PAID, FAILED, EXPIRED, CANCELLED, REFUND_PENDING, REFUNDED |
+
+---
+
+## 6. Indexes
+
+Several guarantees in this system are enforced by MongoDB indexes rather than
+by application code. The services rely on this: they catch duplicate-key
+errors (`11000`) and translate them into `409` responses instead of doing a
+read-then-write check, which would reopen the race the index exists to close.
+
+| Collection | Index | Guarantee |
+|---|---|---|
+| DELIVERY | `{ courierId }` unique, partial on `stage ∈ {ASSIGNED, PICKED_UP}` | A Courier holds at most one active Delivery (E3/E4) |
+| DELIVERY | `{ orderId }` unique | One Delivery per Order — makes `DeliveryService.createForOrder` idempotent against the Stripe webhook's at-least-once delivery (E12) |
+| DELIVERY | `{ stage, createdAt }` | Serves the oldest-first Courier queue read (E2) |
+| USER | `{ email }` unique | One account per email; the real guard behind registration's `409` |
+| DONOR / RECIPIENT / COURIER | `{ userId }` unique | One profile row per User |
+| NOTIFICATION_PREFERENCE | `{ recipientId }` | Supports "list my preferences" and F3's future per-recipient matching scan |
+| REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
+| REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |
+
+The partial index on `DELIVERY.courierId` requires **MongoDB 6.1 or newer** —
+`partialFilterExpression` did not accept `$in` before that version.
+
+### How indexes reach an environment
+
+`connectDatabase()` calls `syncIndexes()` immediately after connecting, in
+**every** environment. Mongoose's own `autoIndex` option is disabled, so index
+creation is one explicit, logged step rather than a silent side effect that
+behaves differently in development and production.
+
+Two consequences worth knowing:
+
+- **`syncIndexes` drops indexes that are not declared in a schema.** An index
+  created by hand in Atlas will be removed on the next deploy. Drops are logged
+  with a warning naming the collection and index.
+- **A failed index build fails startup.** This is deliberate: an API running
+  without its uniqueness constraints corrupts data silently and permanently,
+  which is worse than not booting.
+
+`syncIndexes()` reads `mongoose.modelNames()`, so it only sees models that have
+been imported. `server.ts` statically imports `app.ts`, which transitively
+imports every model, so the full set is registered before startup runs.
+Changing any of those to a dynamic import would silently shrink what gets
+synced — the "Syncing indexes for N models" log line exists to make that
+visible.

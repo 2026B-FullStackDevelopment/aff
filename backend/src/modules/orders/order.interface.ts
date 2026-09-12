@@ -4,6 +4,7 @@ import * as orderService from './order.service.js';
 const orderInterface = {
   listOrdersForRecipient: orderService.listOrdersForRecipient,
   findOrderById: orderService.findOrderById,
+  findOrdersByIds: orderService.findOrdersByIds,
   verifyOrderOwnership: orderService.verifyOrderOwnership,
   findNonCancelledOrderIdsByListing:
     orderService.findNonCancelledOrderIdsByListing,

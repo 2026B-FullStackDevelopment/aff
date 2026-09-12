@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { verifyAccessTokenMock } = vi.hoisted(() => ({ verifyAccessTokenMock: vi.fn() }));
 
-vi.mock('../../src/modules/auth/auth.interface.js', () => ({
-  authInterface: { verifyAccessToken: verifyAccessTokenMock },
+vi.mock('../../src/modules/security/security.interface.js', () => ({
+  securityInterface: { verifyAccessToken: verifyAccessTokenMock },
 }));
 
 import { requireAuth } from '../../src/middleware/auth.middleware.js';

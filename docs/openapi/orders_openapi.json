@@ -281,9 +281,14 @@
       "OrderDelivery": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["stage"],
+        "required": ["stage", "id"],
         "properties": {
-          "stage": { "$ref": "#/components/schemas/DeliveryStage" }
+          "stage": { "$ref": "#/components/schemas/DeliveryStage" },
+          "id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The Delivery's own id, for GET /deliveries/:id. Only populated on GET /orders/:id — null on the list and cancel responses, which don't need it."
+          }
         },
         "description": "null for a Stripe Reservation still PENDING_PAYMENT and for a completed in-person DONOR_INITIATED Order"
       },

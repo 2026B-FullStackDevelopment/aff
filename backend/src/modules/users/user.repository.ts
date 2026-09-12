@@ -1,6 +1,25 @@
 // Contains user database queries so services do not call Mongoose directly.
 import User, { type UserDocument, type Role } from './user.model.js';
-import type { Types } from 'mongoose';
+import type { PipelineStage, Types } from 'mongoose';
+
+/** Pagination for an Admin-facing account listing. */
+interface RolePageQuery {
+  page: number;
+  limit: number;
+}
+
+/** One page of accounts holding a role, plus the total in that role. */
+interface UserPage {
+  items: UserDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface UserPageAggregationResult {
+  items: UserDocument[];
+  metadata: Array<{ total: number }>;
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -99,6 +118,35 @@ function deleteUser(id: string | Types.ObjectId) {
   return User.deleteOne({ _id: id });
 }
 
+/**
+ * Reads one page of accounts holding `role`, newest first. Used by the Admin
+ * account listings (`docs/api_design.md` §11); role-specific profile fields
+ * are joined by the caller, so this stays a plain `USER` query.
+ */
+async function findUsersByRole(role: Role, query: RolePageQuery): Promise<UserPage> {
+  const skip = (query.page - 1) * query.limit;
+
+  const pipeline: PipelineStage[] = [
+    { $match: { role } },
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [{ $skip: skip }, { $limit: query.limit }],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ];
+
+  const [result] = await User.aggregate<UserPageAggregationResult>(pipeline);
+
+  return {
+    items: result?.items ?? [],
+    page: query.page,
+    limit: query.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -110,5 +158,12 @@ export {
   startFailedLoginWindow,
   lockAccount,
   deleteUser,
+  findUsersByRole,
 };
-export type { CreateUserInput, LoginStateUpdate, RecipientSearchResult };
+export type {
+  CreateUserInput,
+  LoginStateUpdate,
+  RecipientSearchResult,
+  RolePageQuery,
+  UserPage,
+};

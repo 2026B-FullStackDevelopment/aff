@@ -27,13 +27,12 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   },
 }));
 
-vi.mock('../../../src/shared/security/password.js', () => ({
-  verifyPassword: verifyPasswordMock,
-  dummyCompare: dummyCompareMock,
-}));
-
-vi.mock('../../../src/modules/auth/auth.token.service.js', () => ({
-  issueSession: issueSessionMock,
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: {
+    verifyPassword: verifyPasswordMock,
+    dummyCompare: dummyCompareMock,
+    issueSession: issueSessionMock,
+  },
 }));
 
 import { login } from '../../../src/modules/auth/auth.login.service.js';

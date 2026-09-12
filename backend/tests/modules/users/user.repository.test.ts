@@ -9,6 +9,7 @@ const {
   findOneAndUpdateMock,
   updateOneMock,
   deleteOneMock,
+  aggregateMock,
   leanMock,
   searchLeanMock,
   selectMock,
@@ -27,6 +28,7 @@ const {
     findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     updateOneMock: vi.fn(),
     deleteOneMock: vi.fn(),
+    aggregateMock: vi.fn(),
     leanMock,
     searchLeanMock,
     selectMock,
@@ -43,6 +45,7 @@ vi.mock('../../../src/modules/users/user.model.js', () => ({
     findByIdAndUpdate: findByIdAndUpdateMock,
     findOneAndUpdate: findOneAndUpdateMock,
     updateOne: updateOneMock,
+    aggregate: aggregateMock,
     deleteOne: deleteOneMock,
   },
 }));
@@ -58,6 +61,7 @@ import {
   startFailedLoginWindow,
   lockAccount,
   deleteUser,
+  findUsersByRole,
 } from '../../../src/modules/users/user.repository.js';
 
 describe('user.repository', () => {
@@ -208,5 +212,34 @@ describe('user.repository', () => {
     await deleteUser('u1');
 
     expect(deleteOneMock).toHaveBeenCalledWith({ _id: 'u1' });
+  });
+
+  describe('findUsersByRole', () => {
+    it('returns one page of accounts in that role plus the total', async () => {
+      const courier = { _id: 'u1', role: 'COURIER' };
+      aggregateMock.mockResolvedValue([
+        { items: [courier], metadata: [{ total: 3 }] },
+      ]);
+
+      const result = await findUsersByRole('COURIER', { page: 2, limit: 1 });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(pipeline[0]).toEqual({ $match: { role: 'COURIER' } });
+      expect(result).toEqual({
+        items: [courier],
+        page: 2,
+        limit: 1,
+        total: 3,
+      });
+    });
+
+    it('reports an empty page when no account holds that role', async () => {
+      aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
+
+      const result = await findUsersByRole('COURIER', { page: 1, limit: 20 });
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    });
   });
 });

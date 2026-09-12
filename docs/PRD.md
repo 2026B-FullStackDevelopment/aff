@@ -52,7 +52,7 @@ Milestone 1/2 deliverable for COSC2769. **Confirmed: target Ultimo tier across A
 - **Architecture**: Backend Modular Monolith, each bounded-context module internally layered Route → Controller → Service → Repository → Model (`A.1.2`, `A.2.1`), cross-module calls only via exposed service interfaces (`A.3.1`), DTOs on all responses (`A.3.2`), RBAC middleware as the single coarse-grained authorization enforcement point (`A.2.3`) covering all four roles, with fine-grained ownership checks in the Service layer (`A.2.2`). Delivery/Courier is its **own bounded module** with its own MongoDB collection, referenced by ID from the Order module — not embedded fields.
 - **Frontend**: React, Page → Component → Hook → Service → Reusable Component hierarchy (`A.1.3`), global API route config + shared REST helper (`A.2.a`/`A.2.b`), frontend RBAC (`A.2.c`), modularized components with hooks/service-calls/styling split into separate files (`A.3.a`/`A.3.b`), responsive Profile and Admin UIs (`A.3.c`).
 - **Auth**: JWT/JWS per Ultimo `2.3.1`/`2.3.2`, with a server-side `REVOKED_TOKEN` record (`jti` + TTL-indexed expiry) checked by auth middleware before the Controller layer — plain client-side token deletion doesn't satisfy the SRS's revocation requirement.
-- **Real-time & notifications**: one shared Socket.IO layer delivering a **live, in-session feed** — not a persisted read/unread inbox — for listing sold out (`4.3.1`), Premium match (`5.3.2`), Admin cancellation (`7.3.3`), payment success (`6.1.2`), and Courier delivery status/location events.
+- **Real-time & notifications**: one shared Socket.IO layer delivering a **live, in-session feed** for listing sold out (`4.3.1`), Premium match (`5.3.2`), Admin cancellation (`7.3.3`), payment success (`6.1.2`), and Courier delivery status/location events. Most of these are also persisted as a `NOTIFICATION` row and fetchable via `GET /notifications` (Epic H) — but there is still no read/unread inbox state (§8).
 - **Deployment**: Render (frontend + backend) + MongoDB Atlas — satisfies the maximum available Deployment tier (`D.2.1`, Medium; there is no Ultimo deployment tier).
 - **Process constraints** (unchanged, restated for completeness): GitHub as sole project-management/storage tool, iterative delivery, mandatory sprint reviews at Weeks 2/5/11, grading penalties for weak GitHub usage [`P1`, `P2`, `P3`].
 - **Manual-donation data boundary**: `cashReceivedAmount` and calculated change are frontend-only values. The Order persists its amount and final payment state, but no cash-tender or change fields.
@@ -341,7 +341,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 ---
 
 ### Epic F — Premium Subscription
-*Traceability: `5.3.1`–`5.3.3`, `6`. Ultimo, with §10 deviation on `6.1.1`.*
+*Traceability: `5.3.1`, `5.3.2`, `6`. Ultimo, with §10 deviations on `6.1.1` (no wallet) and `5.3.3` (location-aware ranking dropped).*
 
 **F1. Stripe Recurring Subscription** (`6.2.1`; `6.1.1`'s wallet path not implemented)
 > As a Recipient, I want to subscribe to Premium for $5/month via Stripe recurring billing, and get an email confirmation on success.
@@ -357,15 +357,17 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **F3. Real-Time Match Alerts** (`5.3.2`)
 > As a Premium Recipient, I want a live alert when a new listing matches my preferences.
-- UI: in-app toast (live feed, not persisted) linking to the matching listing.
+- UI: in-app toast (live feed) linking to the matching listing.
 - API: on listing creation, Service layer compares against all Premium preferences and emits a Socket.IO event to matches.
-- Data: reads `RECIPIENT.notificationPreferences`; creates a transient `NOTIFICATION` (type=PREMIUM_MATCH) for the feed, no read-state tracking.
+- Data: reads `RECIPIENT.notificationPreferences`; persists a `NOTIFICATION` (type=PREMIUM_MATCH) row, fetchable via `GET /notifications` (Epic H), no read-state tracking.
 
-**F4. Location-Aware Ranking** (`5.3.3`)
-> As a Premium Recipient, I want matching listings ranked by my location (if granted) or my city (if not).
-- UI: browser geolocation permission prompt.
-- API: `GET /listings?rank=proximity` uses granted coordinates, else falls back to `RECIPIENT`'s selected city.
-- Data: n/a beyond existing `LISTING.city`/`DONOR.location`.
+> **F4. Location-Aware Ranking** — *retired; `5.3.3` dropped as an explicit SRS deviation (§10). Not implemented.*
+
+**F5. Cancel Premium Subscription** *(new — not specified in the SRS/original PRD; see `docs/epic/F-premium-subscription.md`)*
+> As a Premium Recipient, I want to cancel my subscription from inside the app and keep Premium until the end of the period I've already paid for.
+- UI: "Cancel Premium" control in account settings, with a confirm step naming the access-until date and, while the period is still open, an undo ("keep my subscription").
+- API: `DELETE /subscriptions/me` calls Stripe with `cancel_at_period_end: true`; access lapses at `currentPeriodEnd` when the existing `customer.subscription.deleted` webhook flips the row to `CANCELLED`. `409` if there is no active subscription. Cancels at period end only — no proration or partial refund.
+- Data: adds `cancelAtPeriodEnd` (boolean) to the latest `SUBSCRIPTION` row; `RECIPIENT.tier` derivation is unchanged.
 
 ---
 
@@ -400,11 +402,28 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 > As a Recipient whose order's listing gets Admin-cancelled, I want a live notification without refreshing.
 - UI: in-app toast (live feed).
 - API: Socket.IO event emitted on the G3 cascade.
-- Data: transient `NOTIFICATION` (type=ADMIN_CANCEL).
+- Data: persists a `NOTIFICATION` (type=ADMIN_CANCEL) row, fetchable via `GET /notifications` (Epic H), no read-state tracking.
 
 **G6. Read-Only Courier Oversight** (see E11)
 > As an Admin, I want visibility into the Courier delivery queue and history.
 - (Same as E11 — listed here for `7`-group traceability.)
+
+---
+
+### Epic H — Notifications *(new — not in the original PRD or SRS; see `docs/epic/H-notifications.md`)*
+*Traceability: extends the `NOTIFICATION` model already implied by `4.3.1`/`5.3.2`/`7.3.3`/`6.1.2`'s live events (`docs/database_design.md`).*
+
+**H1. Persist Notifications at Trigger**
+> As the platform, I want every existing notification-worthy live event to also write a durable `NOTIFICATION` row.
+- UI: none — a backend-only persistence step alongside each existing Socket.IO emit.
+- API: no new endpoint; called from inside `listings`, `payments`, and `delivery` services at their existing `emitToUser(...)` sites.
+- Data: writes `NOTIFICATION` (`docs/database_design.md`), never blocking the triggering action if the write fails.
+
+**H2. View My Notifications**
+> As a logged-in User, I want to fetch my own notification history so I can see what happened even after the live toast is gone.
+- UI: notification bell / inbox list, reading from the new endpoint (extends the existing `frontend/src/modules/notifications` bell UI beyond its current Premium-upsell-only content).
+- API: `GET /notifications`, paginated, newest first.
+- Data: reads `NOTIFICATION`, scoped to `req.user.id`; each row includes `orderId`/`listingId` when present so the client can link to the Order or Listing.
 
 ---
 
@@ -419,7 +438,7 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 - **Admin manual delivery assignment** — claim-based queue only.
 - **A second Additional Feature** — Courier Delivery is the sole one.
 - **Off-session/merchant-initiated Stripe charges** — all Stripe charges are Recipient-initiated checkout sessions, never a Donor or Admin charging a card without the Recipient present at that moment.
-- **Persisted notification read/unread state** — notifications are a live, in-session feed only.
+- **Notification read/unread state** — notifications are persisted and fetchable (`GET /notifications`, Epic H), but there is no read/unread flag or mark-as-read action this milestone.
 - **Mandatory Stripe card at signup** — card capture is deferred to the first card-based checkout.
 - **Real customer discovery / TAM-SAM-SOM** — not applicable to a course assignment.
 
@@ -457,7 +476,8 @@ Everything else in the SRS is implemented literally at Ultimo tier. These are th
 | `5.1.3` | Cash upon collection or wallet | For Reservations, cash upon **delivery** (Courier collects exact cash, no change) or Stripe Checkout; no wallet |
 | `5.2.3` | Card via third-party (implied alongside cash/wallet) | Stripe implemented as specified; cash-on-delivery available as the alternative, no wallet |
 | `6.1.1` | Wallet-funded subscription | Not implemented — superseded entirely by `6.2.1` (Stripe recurring) |
-| `4.1.4` | Cash + change display at physical Donor-Recipient handoff; recipient by free-text name; AFF Wallet alternative | Recipient must be a registered account selected by email. The handoff remains in person at the Donor's premises. A priced donation is cash-only; the browser calculates change, but neither cash received nor change is sent or stored. Submission creates a `PAID`/`DELIVERED` Order and no Delivery. Free donations create a `FREE`/`DELIVERED` Order. AFF Wallet and Stripe are not offered in this flow. |
+| `5.3.3` | Location-aware ranking of matched listings for Premium Recipients (by granted coordinates, else by city) | **Dropped.** Was Epic F story F4; removed from scope by team decision. `GET /listings` keeps only its base sort (`sort=price`); no `rank=proximity` mode is built. Donor coordinates (`DONOR.location`) are still captured and used for delivery mapping, just not for Recipient-side listing ranking |
+| `4.1.4` | Cash + change display at physical Donor-Recipient handoff; recipient by free-text name | Recipient must be a registered account; if priced, Recipient chooses Stripe or cash-on-delivery; the physical handoff moves from Donor to Courier |
 | `4.2.1` | Recipient may visit pickup location; quantity given in person; no online reservation | Implemented as originally specified — this is intentionally the one path that stays self-service and untracked |
 | Base pickup model (`5.1.2` / general marketplace assumption) | Recipient collects in person from Donor | Reservations are Courier-delivered; Donor-initiated manual donations and Per-Request remain in-person collection flows |
 | `4.1.2` | Separate Active/Past donations dashboard (originally its own story) | Retired as a standalone story; folded into C4 as an `?status=ACTIVE\|PAST` filter on the same listings endpoint. `ACTIVE` = `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` = `CANCELLED`/`SOLD_OUT` |

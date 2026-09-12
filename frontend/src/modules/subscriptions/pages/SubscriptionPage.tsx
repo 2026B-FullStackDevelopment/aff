@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import { NavigationHeader } from '@/shared/components/NavigationHeader/NavigationHeader';
 import { getStoredUser } from '@/services/authStorage';
 import { PaywallPanel } from '../components/PaywallPanel';
 import { PremiumSuccessPanel } from '../components/PremiumSuccessPanel';
 
 export function SubscriptionPage() {
+  const navigate = useNavigate();
   const cachedUser = getStoredUser();
 
   // TODO: replace with a real useSubscription() call (GET /subscriptions/me)
@@ -27,7 +29,7 @@ export function SubscriptionPage() {
           {isPremium ? (
             <PremiumSuccessPanel
               onGoToPreferences={() => {
-                // TODO: navigate('/notification-preferences') once that route exists (SRS 5.3.1–5.3.3)
+                navigate('/profile/notification-preferences');
               }}
             />
           ) : (

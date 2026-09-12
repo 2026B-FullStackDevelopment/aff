@@ -1,4 +1,4 @@
-import type { DecodedToken } from '../shared/security/token.js';
+import type { DecodedToken } from '../modules/security/token.service.js';
 
 // Describes the authenticated user in socket
 interface AuthenticatedSocketUser {
@@ -15,6 +15,10 @@ interface ClientToServerEvents {
     'order:join': (orderId: string) => void;
     // user stops receiving live updates; orderid to leave
     'order:leave': (orderId: string) => void;
+    // Courier broadcasts their position while carrying an order. Coordinates
+    // only — the server derives which Delivery this belongs to from the
+    // authenticated socket, so there is no id for a client to forge.
+    'delivery:ping': (position: { latitude: number; longitude: number }) => void;
 }
 
 interface ServerToClientEvents {

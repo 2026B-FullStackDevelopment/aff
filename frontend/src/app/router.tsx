@@ -5,6 +5,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom';
+import { CourierLayout } from './CourierLayout';
 import { GuestRoute } from './GuestRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RootRedirect } from './RootRedirect';
@@ -14,6 +15,7 @@ import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
 import { FoodListingsPage } from '../modules/browsing/pages/FoodListingsPage';
 import { ListingDetailPage } from '../modules/browsing/pages/ListingDetailPage';
+import { ActiveDeliveryPage } from '../modules/delivery/pages/ActiveDeliveryPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
 import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
@@ -26,6 +28,7 @@ import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPag
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
 import { Toaster } from '@/shared/components/ui/sonner';
+import { NotificationPreferencesPage } from '@/modules/notification-preferences/pages/NotificationPreferencesPage';
 
 export function AppRouter() {
   return (
@@ -134,6 +137,15 @@ export function AppRouter() {
         />
 
         <Route
+          path="/profile/notification-preferences"
+          element={
+            <ProtectedRoute allowedRoles={['RECIPIENT']}>
+              <NotificationPreferencesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/listing/create"
           element={
             <ProtectedRoute
@@ -200,15 +212,22 @@ export function AppRouter() {
         />
 
         <Route
-          path="/deliveries/queue"
           element={
-            <ProtectedRoute
-              allowedRoles={['COURIER']}
-            >
-              <DeliveryQueuePage />
+            <ProtectedRoute allowedRoles={['COURIER']}>
+              <CourierLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route
+            path="/deliveries/queue"
+            element={<DeliveryQueuePage />}
+          />
+
+          <Route
+            path="/deliveries/active"
+            element={<ActiveDeliveryPage />}
+          />
+        </Route>
 
         <Route
           path="*"
