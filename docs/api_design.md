@@ -663,7 +663,8 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 | `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId, message }` | new |
 | `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage, message }` | new |
 | `delivery:location` | `order:<orderId>` | Courier GPS ping, only while `stage=PICKED_UP` | `{ orderId, latitude, longitude, updatedAt }` | new |
-| `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |
+| `delivery:delivered` | `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |
+| `delivery:delivered` | `order:<orderId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
 

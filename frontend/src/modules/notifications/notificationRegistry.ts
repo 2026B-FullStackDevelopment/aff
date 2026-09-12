@@ -9,7 +9,12 @@ export interface NotificationRegistryEntry<P = Record<string, unknown>> {
   event: string;
   roles: UserRole[];
   sound?: boolean;
-  toast: (payload: P) => { variant: ToastVariant; title: string; description?: string };
+  toast: (payload: P) => {
+    variant: ToastVariant;
+    title: string;
+    description?: string;
+    duration?: number;
+  };
 }
 
 export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
@@ -21,6 +26,7 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
       variant: 'warning',
       title: 'Listing sold out',
       description: String(payload.message),
+      duration: 8000,
     }),
   },
   {

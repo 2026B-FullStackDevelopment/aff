@@ -32,8 +32,8 @@ export function useLiveNotificationToasts() {
 
     const unsubscribes = entries.map((entry) =>
       realtimeSocket.on<Record<string, unknown>>(entry.event, (payload) => {
-        const { variant, title, description } = entry.toast(payload);
-        toast[variant](title, { description });
+        const { variant, title, description, duration } = entry.toast(payload);
+        toast[variant](title, { description, duration });
 
         if (entry.sound) {
           soldOutAlertSoundService.play();
