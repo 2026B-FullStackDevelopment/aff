@@ -37,11 +37,6 @@ export interface SoldOutEvent {
 export interface DonorInitiatedDonationPayload {
   recipientEmail: string;
   quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: {
-    latitude: number;
-    longitude: number;
-  };
 }
 
 export type ListingGroup =

@@ -123,9 +123,10 @@ function validateForm(
   if (
     donationLimit === null
     || donationLimit <= 0
+    || !Number.isSafeInteger(donationLimit)
   ) {
     errors.donationLimit =
-      'Donation limit must be greater than 0.';
+      'Donation limit must be a positive whole number.';
   }
 
   const rationLimit = parseNumber(
@@ -137,10 +138,11 @@ function validateForm(
     && (
       rationLimit === null
       || rationLimit <= 0
+      || !Number.isSafeInteger(rationLimit)
     )
   ) {
     errors.rationLimitPerPerson =
-      'Ration limit must be greater than 0 when provided.';
+      'Ration limit must be a positive whole number when provided.';
   }
 
   const price = parseNumber(form.price);
@@ -284,24 +286,32 @@ export function useCreateListing({
       >,
     ) => {
       const value = event.target.value;
+      const nextForm = {
+        ...form,
+        [field]: value,
+      };
 
-      setForm((current) => {
-        const nextForm = {
+      if (
+        field === 'unit'
+        && value !== 'PER_REQUEST'
+      ) {
+        nextForm.acknowledgedPerRequest = false;
+      }
+
+      setForm(nextForm);
+
+      if (
+        field === 'donationLimit'
+        || field === 'rationLimitPerPerson'
+      ) {
+        const nextErrors = validateForm(nextForm);
+        setErrors((current) => ({
           ...current,
-          [field]: value,
-        };
-
-        if (
-          field === 'unit'
-          && value !== 'PER_REQUEST'
-        ) {
-          nextForm.acknowledgedPerRequest = false;
-        }
-
-        return nextForm;
-      });
-
-      clearFieldError(field);
+          [field]: nextErrors[field],
+        }));
+      } else {
+        clearFieldError(field);
+      }
       clearSubmissionResult();
     };
   }

@@ -18,15 +18,32 @@ interface PaymentMethodSelectorProps {
   value: PaymentMethod | null;
   isFree: boolean;
   onChange: (method: PaymentMethod) => void;
+  theme?: 'recipient' | 'donor';
   className?: string;
 }
+
+const THEME_STYLES = {
+  recipient: {
+    hover: 'hover:border-[#3D6852]/40',
+    selected: 'border-[#3D6852] ring-1 ring-[#3D6852]/20',
+    input: 'accent-[#3D6852] focus-visible:ring-[#3D6852]/20',
+  },
+  donor: {
+    hover: 'hover:border-[#805300]/40',
+    selected: 'border-[#805300] ring-1 ring-[#805300]/20',
+    input: 'accent-[#805300] focus-visible:ring-[#805300]/20',
+  },
+} as const;
 
 export function PaymentMethodSelector({
   value,
   isFree,
   onChange,
+  theme = 'recipient',
   className,
 }: PaymentMethodSelectorProps) {
+  const themeStyles = THEME_STYLES[theme];
+
   return (
     <div className={cn('flex flex-col gap-3', className)} role="radiogroup" aria-label="Payment method">
       {OPTIONS.map((option) => {
@@ -44,8 +61,8 @@ export function PaymentMethodSelector({
               'flex items-start gap-3 rounded-lg border bg-white p-3 transition-all duration-200 ease-out',
               isDisabled
                 ? 'cursor-not-allowed border-slate-200 opacity-60'
-                : 'cursor-pointer border-slate-200 hover:border-[#3D6852]/40',
-              isSelected && !isDisabled && 'border-[#3D6852] ring-1 ring-[#3D6852]/20',
+                : cn('cursor-pointer border-slate-200', themeStyles.hover),
+              isSelected && !isDisabled && themeStyles.selected,
             )}
           >
             <input
@@ -55,7 +72,10 @@ export function PaymentMethodSelector({
               checked={isSelected}
               disabled={isDisabled}
               onChange={() => onChange(option.value)}
-              className="mt-0.5 size-4 shrink-0 accent-[#3D6852] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#3D6852]/20 disabled:cursor-not-allowed"
+              className={cn(
+                'mt-0.5 size-4 shrink-0 focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed',
+                themeStyles.input,
+              )}
             />
 
             <span className="flex min-w-0 flex-col gap-0.5">

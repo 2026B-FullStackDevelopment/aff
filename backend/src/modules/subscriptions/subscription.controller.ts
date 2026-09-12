@@ -12,8 +12,4 @@ async function createSubscriptionCheckoutSession(_req: Request, res: Response) {
   return notImplemented(res);
 }
 
-async function updateNotificationPreferences(_req: Request, res: Response) {
-  return notImplemented(res);
-}
-
-export { getMySubscription, createSubscriptionCheckoutSession, updateNotificationPreferences };
+export { getMySubscription, createSubscriptionCheckoutSession };

@@ -1,10 +1,5 @@
 // Contains the logout business rules, revoking the presented token server-side.
-import { revokeToken } from './revoked-token.repository.js';
-import {
-  deleteActiveSessionsByUserId,
-  findActiveSessionsByUserId,
-} from './active-session.repository.js';
-import type { RevokeReason } from './revoked-token.model.js';
+import { securityInterface } from '../security/security.interface.js';
 
 /** Everything needed to revoke the token that was presented on this request. */
 interface LogoutInput {
@@ -27,7 +22,7 @@ async function logout(input: LogoutInput): Promise<void> {
   // Revocation is a server-side write, not a client-side delete (issue #50).
   // Any failure propagates so the client is never told the token is dead when
   // it is not. The repository already treats a duplicate jti as success.
-  await revokeToken({
+  await securityInterface.revokeToken({
     jti: input.jti,
     userId: input.userId,
     expiresAt: input.expiresAt,
@@ -35,42 +30,5 @@ async function logout(input: LogoutInput): Promise<void> {
   });
 }
 
-/**
- * Revokes the presented token because its owner just changed their password
- * (`PATCH /users/me/password`) — same mechanism as `logout`, different reason,
- * so a stolen-but-live session dies the moment the credential it relies on changes.
- *
- * @param input - The token to revoke, from the password-change request's `req.auth`.
- */
-async function revokeForPasswordChange(input: LogoutInput): Promise<void> {
-  await revokeToken({
-    jti: input.jti,
-    userId: input.userId,
-    expiresAt: input.expiresAt,
-    reason: 'PASSWORD_CHANGE',
-  });
-}
-
-/** Revokes every currently tracked token owned by one user. */
-async function revokeAllUserSessions(
-  userId: string,
-  reason: RevokeReason = 'ADMIN_DEACTIVATE',
-): Promise<void> {
-  const sessions = await findActiveSessionsByUserId(userId);
-
-  await Promise.all(
-    sessions.map((session) =>
-      revokeToken({
-        jti: session.jti,
-        userId,
-        expiresAt: session.expiresAt,
-        reason,
-      }),
-    ),
-  );
-
-  await deleteActiveSessionsByUserId(userId);
-}
-
-export { logout, revokeForPasswordChange, revokeAllUserSessions };
+export { logout };
 export type { LogoutInput };

@@ -7,12 +7,14 @@ import type {
   InterServerEvents,
   SocketData,
 } from './socket.types.js';
-// Import Auth module public interface. Socket.IO user verifyAccessToken()
-// checking whether token has expired or been revoked
-import {authInterface} from '../modules/auth/auth.interface.js';
+// Import the security module's public interface. verifyAccessToken() checks the
+// token's signature, expiry, and revocation status.
+import { securityInterface } from '../modules/security/security.interface.js';
 // Import Order module public interface
 import {orderInterface} from '../modules/orders/order.interface.js';
 import {env} from '../config/env.js'
+import { deliveryInterface } from '../modules/delivery/delivery.interface.js';
+import { locationSchema } from '../shared/validation/common-fields.schemas.js';
 
 type RealtimeSocketServer = Server<
   ClientToServerEvents,
@@ -72,7 +74,7 @@ function initializeSocketServer (
             if (typeof token !== 'string' || !token) {
                 return next(new Error('Authentication is required.'));
             }
-            const decoded = await authInterface.verifyAccessToken(token);
+            const decoded = await securityInterface.verifyAccessToken(token);
 
             // userId and role of the authenticated user
             socket.data.user = {
@@ -112,6 +114,44 @@ function initializeSocketServer (
 
         socket.on('order:leave', async (orderId: string) => {
             await socket.leave(`order:${orderId}`);
+        });
+
+        // A Courier's GPS ping while carrying an order. The payload is
+        // coordinates only: the server resolves which Delivery this belongs to
+        // from the authenticated socket, so a Courier can only ever write to
+        // their own picked-up Delivery.
+        //
+        // Rejections are silent, matching order:join. The client only pings
+        // while it believes the stage is PICKED_UP and stops on delivery:delivered.
+        socket.on('delivery:ping', async (position) => {
+            try {
+                if (socket.data.user.role !== 'COURIER') {
+                    return;
+                }
+
+                const parsed = locationSchema.safeParse(position);
+                if (!parsed.success) {
+                    return;
+                }
+
+                const delivery = await deliveryInterface.recordCourierLocation(
+                    socket.data.user.id,
+                    parsed.data,
+                );
+
+                if (!delivery) {
+                    return;
+                }
+
+                emitToOrder(String(delivery.orderId), 'delivery:location', {
+                    orderId: String(delivery.orderId),
+                    latitude: parsed.data.latitude,
+                    longitude: parsed.data.longitude,
+                    updatedAt: delivery.courierLastLocation?.updatedAt,
+                });
+            } catch {
+                return;
+            }
         });
     });
 

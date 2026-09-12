@@ -2,6 +2,7 @@
 import { httpClient } from '@/services/httpClient';
 import type {
   CheckoutSessionResponseDto,
+  DeliveryDTO,
   OrderDTO,
   ReserveListingPayload,
   CancelOrderResponseDto,
@@ -28,6 +29,8 @@ export const reservationService = {
     httpClient.delete<CancelOrderResponseDto>(API_ROUTES.orders.cancel(orderId)),
   getMyOrders: (page: number, limit: number) =>
     httpClient.get<PaginatedData<RecipientOrderDTO>>(buildMyOrdersPath(page, limit)),
+  getDeliveryById: (deliveryId: string) =>
+    httpClient.get<DeliveryDTO>(API_ROUTES.deliveries.detail(deliveryId)),
   submitFeedback: (orderId: string, comment: string) =>
     httpClient.post<SubmitFeedbackResponseDto>(API_ROUTES.orders.feedback(orderId), { comment }),
 };

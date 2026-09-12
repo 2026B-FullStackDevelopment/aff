@@ -21,8 +21,8 @@ interface OrderAttrs {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  deliveryAddressText?: string;
+  deliveryLocation?: GeoLocation;
   cancelledByUserId?: mongoose.Types.ObjectId;
   cashConfirmedByCourierId?: mongoose.Types.ObjectId;
   cashConfirmedAt?: Date;
@@ -33,6 +33,15 @@ interface OrderAttrs {
 }
 
 interface OrderDocument extends OrderAttrs, mongoose.Document {}
+
+const deliveryLocationSchema = new Schema<GeoLocation>(
+  {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true },
+    updatedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
 
 const orderSchema = new Schema<OrderDocument>(
   {
@@ -52,11 +61,17 @@ const orderSchema = new Schema<OrderDocument>(
       enum: ['PENDING_PAYMENT', 'PREPARING', 'DELIVERED', 'CANCELLED'],
       default: 'PENDING_PAYMENT',
     },
-    deliveryAddressText: { type: String, required: true },
+    deliveryAddressText: {
+      type: String,
+      required(this: OrderDocument) {
+        return this.intakePath === 'RESERVATION';
+      },
+    },
     deliveryLocation: {
-      latitude: { type: Number, required: true },
-      longitude: { type: Number, required: true },
-      updatedAt: { type: Date, required: true },
+      type: deliveryLocationSchema,
+      required(this: OrderDocument) {
+        return this.intakePath === 'RESERVATION';
+      },
     },
     cancelledByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     cashConfirmedByCourierId: { type: Schema.Types.ObjectId, ref: 'User' },

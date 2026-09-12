@@ -166,19 +166,20 @@ describe('order.service', () => {
     const ownerId = '507f191e810c19729de860ea';
     const differentRecipientId = '507f191e810c19729de860eb';
 
-    it('returns the order and its Delivery stage when the recipient owns it', async () => {
+    it('returns the order and its Delivery id/stage when the recipient owns it', async () => {
       const order = { _id: orderId, recipientId: ownerId };
       findOrderByIdAndRecipientMock.mockResolvedValue(order);
-      findByOrderIdMock.mockResolvedValue({ orderId, stage: 'ASSIGNED' });
+      findByOrderIdMock.mockResolvedValue({ _id: 'delivery-1', orderId, stage: 'ASSIGNED' });
 
       const result = await getOrderForRecipient(orderId, ownerId);
 
-      expect(result).toEqual({ order, deliveryStage: 'ASSIGNED' });
+      expect(result).toEqual({ order, deliveryStage: 'ASSIGNED', deliveryId: 'delivery-1' });
       expect(findOrderByIdAndRecipientMock).toHaveBeenCalledWith(
         orderId,
         ownerId,
       );
       expect(findByOrderIdMock).toHaveBeenCalledWith(orderId);
+      expect(findByOrderIdMock).toHaveBeenCalledTimes(1);
     });
 
     it('returns a null deliveryStage when no Delivery exists yet', async () => {
@@ -188,7 +189,7 @@ describe('order.service', () => {
 
       const result = await getOrderForRecipient(orderId, ownerId);
 
-      expect(result).toEqual({ order, deliveryStage: null });
+      expect(result).toEqual({ order, deliveryStage: null, deliveryId: null });
     });
 
     it('throws a 404 when the order belongs to another recipient', async () => {

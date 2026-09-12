@@ -18,8 +18,8 @@ interface CreateOrderInput {
   paymentMethod?: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  deliveryAddressText?: string;
+  deliveryLocation?: GeoLocation;
 }
 
 interface ListingOrderRepositoryItem {
@@ -47,6 +47,17 @@ interface AggregatedListingOrder extends OrderDocument {
 interface ListingOrdersAggregationResult {
   items: AggregatedListingOrder[];
   metadata: Array<{ total: number }>;
+}
+
+interface OrderJoinSummary {
+  _id: Types.ObjectId;
+  recipientId: Types.ObjectId;
+  quantity: number;
+  deliveryAddressText: string;
+  deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
+  paymentMethod?: 'STRIPE' | 'CASH';
+  listingId: Types.ObjectId;
+  amount: number;
 }
 
 interface RecipientOrderListingSummary {
@@ -217,7 +228,7 @@ async function findNonCancelledOrderIdsByListing(
 ): Promise<string[]> {
   const query = Order.find({
     listingId,
-    orderStatus: { $ne: 'CANCELLED' },
+    orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
   }).select({ _id: 1 });
 
   const orders = await (session ? query.session(session) : query)
@@ -245,6 +256,30 @@ async function hasNonCancelledOrderForListing(
   return Boolean(result);
 }
 
+/**
+ * Loads a set of Orders by id, projecting only what a caller joining against
+ * Orders needs: the Admin Delivery table (E11) uses `recipientId`, and the
+ * Courier queue (E2) uses `quantity`, `deliveryAddressText`, `listingId` and
+ * `amount`.
+ */
+async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> {
+  if (orderIds.length === 0) return [];
+
+  return Order.find(
+    { _id: { $in: orderIds } },
+    {
+      _id: 1,
+      recipientId: 1,
+      quantity: 1,
+      deliveryAddressText: 1,
+      deliveryLocation: 1,
+      paymentMethod: 1,
+      listingId: 1,
+      amount: 1,
+    },
+  ).lean<OrderJoinSummary[]>();
+}
+
 async function cancelOrdersByIds(
   orderIds: string[],
   cancelledByUserId: string | Types.ObjectId,
@@ -256,7 +291,7 @@ async function cancelOrdersByIds(
   const result = await Order.updateMany(
     {
       _id: { $in: orderIds },
-      orderStatus: { $ne: 'CANCELLED' },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
     },
     {
       $set: {
@@ -285,7 +320,7 @@ function cancelOrderById(
   return Order.findOneAndUpdate(
     {
       _id: orderId,
-      orderStatus: { $ne: 'CANCELLED' },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
     },
     {
       $set: {
@@ -529,6 +564,7 @@ async function findOrdersForRecipient(
 }
 
 export {
+  findOrdersByIds,
   findOrderById,
   findOrderByIdAndRecipient,
   createOrder,
@@ -548,6 +584,7 @@ export {
 
 export type {
   CreateOrderInput,
+  OrderJoinSummary,
   ListingOrderRepositoryItem,
   ListingOrdersRepositoryResult,
   RecipientOrderRepositoryItem,

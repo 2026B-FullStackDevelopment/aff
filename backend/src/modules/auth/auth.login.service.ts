@@ -1,9 +1,8 @@
 // Contains the login business rules, including brute-force lockout.
 import { userInterface } from '../users/user.interface.js';
-import { verifyPassword, dummyCompare } from '../../shared/security/password.js';
-import { issueSession } from './auth.token.service.js';
+import { securityInterface } from '../security/security.interface.js';
 import { env } from '../../config/env.js';
-import type { AuthSession } from './auth.token.service.js';
+import type { AuthSession } from '../security/token.service.js';
 import type { LoginRequestDto } from './auth.dto.js';
 import type { UserDocument } from '../users/user.model.js';
 import { createActiveSession } from './active-session.repository.js';
@@ -89,7 +88,7 @@ async function login(payload: LoginRequestDto): Promise<AuthSession> {
 
   if (!user) {
     // Spend comparable time so response timing does not disclose the account.
-    await dummyCompare();
+    await securityInterface.dummyCompare();
     throw invalidCredentials();
   }
 
@@ -99,7 +98,7 @@ async function login(payload: LoginRequestDto): Promise<AuthSession> {
     throw lockedOut(user.lockedUntil, now);
   }
 
-  if (!(await verifyPassword(payload.password, user.passwordHash))) {
+  if (!(await securityInterface.verifyPassword(payload.password, user.passwordHash))) {
     throw await recordFailedAttempt(user, now);
   }
 
@@ -116,17 +115,7 @@ async function login(payload: LoginRequestDto): Promise<AuthSession> {
     lockedUntil: null,
   });
 
-  const session = issueSession(user);
-
-  if (session.expiresAt) {
-    await createActiveSession({
-      jti: session.jti,
-      userId: user._id,
-      expiresAt: session.expiresAt,
-    });
-  }
-
-  return session;
+  return securityInterface.issueSession(user);
 }
 
 export { login };

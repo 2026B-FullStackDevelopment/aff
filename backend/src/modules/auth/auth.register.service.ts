@@ -1,7 +1,7 @@
 // Contains the registration business rules for recipients and donors.
 import { userInterface } from '../users/user.interface.js';
-import { issueSession } from './auth.token.service.js';
-import type { AuthSession } from './auth.token.service.js';
+import { securityInterface } from '../security/security.interface.js';
+import type { AuthSession } from '../security/token.service.js';
 import type { RegisterRecipientRequestDto, RegisterDonorRequestDto } from './auth.dto.js';
 import type { RecipientDocument } from '../users/recipient.model.js';
 import type { DonorDocument } from '../users/donor.model.js';
@@ -76,9 +76,7 @@ async function registerRecipient(
     userInterface.createRecipientProfile(userId)
   );
 
-  const session = issueSession(user);
-  await trackSession(session);
-  return { session, recipient };
+  return { session: securityInterface.issueSession(user), recipient };
 }
 
 /**
@@ -109,9 +107,7 @@ async function registerDonor(payload: RegisterDonorRequestDto): Promise<DonorReg
     })
   );
 
-  const session = issueSession(user);
-  await trackSession(session);
-  return { session, donor };
+  return { session: securityInterface.issueSession(user), donor };
 }
 
 export { registerRecipient, registerDonor };

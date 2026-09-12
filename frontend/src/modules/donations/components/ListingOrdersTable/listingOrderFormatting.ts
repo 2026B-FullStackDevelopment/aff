@@ -89,6 +89,17 @@ export function getDeliveryStatusDisplay(
     };
   }
 
+  if (
+    order.intakePath === 'DONOR_INITIATED'
+    && order.orderStatus === 'DELIVERED'
+    && order.delivery === null
+  ) {
+    return {
+      status: 'delivered',
+      label: 'Completed in person',
+    };
+  }
+
   if (order.delivery === undefined) {
     return {
       status: 'inactive',

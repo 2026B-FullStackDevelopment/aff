@@ -78,7 +78,6 @@ export function ProfilePage() {
           <DonorTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
           />
         ) : (
           <RecipientTopNavigation
@@ -112,7 +111,6 @@ export function ProfilePage() {
           <DonorTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
           />
         ) : (
           <RecipientTopNavigation
@@ -135,7 +133,6 @@ export function ProfilePage() {
         <DonorTopNavigation
           avatarUrl={avatarUpload.previewUrl ?? getAvatarDisplayUrl(profile.avatarUrl)}
           avatarAlt={profile.username}
-          onNotificationsClick={() => {}}
         />
       ) : (
         <RecipientTopNavigation
@@ -190,7 +187,7 @@ export function ProfilePage() {
             <Button
               variant="outline"
               className="bg-[#3D6852]/10 text-[#3D6852] hover:bg-[#3D6852]/20 border-transparent font-semibold h-10"
-              onClick={() => navigate('/subscription')}
+              onClick={() => navigate('/profile/notification-preferences')}
             >
               <Bell className="size-4 mr-2" />
               Create Notification Preference

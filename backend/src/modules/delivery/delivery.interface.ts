@@ -9,6 +9,8 @@ const deliveryInterface = {
   findByOrderId: deliveryService.findByOrderId,
   cancelAwaitingDeliveryForOrder:
     deliveryService.cancelAwaitingDeliveryForOrder,
+  listForAdmin: deliveryService.listForAdmin,
+  recordCourierLocation: deliveryService.recordCourierLocation,
 };
 
 export { deliveryInterface };

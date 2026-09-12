@@ -71,7 +71,54 @@ describe('toOrderResponseDto', () => {
 
     const result = toOrderResponseDto(order, 'AWAITING_COURIER');
 
-    expect(result?.delivery).toEqual({ stage: 'AWAITING_COURIER' });
+    expect(result?.delivery).toEqual({ stage: 'AWAITING_COURIER', id: null });
+  });
+
+  it('embeds the Delivery id alongside its stage when both are given', () => {
+    const order = {
+      _id: 'o1',
+      recipientId: 'r1',
+      listingId: 'l1',
+      intakePath: 'RESERVATION',
+      quantity: 2,
+      amount: 0,
+      paymentStatus: 'FREE',
+      orderStatus: 'PREPARING',
+      deliveryAddressText: '123 Main St',
+      deliveryLocation: { latitude: 21.0, longitude: 105.8, updatedAt: new Date() },
+      createdAt: new Date(),
+    };
+
+    const result = toOrderResponseDto(order, 'ASSIGNED', 'd1');
+
+    expect(result?.delivery).toEqual({ stage: 'ASSIGNED', id: 'd1' });
+  });
+
+  it('omits delivery fields for a completed in-person manual Order', () => {
+    const order = {
+      _id: 'o2',
+      recipientId: 'r1',
+      listingId: 'l1',
+      intakePath: 'DONOR_INITIATED',
+      quantity: 1,
+      amount: 15000,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      orderStatus: 'DELIVERED',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+
+    const result = toOrderResponseDto(order);
+
+    expect(result).toMatchObject({
+      intakePath: 'DONOR_INITIATED',
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      orderStatus: 'DELIVERED',
+      delivery: null,
+    });
+    expect(result).not.toHaveProperty('deliveryAddressText');
+    expect(result).not.toHaveProperty('deliveryLocation');
   });
 });
 
@@ -118,7 +165,7 @@ describe('toRecipientOrderResponseDto', () => {
       cancelledByUserId: null,
       feedback: null,
       createdAt,
-      delivery: { stage: 'ASSIGNED' },
+      delivery: { stage: 'ASSIGNED', id: null },
     });
   });
 

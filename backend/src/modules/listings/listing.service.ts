@@ -4,6 +4,7 @@ import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import type { ClientSession } from 'mongoose';
 import type {
   MeasurementUnit,
@@ -12,6 +13,7 @@ import type {
   ListingStatus,
 } from './listing.model.js';
 import type {
+  GeoLocation,
   ListingDonorData,
   ListingDtoSource,
   ListingWithStatsDtoSource,
@@ -67,6 +69,20 @@ interface AvailableListingsServiceResult {
   total: number;
 }
 
+/**
+ * One Listing's summary, for callers joining against Listings — the listing
+ * name, plus the Donor's company name and the pickup address/location
+ * denormalised from the Donor profile (the Courier queue shows all of these,
+ * E2/E5).
+ */
+interface ListingDonorSummaryByListing {
+  listingId: string;
+  listingName: string;
+  companyName: string;
+  addressText: string;
+  location: GeoLocation;
+}
+
 type RequestedListingStatus = UpdateListingStatusRequestDto['status'];
 
 function createHttpError(statusCode: number, message: string): Error {
@@ -92,7 +108,9 @@ async function getListingDonorData(
   donorId: string,
 ): Promise<ListingDonorData> {
   const [user, donorProfile] = await Promise.all([
-    userInterface.getUserById(donorId),
+    
+    // the database separates the records of a donor: donor record & user record
+    userInterface.getUserById(donorId), 
     userInterface.getDonorByUserId(donorId),
   ]);
 
@@ -252,6 +270,49 @@ async function restoreStock(
   return listingRepository.restoreStockAtomically(listingId, quantity, session);
 }
 
+/**
+ * Resolves the Donor company name for a set of Listings in two queries rather
+ * than one per Listing. The Listing -> Donor join stays inside this module,
+ * which owns that relationship: callers pass Listing ids and receive company
+ * names, never learning that Donor profiles are a separate collection.
+ *
+ * A Listing whose Donor profile cannot be loaded is omitted from the result
+ * rather than returned with a blank name — the caller decides how to render a
+ * Listing it asked about but did not get back.
+ */
+async function findDonorSummariesByListingIds(
+  listingIds: string[],
+): Promise<ListingDonorSummaryByListing[]> {
+  if (listingIds.length === 0) return [];
+
+  const listings = await listingRepository.findListingsByIds(listingIds);
+
+  if (listings.length === 0) return [];
+
+  const donorIds = [...new Set(listings.map((listing) => String(listing.donorId)))];
+  const donors = await userInterface.findDonorsByUserIds(donorIds);
+
+  const donorById = new Map(
+    donors.map((donor) => [String(donor.userId), donor]),
+  );
+
+  return listings.flatMap((listing) => {
+    const donor = donorById.get(String(listing.donorId));
+
+    return donor === undefined
+      ? []
+      : [
+          {
+            listingId: String(listing._id),
+            listingName: listing.name,
+            companyName: donor.companyName,
+            addressText: donor.addressText,
+            location: donor.location,
+          },
+        ];
+  });
+}
+
 async function cloneListing(
   listingId: string,
   donorId: string,
@@ -400,8 +461,9 @@ async function listListingOrders(
 }
 
 /**
- * Creates a Donor-initiated Order for a registered Recipient.
- * Stock, Order creation, and free-order Delivery creation commit together.
+ * Records a completed in-person Order for a registered Recipient.
+ * Stock and Order creation commit together; manual donations never create a
+ * Delivery or persist the cash tender used by the frontend change calculator.
  */
 async function createDonorInitiatedDonation(
   listingId: string,
@@ -443,6 +505,19 @@ async function createDonorInitiatedDonation(
       }
 
       if (
+        await orderInterface.hasNonCancelledOrderForListing(
+          String(listing._id),
+          String(recipient._id),
+          session,
+        )
+      ) {
+        throw createHttpError(
+          422,
+          'This Recipient already has an order for this listing.',
+        );
+      }
+
+      if (
         listing.rationLimitPerPerson != null &&
         payload.quantity > listing.rationLimitPerPerson
       ) {
@@ -452,6 +527,9 @@ async function createDonorInitiatedDonation(
       if (payload.quantity > listing.quantityRemaining) {
         throw createHttpError(422, 'Quantity exceeds the remaining stock.');
       }
+
+      const isFree = listing.price === 0;
+      const orderAmount = listing.price * payload.quantity;
 
       const updatedListing =
         await listingRepository.decrementStockAtomically(
@@ -468,52 +546,35 @@ async function createDonorInitiatedDonation(
         );
       }
 
-      const isFree = listing.price === 0;
       const order = await orderInterface.createOrder(
         {
           recipientId: recipient._id,
           listingId: listing._id,
           intakePath: 'DONOR_INITIATED',
           quantity: payload.quantity,
-          amount: listing.price * payload.quantity,
-          paymentStatus: isFree ? 'FREE' : 'PAYMENT_PENDING',
-          orderStatus: isFree ? 'PREPARING' : 'PENDING_PAYMENT',
-          deliveryAddressText: payload.deliveryAddressText,
-          deliveryLocation: {
-            ...payload.deliveryLocation,
-            updatedAt: new Date(),
-          },
+          amount: orderAmount,
+          paymentMethod: isFree ? undefined : 'CASH',
+          paymentStatus: isFree ? 'FREE' : 'PAID',
+          orderStatus: 'DELIVERED',
         },
         session,
       );
 
-      if (isFree) {
-        await deliveryInterface.createForOrder(String(order._id), session);
-      }
-
       return {
         order,
         listingName: listing.name,
-        recipientId: String(recipient._id),
         becameSoldOut: updatedListing.status === 'SOLD_OUT',
-        isFree,
       };
     },
   );
 
   // Emit only after the database transaction has committed successfully.
   if (result.becameSoldOut) {
-    emitToUser(donorId, 'listing:sold_out', {
+    void notificationInterface.sendNotification({
+      userId: donorId,
+      type: 'SOLD_OUT',
       listingId,
-      name: result.listingName,
-    });
-  }
-
-  if (!result.isFree) {
-    emitToUser(result.recipientId, 'notification:payment_requested', {
-      orderId: String(result.order._id),
-      listingName: result.listingName,
-      amount: result.order.amount,
+      payload: { listingId, name: result.listingName },
     });
   }
 
@@ -628,9 +689,11 @@ async function reserveListing(
 
   // Emit only after the database transaction has committed successfully.
   if (result.becameSoldOut) {
-    emitToUser(result.donorId, 'listing:sold_out', {
+    void notificationInterface.sendNotification({
+      userId: result.donorId,
+      type: 'SOLD_OUT',
       listingId,
-      name: result.listingName,
+      payload: { listingId, name: result.listingName },
     });
   }
 
@@ -651,9 +714,11 @@ export {
   createListing,
   getListingById,
   restoreStock,
+  findDonorSummariesByListingIds,
   cloneListing,
   updateListingStatus,
   listListingOrders,
   createDonorInitiatedDonation,
   reserveListing,
 };
+export type { ListingDonorSummaryByListing };

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, findOneMock, findOneAndUpdateMock, leanMock } = vi.hoisted(() => {
+const { createMock, findMock, findOneMock, findOneAndUpdateMock, leanMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
   return {
     createMock: vi.fn(),
+    findMock: vi.fn(() => ({ lean: leanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     leanMock,
@@ -11,10 +12,20 @@ const { createMock, findOneMock, findOneAndUpdateMock, leanMock } = vi.hoisted((
 });
 
 vi.mock('../../../src/modules/users/donor.model.js', () => ({
-  default: { create: createMock, findOne: findOneMock, findOneAndUpdate: findOneAndUpdateMock },
+  default: {
+    create: createMock,
+    find: findMock,
+    findOne: findOneMock,
+    findOneAndUpdate: findOneAndUpdateMock,
+  },
 }));
 
-import { createDonor, findDonorByUserId, updateDonor } from '../../../src/modules/users/donor.repository.js';
+import {
+  createDonor,
+  findDonorByUserId,
+  updateDonor,
+  findDonorsByUserIds,
+} from '../../../src/modules/users/donor.repository.js';
 
 const input = {
   userId: 'u1',
@@ -28,6 +39,7 @@ describe('donor.repository', () => {
   beforeEach(() => {
     createMock.mockClear();
     findOneMock.mockClear();
+    findMock.mockClear();
     findOneAndUpdateMock.mockClear();
     leanMock.mockClear();
     leanMock.mockResolvedValue({ userId: 'u1' });
@@ -91,6 +103,33 @@ describe('donor.repository', () => {
       const [, update] = findOneAndUpdateMock.mock.calls[0];
 
       expect(update).not.toHaveProperty('location');
+    });
+  });
+
+  describe('findDonorsByUserIds', () => {
+    it('loads the requested Donor profiles in one query, projecting the fields a queue join needs', async () => {
+      const donor = {
+        userId: 'd1',
+        companyName: 'Fresh Foods',
+        addressText: '12 Trần Hưng Đạo, Hà Nội',
+        location: { latitude: 21.0278, longitude: 105.8342, updatedAt: new Date() },
+      };
+      leanMock.mockResolvedValue([donor]);
+
+      const result = await findDonorsByUserIds(['d1', 'd2']);
+
+      expect(findMock).toHaveBeenCalledWith(
+        { userId: { $in: ['d1', 'd2'] } },
+        { userId: 1, companyName: 1, addressText: 1, location: 1 },
+      );
+      expect(result).toEqual([donor]);
+    });
+
+    it('skips the database entirely when asked for nothing', async () => {
+      const result = await findDonorsByUserIds([]);
+
+      expect(findMock).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
     });
   });
 });

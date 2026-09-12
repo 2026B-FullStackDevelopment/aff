@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Calendar, Store } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
-import { DonorLocationMap } from '@/shared/components/DonorLocationMap/DonorLocationMap';
+import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
@@ -80,7 +80,7 @@ function ListingDetailContent({ listing }: { listing: ListingDetailDTO }) {
 
         <Panel title="Donor's Location">
           <div className="flex flex-col gap-4 sm:flex-row">
-            <DonorLocationMap
+            <LocationMap
               latitude={listing.donor.location.latitude}
               longitude={listing.donor.location.longitude}
               addressText={listing.donor.addressText}

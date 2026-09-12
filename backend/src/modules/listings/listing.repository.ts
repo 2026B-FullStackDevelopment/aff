@@ -378,6 +378,20 @@ function findListingById(
   return (session ? query.session(session) : query).lean<ListingDocument>();
 }
 
+/**
+ * Loads a set of Listings by id, projecting the Donor reference and the
+ * listing name. Used to resolve Donor/listing summaries for a page of
+ * Deliveries (E2) without a per-row lookup.
+ */
+function findListingsByIds(listingIds: string[]) {
+  if (listingIds.length === 0) return Promise.resolve([]);
+
+  return Listing.find(
+    { _id: { $in: listingIds } },
+    { _id: 1, donorId: 1, name: 1 },
+  ).lean<Array<{ _id: Types.ObjectId; donorId: Types.ObjectId; name: string }>>();
+}
+
 function updateListing(id: string | Types.ObjectId, data: Partial<CreateListingInput>) {
   return Listing.findByIdAndUpdate(id, data, { new: true }).lean<ListingDocument>();
 }
@@ -576,6 +590,7 @@ export {
   findMyListingsWithStats,
   createListing,
   findListingById,
+  findListingsByIds,
   updateListing,
   updateListingStatusIfCurrent,
   decrementStockAtomically,

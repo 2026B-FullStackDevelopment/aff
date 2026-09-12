@@ -50,5 +50,28 @@ function updateDonor(userId: string | Types.ObjectId, data: UpdateDonorInput) {
   return Donor.findOneAndUpdate({ userId }, update, { new: true }).lean<DonorDocument>();
 }
 
-export { createDonor, findDonorByUserId, updateDonor };
+/**
+ * Loads a set of Donor profiles by user id, projecting only what a caller
+ * joining against Donors needs. Used by the Courier queue (E2) so hydrating a
+ * page of Deliveries costs one query rather than one per row. The projection
+ * carries the pickup address and location so a queue row can show where the
+ * food is collected without a second lookup (E2/E5).
+ */
+function findDonorsByUserIds(userIds: Array<string | Types.ObjectId>) {
+  if (userIds.length === 0) return Promise.resolve([]);
+
+  return Donor.find(
+    { userId: { $in: userIds } },
+    { userId: 1, companyName: 1, addressText: 1, location: 1 },
+  ).lean<
+    Array<{
+      userId: Types.ObjectId;
+      companyName: string;
+      addressText: string;
+      location: { latitude: number; longitude: number; updatedAt: Date };
+    }>
+  >();
+}
+
+export { createDonor, findDonorByUserId, updateDonor, findDonorsByUserIds };
 export type { CreateDonorInput, UpdateDonorInput };
