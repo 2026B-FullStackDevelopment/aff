@@ -328,7 +328,6 @@ export interface SubscriptionDTO {
   createdAt: string;
 }
 
-<<<<<<< HEAD
 export interface SubscriptionStatusResponse {
   tier: 'STANDARD' | 'PREMIUM';
   subscription: SubscriptionDTO | null;
@@ -337,7 +336,7 @@ export interface SubscriptionStatusResponse {
 export interface UpdateSubscriptionResponse {
   subscription: SubscriptionDTO;
 }
-=======
+
 export interface NotificationDTO {
   id: string;
   type: 'SOLD_OUT' | 'PREMIUM_MATCH' | 'ADMIN_CANCEL' | 'PAYMENT_SUCCESS' | 'PAYMENT_REFUNDED' | 'DELIVERY_STATUS';
@@ -347,7 +346,6 @@ export interface NotificationDTO {
   createdAt: string;
 }
 
->>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 // --- Shared envelopes (api_design.md §2.2-2.4) ---
 
 export interface ApiErrorBody {

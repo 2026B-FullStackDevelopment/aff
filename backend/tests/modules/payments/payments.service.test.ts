@@ -23,14 +23,11 @@ const {
   markOrderRefundedMock,
   createForOrderMock,
   emitToUserMock,
-<<<<<<< HEAD
   appendBillingCycleMock,
   markLatestPastDueMock,
   markLatestCancelledMock,
   sendSubscriptionConfirmationMock,
-=======
   sendNotificationMock,
->>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 } = vi.hoisted(() => ({
   createStripeCustomerMock: vi.fn(),
   createCheckoutSessionMock: vi.fn(),
@@ -53,14 +50,11 @@ const {
   markOrderRefundedMock: vi.fn(),
   createForOrderMock: vi.fn(),
   emitToUserMock: vi.fn(),
-<<<<<<< HEAD
   appendBillingCycleMock: vi.fn(),
   markLatestPastDueMock: vi.fn(),
   markLatestCancelledMock: vi.fn(),
   sendSubscriptionConfirmationMock: vi.fn(),
-=======
   sendNotificationMock: vi.fn(),
->>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 }));
 
 vi.mock('../../../src/integrations/payment/payment.provider.js', () => ({
@@ -217,15 +211,12 @@ describe('payments.service', () => {
     markOrderRefundedMock.mockReset();
     createForOrderMock.mockReset();
     emitToUserMock.mockReset();
-<<<<<<< HEAD
     updateSubscriptionCancelAtPeriodEndMock.mockReset();
     appendBillingCycleMock.mockReset();
     markLatestPastDueMock.mockReset();
     markLatestCancelledMock.mockReset();
     sendSubscriptionConfirmationMock.mockReset();
-=======
     sendNotificationMock.mockReset();
->>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
 
     withTransactionMock.mockImplementation(
       async (operation) => operation(databaseSession),

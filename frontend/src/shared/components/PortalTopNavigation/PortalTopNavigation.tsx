@@ -182,12 +182,8 @@ export function PortalTopNavigation({
 
         {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
-<<<<<<< HEAD
-          {variant === 'recipient' && renderBell()}
-          {extraRightActions}
-=======
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
->>>>>>> 39bd5620dcfefd2764b6e72bb2536dd9b8e73809
+          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
