@@ -1,3 +1,5 @@
+// Frontend validation for inputting quantity
+
 import { useEffect, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/shared/utils';

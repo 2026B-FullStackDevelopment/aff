@@ -55,6 +55,7 @@ export function ManualDonationForm() {
     isLoading,
     isSubmitting,
     isRecipientSearching,
+    isCheckingRecipientEligibility,
     isPriced,
     orderTotal,
     cashChange,
@@ -168,7 +169,10 @@ export function ManualDonationForm() {
     <div className="space-y-4">
       <form
         onSubmit={handleSubmit}
-        aria-busy={isSubmitting}
+        aria-busy={
+          isSubmitting
+          || isCheckingRecipientEligibility
+        }
         noValidate
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -469,6 +473,21 @@ export function ManualDonationForm() {
                       className="h-12 border-[#C1C8C2] bg-[#FBF9F8]"
                     />
                   </div>
+
+                  {selectedRecipient
+                    && isCheckingRecipientEligibility && (
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"
+                      >
+                        <LoaderCircle
+                          className="size-3.5 animate-spin"
+                          aria-hidden="true"
+                        />
+                        Checking this Recipient&apos;s existing orders…
+                      </p>
+                    )}
 
                   {selectedListing && (
                     <dl className="grid grid-cols-1 gap-4 rounded-xl border border-[#E4E2E1] bg-[#FBF9F8] p-4 text-sm sm:grid-cols-3">

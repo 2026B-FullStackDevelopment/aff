@@ -37,7 +37,10 @@ type PendingOrderCountResult =
 function isOrderAwaitingCancellation(
     order: ListingOrderDTO,
 ): boolean | null {
-    if (order.orderStatus === 'CANCELLED') {
+    if (
+        order.orderStatus === 'CANCELLED'
+        || order.orderStatus === 'DELIVERED'
+    ) {
         return false;
     }
 

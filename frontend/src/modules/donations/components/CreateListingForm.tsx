@@ -203,14 +203,15 @@ export function CreateListingForm({
               label="Donation limit"
               required
               icon={Scale}
-              min="0"
-              step="any"
-              inputMode="decimal"
+              min="1"
+              step="1"
+              inputMode="numeric"
               value={form.donationLimit}
               onChange={updateField(
                 'donationLimit',
               )}
               placeholder="0"
+              helperText="Enter a positive whole-number quantity."
               error={errors.donationLimit}
               theme="donor"
               className="h-12 border-[#C1C8C2] bg-[#FBF9F8]"
