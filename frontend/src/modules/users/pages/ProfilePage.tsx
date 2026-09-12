@@ -78,7 +78,6 @@ export function ProfilePage() {
           <DonorTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
           />
         ) : (
           <RecipientTopNavigation
@@ -112,7 +111,6 @@ export function ProfilePage() {
           <DonorTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
           />
         ) : (
           <RecipientTopNavigation
@@ -135,7 +133,6 @@ export function ProfilePage() {
         <DonorTopNavigation
           avatarUrl={avatarUpload.previewUrl ?? getAvatarDisplayUrl(profile.avatarUrl)}
           avatarAlt={profile.username}
-          onNotificationsClick={() => {}}
         />
       ) : (
         <RecipientTopNavigation

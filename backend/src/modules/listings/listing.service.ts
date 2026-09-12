@@ -4,6 +4,7 @@ import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import type { ClientSession } from 'mongoose';
 import type {
   MeasurementUnit,
@@ -569,9 +570,11 @@ async function createDonorInitiatedDonation(
 
   // Emit only after the database transaction has committed successfully.
   if (result.becameSoldOut) {
-    emitToUser(donorId, 'listing:sold_out', {
+    void notificationInterface.sendNotification({
+      userId: donorId,
+      type: 'SOLD_OUT',
       listingId,
-      name: result.listingName,
+      payload: { listingId, name: result.listingName },
     });
   }
 
@@ -686,9 +689,11 @@ async function reserveListing(
 
   // Emit only after the database transaction has committed successfully.
   if (result.becameSoldOut) {
-    emitToUser(result.donorId, 'listing:sold_out', {
+    void notificationInterface.sendNotification({
+      userId: result.donorId,
+      type: 'SOLD_OUT',
       listingId,
-      name: result.listingName,
+      payload: { listingId, name: result.listingName },
     });
   }
 

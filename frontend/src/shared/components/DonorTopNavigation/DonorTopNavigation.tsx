@@ -2,7 +2,9 @@ import {
   PortalTopNavigation,
   type PortalNavItem,
 } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
-import { useSoldOutNotifications } from '@/modules/donations/hooks/useSoldOutNotifications';
+import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
+import { NotificationList } from '@/modules/notifications/components/NotificationList';
+import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';
 
 const DONOR_NAV_ITEMS:
   readonly PortalNavItem[] = [
@@ -36,17 +38,13 @@ const DONOR_NAV_ITEMS:
 interface DonorTopNavigationProps {
   avatarUrl?: string | null;
   avatarAlt?: string;
-  hasUnreadNotifications?: boolean;
-  onNotificationsClick: () => void;
 }
 
 export function DonorTopNavigation({
   avatarUrl,
   avatarAlt = 'Donor profile',
-  hasUnreadNotifications = false,
-  onNotificationsClick,
 }: DonorTopNavigationProps) {
-  useSoldOutNotifications();
+  const { isOpen, toggle, close } = useNotificationBell();
 
   return (
     <PortalTopNavigation
@@ -56,11 +54,12 @@ export function DonorTopNavigation({
       navItems={DONOR_NAV_ITEMS}
       avatarUrl={avatarUrl}
       avatarAlt={avatarAlt}
-      hasUnreadNotification={
-        hasUnreadNotifications
-      }
-      onNotificationsClick={
-        onNotificationsClick
+      onNotificationsClick={toggle}
+      isNotificationPanelOpen={isOpen}
+      notificationPanel={
+        <NotificationBellPanel open={isOpen} onClose={close}>
+          <NotificationList onNavigate={close} />
+        </NotificationBellPanel>
       }
       profileTo="/profile"
     />

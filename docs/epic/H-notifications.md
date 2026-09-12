@@ -25,7 +25,7 @@ Give every User a durable, fetchable record of the notification-worthy events al
 - **A catch-up/replay channel over Socket.IO** — an offline user still simply misses the live event, per C9/F3/G5's existing scope; `GET /notifications` is the durable record, not a delivery guarantee
 - **Building `notification:premium_match` (F3) or `notification:admin_cancel` (G5) themselves** — both remain blocked on their own prerequisites (`docs/blockers.md`); H1 just gives them a `notificationService.send(...)` call to use once they're built, for whichever lands first
 - **New trigger points beyond what already exists** — H1 wraps the existing `SOLD_OUT`/`PAYMENT_SUCCESS`/`DELIVERY_STATUS` sites; no new business events are introduced
-- **Centralizing `delivery:location` or `payment:refunded`** — these stay direct `emitToUser(...)` calls; they have no `NotificationType` and don't belong in a persisted inbox (GPS pings are too frequent; refunds have no matching type)
+- **Centralizing `delivery:location`** — this stays a direct `emitToUser(...)` call; GPS pings are too frequent to belong in a persisted inbox
 - **A dedicated `docs/openapi/notifications_openapi.json`** — add it when H2 is actually implemented, per `AGENTS.md`'s "update the OpenAPI spec when adding a backend endpoint" rule; several existing modules (`subscriptions`, `payments`) similarly don't have one yet
 
 ## Notes

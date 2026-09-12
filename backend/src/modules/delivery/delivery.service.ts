@@ -4,7 +4,8 @@ import type { DeliveryDocument, DeliveryStage } from './delivery.model.js';
 import * as deliveryRepository from './delivery.repository.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
-import { emitToUser, emitToOrder } from '../../realtime/socket.js';
+import { emitToOrder } from '../../realtime/socket.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import type {
   AdminDeliveryFilter,
   DeliveryPage,
@@ -273,8 +274,15 @@ async function withPickupAddress(
  * no cancelled state, and cancellations reach them through
  * `notification:admin_cancel` instead. See D4 in the design doc.
  */
-function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryStage) {
-  emitToUser(recipientId, 'order:status_changed', { orderId, stage });
+function emitStageChanged(orderId: string, recipientId: string, stage: DeliveryStage, persist?: boolean) {
+  void notificationInterface.sendNotification({
+    userId: recipientId,
+    type: 'DELIVERY_STATUS',
+    event: 'order:status_changed',
+    orderId,
+    ...(persist === false ? { persist: false } : {}),
+    payload: { orderId, stage },
+  });
 }
 
 /**
@@ -509,8 +517,16 @@ async function markDelivered(
   // announce a delivery that a later abort rolls back, and that announcement
   // cannot be retracted. Each notification is independently guarded (see
   // `safeEmit`) so one failing to send doesn't stop the others from trying.
-  safeEmit(() => emitStageChanged(orderId, recipientId, view.delivery.stage));
-  safeEmit(() => emitToUser(recipientId, 'delivery:delivered', { orderId, deliveredAt }));
+  safeEmit(() => emitStageChanged(orderId, recipientId, view.delivery.stage, false));
+  safeEmit(() =>
+    notificationInterface.sendNotification({
+      userId: recipientId,
+      type: 'DELIVERY_STATUS',
+      event: 'delivery:delivered',
+      orderId,
+      payload: { orderId, deliveredAt },
+    }),
+  );
   safeEmit(() => emitToOrder(orderId, 'delivery:delivered', { orderId, deliveredAt }));
 
   return view;

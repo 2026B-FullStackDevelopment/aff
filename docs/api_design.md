@@ -646,7 +646,7 @@ Response `200`: paginated `ListingDTO[]` with full detail (no status filter — 
 
 ## 12. Real-Time Events (Socket.IO)
 
-One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed**. As of Epic H, the six events that map to a `NotificationType` (marked below) are never emitted directly by their owning module — they go through one `notificationService.send(...)` call (§14) that both emits the event and persists it as a `NOTIFICATION` row (`docs/database_design.md`), so they survive a reload. There is still no read/unread state (that stays out of scope, PRD §8). `delivery:location` (GPS pings) and `payment:refunded` are the two exceptions: they call `emitToUser(...)` directly and are never persisted — too frequent (location) or no matching `NotificationType` (refund) to justify a row.
+One shared Socket.IO layer (`5.3.2`/`4.3.1`/`7.3.3`/`6.1.2` + Courier tracking) delivers a **live, in-session feed**. As of Epic H, the six events that map to a `NotificationType` (marked below) are never emitted directly by their owning module — they go through one `notificationService.send(...)` call (§14) that both emits the event and persists it as a `NOTIFICATION` row (`docs/database_design.md`), so they survive a reload. There is still no read/unread state (that stays out of scope, PRD §8). `delivery:location` (GPS pings) is the one exception: it calls `emitToUser(...)` directly and is never persisted — too frequent to justify a row.
 
 ### Connection
 
@@ -656,18 +656,19 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 
 | Event | Room | Emitted when | Payload | SRS |
 |---|---|---|---|---|
-| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name }` | `4.3.1` |
-| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId }` | `5.3.2` |
-| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName }` | `7.3.3` |
-| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId }` | `6.1.2` |
-| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId }` | new |
-| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage }` | new |
+| `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name, message }` | `4.3.1` |
+| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId, message }` | `5.3.2` |
+| `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName, message }` | `7.3.3` |
+| `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId, message }` | `6.1.2` |
+| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId, message }` | new |
+| `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage, message }` | new |
 | `delivery:location` | `order:<orderId>` | Courier GPS ping, only while `stage=PICKED_UP` | `{ orderId, latitude, longitude, updatedAt }` | new |
-| `delivery:delivered` | `order:<orderId>`, `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
+| `delivery:delivered` | `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |
+| `delivery:delivered` | `order:<orderId>` | `stage → DELIVERED` | `{ orderId, deliveredAt }` | new |
 
 `delivery:location` is scoped strictly to `order:<orderId>` (never broadcast to `user:<recipientId>` at large) so a Recipient only ever sees a Courier's position for an order that is currently theirs and currently `PICKED_UP`.
 
-**Send mapping (Epic H):** `listing:sold_out` → `NOTIFICATION.type=SOLD_OUT`; `notification:premium_match` → `PREMIUM_MATCH`; `notification:admin_cancel` → `ADMIN_CANCEL`; `payment:success` → `PAYMENT_SUCCESS`; `order:status_changed`/`delivery:delivered` → `DELIVERY_STATUS`. Each of these is emitted *and* persisted from inside a single `notificationService.send(...)` call — the owning module (`listings`, `payments`, `delivery`, and eventually `subscriptions`/`admin`) never calls `emitToUser(...)` directly for these types. See §14 and `docs/epic/H-notifications.md`.
+**Send mapping (Epic H):** `listing:sold_out` → `NOTIFICATION.type=SOLD_OUT`; `notification:premium_match` → `PREMIUM_MATCH`; `notification:admin_cancel` → `ADMIN_CANCEL`; `payment:success` → `PAYMENT_SUCCESS`; `payment:refunded` → `PAYMENT_REFUNDED`; `order:status_changed`/`delivery:delivered` → `DELIVERY_STATUS`. Each of these is emitted *and* persisted from inside a single `notificationService.send(...)` call — the owning module (`listings`, `payments`, `delivery`, and eventually `subscriptions`/`admin`) never calls `emitToUser(...)` directly for these types. See §14 and `docs/epic/H-notifications.md`.
 
 ### Client → server events
 
