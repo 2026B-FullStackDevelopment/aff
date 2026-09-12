@@ -10,7 +10,7 @@ import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { Role, UserDocument } from './user.model.js';
 import type { CourierDocument } from './courier.model.js';
-import type { Types } from 'mongoose';
+import { isValidObjectId, type Types } from 'mongoose';
 
 /** The presented token's claims, from `req.auth` (set by `requireAuth`). */
 interface RequestAuth {
@@ -219,6 +219,28 @@ async function findDonorsByUserIds(userIds: string[]) {
 }
 
 /**
+ * Resolves Donor ids matching the identifier, username, or company-name term
+ * used by the Admin listing directory.
+ */
+async function findDonorIdsMatchingSearch(search: string): Promise<string[]> {
+  const [users, donors] = await Promise.all([
+    userRepository.findDonorUserIdsByUsername(search),
+    donorRepository.findDonorUserIdsByCompanyName(search),
+  ]);
+
+  const ids = new Set<string>([
+    ...users.map((user) => String(user._id)),
+    ...donors.map((donor) => String(donor.userId)),
+  ]);
+
+  if (isValidObjectId(search)) {
+    ids.add(search);
+  }
+
+  return [...ids];
+}
+
+/**
  * Reads one page of Courier accounts for the Admin roster (E11), pairing each
  * `USER` with its `COURIER` profile in a single follow-up query rather than
  * one per row. An account whose profile row is missing is still listed, with
@@ -368,6 +390,7 @@ export {
   listCouriers,
   findCourierProfilesByUserIds,
   findDonorsByUserIds,
+  findDonorIdsMatchingSearch,
   getDonorByUserId,
   findRecipientByUserId,
   searchRecipientsByEmail,

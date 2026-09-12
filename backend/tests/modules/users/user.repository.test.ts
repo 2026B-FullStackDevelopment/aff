@@ -11,17 +11,19 @@ const {
   deleteOneMock,
   aggregateMock,
   leanMock,
+  directFindLeanMock,
   searchLeanMock,
   selectMock,
   limitMock,
 } = vi.hoisted(() => {
   const leanMock = vi.fn();
+  const directFindLeanMock = vi.fn();
   const searchLeanMock = vi.fn();
   const limitMock = vi.fn(() => ({ lean: searchLeanMock }));
   const selectMock = vi.fn(() => ({ limit: limitMock }));
   return {
     createMock: vi.fn(),
-    findMock: vi.fn(() => ({ select: selectMock })),
+    findMock: vi.fn(() => ({ select: selectMock, lean: directFindLeanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     findByIdMock: vi.fn(() => ({ lean: leanMock })),
     findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
@@ -30,6 +32,7 @@ const {
     deleteOneMock: vi.fn(),
     aggregateMock: vi.fn(),
     leanMock,
+    directFindLeanMock,
     searchLeanMock,
     selectMock,
     limitMock,
@@ -62,6 +65,7 @@ import {
   lockAccount,
   deleteUser,
   findUsersByRole,
+  findDonorUserIdsByUsername,
 } from '../../../src/modules/users/user.repository.js';
 
 describe('user.repository', () => {
@@ -75,10 +79,26 @@ describe('user.repository', () => {
     updateOneMock.mockClear();
     deleteOneMock.mockClear();
     leanMock.mockClear();
+    directFindLeanMock.mockReset();
     leanMock.mockResolvedValue({ _id: 'u1' });
     searchLeanMock.mockReset();
     selectMock.mockClear();
     limitMock.mockClear();
+  });
+
+  it('finds Donor ids by a case-insensitive escaped username term', async () => {
+    directFindLeanMock.mockResolvedValue([{ _id: 'd1' }]);
+
+    const result = await findDonorUserIdsByUsername('fresh+food');
+
+    expect(findMock).toHaveBeenCalledWith(
+      {
+        role: 'DONOR',
+        username: { $regex: 'fresh\\+food', $options: 'i' },
+      },
+      { _id: 1 },
+    );
+    expect(result).toEqual([{ _id: 'd1' }]);
   });
 
   it('createUser calls User.create with the given data', async () => {

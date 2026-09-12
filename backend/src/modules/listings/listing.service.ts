@@ -5,7 +5,7 @@ import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
 import { notificationInterface } from '../notifications/notification.interface.js';
-import type { ClientSession } from 'mongoose';
+import { isValidObjectId, type ClientSession } from 'mongoose';
 import type {
   MeasurementUnit,
   FoodCategory,
@@ -64,6 +64,23 @@ interface ListingOrdersServiceResult {
 // Paginated result from the public active-listings browse endpoint
 interface AvailableListingsServiceResult {
   items: ListingDtoSource[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface AdminListingsQuery {
+  search?: string;
+  page: number;
+  limit: number;
+}
+
+interface AdminListingDtoSource extends ListingDtoSource {
+  pendingOrderCount: number;
+}
+
+interface AdminListingsServiceResult {
+  items: AdminListingDtoSource[];
   page: number;
   limit: number;
   total: number;
@@ -227,6 +244,79 @@ async function listAvailableListings(
   };
 }
 
+/**
+ * Lists Listings across every lifecycle status for the Admin directory,
+ * including the current number of Orders a cancellation would affect.
+ */
+async function listListingsForAdmin(
+  query: AdminListingsQuery,
+): Promise<AdminListingsServiceResult> {
+  const search = query.search?.trim();
+  const donorIds = search
+    ? await userInterface.findDonorIdsMatchingSearch(search)
+    : undefined;
+  const page = await listingRepository.findListingsForAdmin({
+    page: query.page,
+    limit: query.limit,
+    hasSearch: Boolean(search),
+    donorIds,
+    listingId: search && isValidObjectId(search) ? search : undefined,
+  });
+
+  if (page.items.length === 0) return { ...page, items: [] };
+
+  const listingIds = page.items.map((listing) => String(listing._id));
+  const pageDonorIds = [
+    ...new Set(page.items.map((listing) => String(listing.donorId))),
+  ];
+  const [donors, orders] = await Promise.all([
+    userInterface.findDonorsByUserIds(pageDonorIds),
+    orderInterface.findNonCancelledOrdersByListingIds(listingIds),
+  ]);
+  const protectedOrderIds = new Set(
+    await deliveryInterface.findProtectedOrderIds(
+      orders.map((order) => String(order._id)),
+    ),
+  );
+  const donorById = new Map(
+    donors.map((donor) => [String(donor.userId), donor]),
+  );
+  const pendingCountByListingId = new Map<string, number>();
+
+  for (const order of orders) {
+    if (protectedOrderIds.has(String(order._id))) continue;
+
+    const listingId = String(order.listingId);
+    pendingCountByListingId.set(
+      listingId,
+      (pendingCountByListingId.get(listingId) ?? 0) + 1,
+    );
+  }
+
+  return {
+    ...page,
+    items: page.items.map((listing) => {
+      const donor = donorById.get(String(listing.donorId));
+
+      if (!donor) {
+        throw createHttpError(500, 'Donor profile not found for listing.');
+      }
+
+      return {
+        listing,
+        donor: {
+          id: String(listing.donorId),
+          companyName: donor.companyName,
+          city: listing.city ?? '',
+          addressText: donor.addressText,
+          location: donor.location,
+        },
+        pendingOrderCount: pendingCountByListingId.get(String(listing._id)) ?? 0,
+      };
+    }),
+  };
+}
+
 async function createListing(
   donorId: string,
   payload: CreateListingPayload,
@@ -339,84 +429,117 @@ async function cloneListing(
   return { listing: cloned, donor };
 }
 
+async function cancelListingAndOrders(
+  listingId: string,
+  actorId: string,
+  ownerDonorId?: string,
+): Promise<UpdateListingStatusServiceResult> {
+  const transactionResult = await listingRepository.withTransaction(
+    async (session) => {
+      const current = ownerDonorId
+        ? await requireOwnedListing(listingId, ownerDonorId, session)
+        : await listingRepository.findListingById(listingId, session);
+
+      if (!current) throw createHttpError(404, 'Listing not found.');
+      assertValidStatusTransition(current.status, 'CANCELLED');
+
+      const candidateOrderIds =
+        await orderInterface.findNonCancelledOrderIdsByListing(listingId, session);
+      const protectedOrderIds = new Set(
+        await deliveryInterface.findProtectedOrderIds(candidateOrderIds, session),
+      );
+      const cancellableOrderIds = candidateOrderIds.filter(
+        (orderId) => !protectedOrderIds.has(orderId),
+      );
+      const cancellableOrders = await orderInterface.findOrdersByIds(
+        cancellableOrderIds,
+        session,
+      );
+      const cancelledAt = new Date();
+
+      await deliveryInterface.cancelAwaitingDeliveriesByOrderIds(
+        cancellableOrderIds,
+        cancelledAt,
+        session,
+      );
+      const cancelledOrderCount = await orderInterface.cancelOrdersByIds(
+        cancellableOrderIds,
+        actorId,
+        cancelledAt,
+        session,
+      );
+      const listing = assertStatusUpdated(
+        await listingRepository.updateListingStatusIfCurrent(
+          listingId,
+          current.donorId,
+          current.status,
+          'CANCELLED',
+          { session, closedAt: cancelledAt },
+        ),
+      );
+
+      return { listing, cancelledOrderCount, cancellableOrders };
+    },
+  );
+
+  for (const order of transactionResult.cancellableOrders) {
+    void notificationInterface.sendNotification({
+      userId: String(order.recipientId),
+      type: 'ADMIN_CANCEL',
+      orderId: String(order._id),
+      listingId,
+      payload: {
+        orderId: String(order._id),
+        listingName: transactionResult.listing.name,
+      },
+    });
+  }
+
+  return {
+    listing: {
+      listing: transactionResult.listing,
+      donor: await getListingDonorData(String(transactionResult.listing.donorId)),
+    },
+    cancelledOrderCount: transactionResult.cancelledOrderCount,
+  };
+}
+
+/** Cancels any active or paused Listing on behalf of an Admin. */
+async function cancelListingAsAdmin(
+  listingId: string,
+  adminId: string,
+): Promise<UpdateListingStatusServiceResult> {
+  return cancelListingAndOrders(listingId, adminId);
+}
+
 async function updateListingStatus(
   listingId: string,
   donorId: string,
   nextStatus: RequestedListingStatus,
 ): Promise<UpdateListingStatusServiceResult> {
-  let updatedListing: ListingDocument;
-  let cancelledOrderCount = 0;
-
   if (nextStatus === 'CANCELLED') {
-    const transactionResult = await listingRepository.withTransaction(
-      async (session) => {
-        const current = await requireOwnedListing(listingId, donorId, session);
-        assertValidStatusTransition(current.status, nextStatus);
-
-        const candidateOrderIds =
-          await orderInterface.findNonCancelledOrderIdsByListing(
-            listingId,
-            session,
-          );
-        const protectedOrderIds = await deliveryInterface.findProtectedOrderIds(
-          candidateOrderIds,
-          session,
-        );
-        const protectedOrderIdSet = new Set(protectedOrderIds);
-        const cancellableOrderIds = candidateOrderIds.filter(
-          (orderId) => !protectedOrderIdSet.has(orderId),
-        );
-        const cancelledAt = new Date();
-
-        await deliveryInterface.cancelAwaitingDeliveriesByOrderIds(
-          cancellableOrderIds,
-          cancelledAt,
-          session,
-        );
-
-        const cancelledCount = await orderInterface.cancelOrdersByIds(
-          cancellableOrderIds,
-          donorId,
-          cancelledAt,
-          session,
-        );
-
-        const listing = assertStatusUpdated(
-          await listingRepository.updateListingStatusIfCurrent(
-            listingId,
-            donorId,
-            current.status,
-            nextStatus,
-            { session, closedAt: cancelledAt },
-          ),
-        );
-
-        return { listing, cancelledOrderCount: cancelledCount };
-      },
-    );
-
-    updatedListing = transactionResult.listing;
-    cancelledOrderCount = transactionResult.cancelledOrderCount;
-  } else {
-    const current = await requireOwnedListing(listingId, donorId);
-    assertValidStatusTransition(current.status, nextStatus);
-
-    updatedListing = assertStatusUpdated(
-      await listingRepository.updateListingStatusIfCurrent(
-        listingId,
-        donorId,
-        current.status,
-        nextStatus,
-      ),
-    );
+    return cancelListingAndOrders(listingId, donorId, donorId);
   }
+
+  let updatedListing: ListingDocument;
+  const current = await requireOwnedListing(listingId, donorId);
+  assertValidStatusTransition(current.status, nextStatus);
+
+  updatedListing = assertStatusUpdated(
+    await listingRepository.updateListingStatusIfCurrent(
+      listingId,
+      donorId,
+      current.status,
+      nextStatus,
+    ),
+  );
 
   return {
     listing: {
       listing: updatedListing,
       donor: await getListingDonorData(donorId),
     },
-    cancelledOrderCount,
+    cancelledOrderCount: 0,
   };
 }
 
@@ -711,14 +834,21 @@ async function reserveListing(
 export {
   listMyListings,
   listAvailableListings,
+  listListingsForAdmin,
   createListing,
   getListingById,
   restoreStock,
   findDonorSummariesByListingIds,
   cloneListing,
   updateListingStatus,
+  cancelListingAsAdmin,
   listListingOrders,
   createDonorInitiatedDonation,
   reserveListing,
 };
-export type { ListingDonorSummaryByListing };
+export type {
+  ListingDonorSummaryByListing,
+  AdminListingsQuery,
+  AdminListingDtoSource,
+  AdminListingsServiceResult,
+};

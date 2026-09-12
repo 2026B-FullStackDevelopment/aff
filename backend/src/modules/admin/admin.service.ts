@@ -2,16 +2,25 @@
 import { userInterface } from '../users/user.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
-import { toCourierResponseDto, toAdminDeliveryResponseDto } from './admin.dto.js';
+import { listingInterface } from '../listings/listing.interface.js';
+import { toListingResponseDto } from '../listings/listing.dto.js';
+import {
+  toCourierResponseDto,
+  toAdminDeliveryResponseDto,
+  toAdminListingResponseDto,
+} from './admin.dto.js';
 import type {
   CourierResponseDto,
   AdminCouriersResponseDto,
   AdminDeliveriesResponseDto,
+  AdminListingsResponseDto,
+  CancelListingResponseDto,
 } from './admin.dto.js';
 import type {
   CreateCourierPayload,
   AdminCouriersQuery,
   AdminDeliveriesQuery,
+  AdminListingsQuery,
 } from './admin.schemas.js';
 
 /** Collects the distinct, defined ids in `values`, preserving first-seen order. */
@@ -105,4 +114,38 @@ async function listDeliveries(
   };
 }
 
-export { createCourier, listCouriers, listDeliveries };
+/** Reads one page of Listings across every status for Admin oversight (G4). */
+async function listListings(
+  query: AdminListingsQuery,
+): Promise<AdminListingsResponseDto> {
+  const page = await listingInterface.listListingsForAdmin(query);
+
+  return {
+    ...page,
+    items: page.items.map(toAdminListingResponseDto),
+  };
+}
+
+/** Cancels a Listing through the Listings module's shared cascade (G3/G5). */
+async function cancelListing(
+  listingId: string,
+  adminId: string,
+): Promise<CancelListingResponseDto> {
+  const result = await listingInterface.cancelListingAsAdmin(listingId, adminId);
+  const listing = toListingResponseDto(result.listing);
+
+  if (!listing) throw new Error('Cannot map a missing Listing.');
+
+  return {
+    listing,
+    cancelledOrderCount: result.cancelledOrderCount,
+  };
+}
+
+export {
+  createCourier,
+  listCouriers,
+  listDeliveries,
+  listListings,
+  cancelListing,
+};

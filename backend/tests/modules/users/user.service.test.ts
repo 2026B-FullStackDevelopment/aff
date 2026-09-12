@@ -5,6 +5,7 @@ const {
   findUserByEmailMock,
   findUserByIdMock,
   searchActiveRecipientsByEmailMock,
+  findDonorUserIdsByUsernameMock,
   updateUserMock,
   updateLoginStateMock,
   incrementFailedLoginInWindowMock,
@@ -15,6 +16,7 @@ const {
   findRecipientByUserIdMock,
   createDonorMock,
   findDonorByUserIdMock,
+  findDonorUserIdsByCompanyNameMock,
   updateDonorMock,
   hashPasswordMock,
   revokeTokenMock,
@@ -23,6 +25,7 @@ const {
   findUserByEmailMock: vi.fn(),
   findUserByIdMock: vi.fn(),
   searchActiveRecipientsByEmailMock: vi.fn(),
+  findDonorUserIdsByUsernameMock: vi.fn(),
   updateUserMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
   incrementFailedLoginInWindowMock: vi.fn(),
@@ -33,6 +36,7 @@ const {
   findRecipientByUserIdMock: vi.fn(),
   createDonorMock: vi.fn(),
   findDonorByUserIdMock: vi.fn(),
+  findDonorUserIdsByCompanyNameMock: vi.fn(),
   updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   revokeTokenMock: vi.fn(),
@@ -43,6 +47,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   findUserByEmail: findUserByEmailMock,
   findUserById: findUserByIdMock,
   searchActiveRecipientsByEmail: searchActiveRecipientsByEmailMock,
+  findDonorUserIdsByUsername: findDonorUserIdsByUsernameMock,
   updateUser: updateUserMock,
   updateLoginState: updateLoginStateMock,
   incrementFailedLoginInWindow: incrementFailedLoginInWindowMock,
@@ -59,6 +64,7 @@ vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   createDonor: createDonorMock,
   findDonorByUserId: findDonorByUserIdMock,
+  findDonorUserIdsByCompanyName: findDonorUserIdsByCompanyNameMock,
   updateDonor: updateDonorMock,
 }));
 
@@ -83,6 +89,7 @@ import {
   changePassword,
   changeEmail,
   searchRecipientsByEmail,
+  findDonorIdsMatchingSearch,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -119,6 +126,30 @@ describe('user.service', () => {
     it('does not query the database for fewer than three characters', async () => {
       await expect(searchRecipientsByEmail('re')).resolves.toEqual([]);
       expect(searchActiveRecipientsByEmailMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findDonorIdsMatchingSearch', () => {
+    it('combines username, company-name, and exact-id matches without duplicates', async () => {
+      const exactId = '507f1f77bcf86cd799439011';
+      findDonorUserIdsByUsernameMock.mockResolvedValue([
+        { _id: exactId },
+        { _id: '507f1f77bcf86cd799439012' },
+      ]);
+      findDonorUserIdsByCompanyNameMock.mockResolvedValue([
+        { userId: '507f1f77bcf86cd799439012' },
+        { userId: '507f1f77bcf86cd799439013' },
+      ]);
+
+      const result = await findDonorIdsMatchingSearch(exactId);
+
+      expect(findDonorUserIdsByUsernameMock).toHaveBeenCalledWith(exactId);
+      expect(findDonorUserIdsByCompanyNameMock).toHaveBeenCalledWith(exactId);
+      expect(result).toEqual([
+        exactId,
+        '507f1f77bcf86cd799439012',
+        '507f1f77bcf86cd799439013',
+      ]);
     });
   });
 

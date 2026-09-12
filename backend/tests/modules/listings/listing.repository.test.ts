@@ -34,6 +34,7 @@ vi.mock('../../../src/modules/listings/listing.model.js', () => ({
 
 import {
   findAvailableListings,
+  findListingsForAdmin,
   createListing,
   findListingById,
   updateListing,
@@ -80,6 +81,52 @@ describe('listing.repository', () => {
       limit: 10,
       total: 3,
     });
+  });
+
+  it('findListingsForAdmin does not apply an implicit status filter', async () => {
+    aggregateMock.mockResolvedValue([
+      {
+        items: [{ _id: 'l1', status: 'CANCELLED' }],
+        metadata: [{ total: 4 }],
+      },
+    ]);
+
+    const result = await findListingsForAdmin({
+      page: 2,
+      limit: 2,
+      hasSearch: false,
+    });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0]).toEqual({ $match: {} });
+    expect(pipeline).toContainEqual({ $sort: { createdAt: -1, _id: -1 } });
+    expect(JSON.stringify(pipeline)).toContain('"$skip":2');
+    expect(result).toEqual({
+      items: [{ _id: 'l1', status: 'CANCELLED' }],
+      page: 2,
+      limit: 2,
+      total: 4,
+    });
+  });
+
+  it('findListingsForAdmin searches by Listing id or matching Donor ids', async () => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
+
+    await findListingsForAdmin({
+      page: 1,
+      limit: 20,
+      hasSearch: true,
+      listingId: '507f1f77bcf86cd799439011',
+      donorIds: ['507f1f77bcf86cd799439012'],
+    });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0].$match.$or[0]._id.toString()).toBe(
+      '507f1f77bcf86cd799439011',
+    );
+    expect(pipeline[0].$match.$or[1].donorId.$in[0].toString()).toBe(
+      '507f1f77bcf86cd799439012',
+    );
   });
 
   it('findAvailableListings returns an empty page when the aggregation returns no results', async () => {

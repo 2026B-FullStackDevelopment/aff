@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   findAvailableListingsMock,
+  findListingsForAdminMock,
   createListingMock,
   findListingByIdMock,
   findMyListingsWithStatsMock,
@@ -12,9 +13,13 @@ const {
   getUserByIdMock,
   getDonorByUserIdMock,
   findUserByEmailMock,
+  findDonorIdsMatchingSearchMock,
+  findDonorsByUserIdsMock,
   createOrderMock,
   createForOrderMock,
   findNonCancelledOrderIdsByListingMock,
+  findNonCancelledOrdersByListingIdsMock,
+  findOrdersByIdsMock,
   hasNonCancelledOrderForListingMock,
   cancelOrdersByIdsMock,
   findProtectedOrderIdsMock,
@@ -23,6 +28,7 @@ const {
   sendNotificationMock,
 } = vi.hoisted(() => ({
   findAvailableListingsMock: vi.fn(),
+  findListingsForAdminMock: vi.fn(),
   createListingMock: vi.fn(),
   findListingByIdMock: vi.fn(),
   findMyListingsWithStatsMock: vi.fn(),
@@ -33,9 +39,13 @@ const {
   getUserByIdMock: vi.fn(),
   getDonorByUserIdMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
+  findDonorIdsMatchingSearchMock: vi.fn(),
+  findDonorsByUserIdsMock: vi.fn(),
   createOrderMock: vi.fn(),
   createForOrderMock: vi.fn(),
   findNonCancelledOrderIdsByListingMock: vi.fn(),
+  findNonCancelledOrdersByListingIdsMock: vi.fn(),
+  findOrdersByIdsMock: vi.fn(),
   hasNonCancelledOrderForListingMock: vi.fn(),
   cancelOrdersByIdsMock: vi.fn(),
   findProtectedOrderIdsMock: vi.fn(),
@@ -46,6 +56,7 @@ const {
 
 vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
   findAvailableListings: findAvailableListingsMock,
+  findListingsForAdmin: findListingsForAdminMock,
   createListing: createListingMock,
   findListingById: findListingByIdMock,
   findMyListingsWithStats: findMyListingsWithStatsMock,
@@ -60,6 +71,8 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
     getUserById: getUserByIdMock,
     getDonorByUserId: getDonorByUserIdMock,
     findUserByEmail: findUserByEmailMock,
+    findDonorIdsMatchingSearch: findDonorIdsMatchingSearchMock,
+    findDonorsByUserIds: findDonorsByUserIdsMock,
   },
 }));
 
@@ -68,6 +81,9 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
     createOrder: createOrderMock,
     findNonCancelledOrderIdsByListing:
       findNonCancelledOrderIdsByListingMock,
+    findNonCancelledOrdersByListingIds:
+      findNonCancelledOrdersByListingIdsMock,
+    findOrdersByIds: findOrdersByIdsMock,
     hasNonCancelledOrderForListing: hasNonCancelledOrderForListingMock,
     cancelOrdersByIds: cancelOrdersByIdsMock,
   },
@@ -96,10 +112,12 @@ vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
 import {
   listMyListings,
   listAvailableListings,
+  listListingsForAdmin,
   createListing,
   getListingById,
   cloneListing,
   updateListingStatus,
+  cancelListingAsAdmin,
   createDonorInitiatedDonation,
   reserveListing,
 } from '../../../src/modules/listings/listing.service.js';
@@ -195,6 +213,74 @@ describe('listing.service', () => {
       expect(getUserByIdMock).not.toHaveBeenCalled();
       expect(getDonorByUserIdMock).not.toHaveBeenCalled();
       expect(result).toEqual({ items: [], page: 1, limit: 20, total: 0 });
+    });
+  });
+
+  describe('listListingsForAdmin', () => {
+    it('returns every repository status and counts only unprotected Orders', async () => {
+      const listing = {
+        _id: '507f1f77bcf86cd799439011',
+        donorId: '507f1f77bcf86cd799439012',
+        name: 'Bread',
+        city: 'Hanoi',
+        status: 'PAUSED',
+      };
+      findDonorIdsMatchingSearchMock.mockResolvedValue([
+        '507f1f77bcf86cd799439012',
+      ]);
+      findListingsForAdminMock.mockResolvedValue({
+        items: [listing],
+        page: 1,
+        limit: 20,
+        total: 1,
+      });
+      findDonorsByUserIdsMock.mockResolvedValue([
+        {
+          userId: listing.donorId,
+          companyName: 'Fresh Bakery',
+          addressText: '1 Bakery Street',
+          location,
+        },
+      ]);
+      findNonCancelledOrdersByListingIdsMock.mockResolvedValue([
+        { _id: 'o1', listingId: listing._id, recipientId: 'r1' },
+        { _id: 'o2', listingId: listing._id, recipientId: 'r2' },
+      ]);
+      findProtectedOrderIdsMock.mockResolvedValue(['o2']);
+
+      const result = await listListingsForAdmin({
+        search: 'Fresh',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(findListingsForAdminMock).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        hasSearch: true,
+        donorIds: ['507f1f77bcf86cd799439012'],
+        listingId: undefined,
+      });
+      expect(result.items[0]).toMatchObject({
+        listing,
+        pendingOrderCount: 1,
+        donor: { companyName: 'Fresh Bakery' },
+      });
+    });
+
+    it('returns an empty page without hydration queries', async () => {
+      findListingsForAdminMock.mockResolvedValue({
+        items: [],
+        page: 3,
+        limit: 20,
+        total: 0,
+      });
+
+      const result = await listListingsForAdmin({ page: 3, limit: 20 });
+
+      expect(result.items).toEqual([]);
+      expect(findDonorsByUserIdsMock).not.toHaveBeenCalled();
+      expect(findNonCancelledOrdersByListingIdsMock).not.toHaveBeenCalled();
     });
   });
 
@@ -444,15 +530,20 @@ describe('listing.service', () => {
       findListingByIdMock.mockResolvedValue({
         _id: 'l1',
         donorId: 'd1',
+        name: 'Bread',
         status: 'ACTIVE',
       });
       findNonCancelledOrderIdsByListingMock.mockResolvedValue(['o1', 'o2']);
       findProtectedOrderIdsMock.mockResolvedValue(['o2']);
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', recipientId: 'r1', listingId: 'l1' },
+      ]);
       cancelAwaitingDeliveriesByOrderIdsMock.mockResolvedValue(1);
       cancelOrdersByIdsMock.mockResolvedValue(1);
       updateListingStatusIfCurrentMock.mockResolvedValue({
         _id: 'l1',
         donorId: 'd1',
+        name: 'Bread',
         status: 'CANCELLED',
       });
       prepareDonorMocks();
@@ -475,6 +566,50 @@ describe('listing.service', () => {
         databaseSession,
       );
       expect(result.cancelledOrderCount).toBe(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'ADMIN_CANCEL',
+        orderId: 'o1',
+        listingId: 'l1',
+        payload: { orderId: 'o1', listingName: 'Bread' },
+      });
+    });
+
+    it('uses the Admin as cancellation actor without applying Donor ownership', async () => {
+      findListingByIdMock.mockResolvedValue({
+        _id: 'l1',
+        donorId: 'd1',
+        name: 'Bread',
+        status: 'PAUSED',
+      });
+      findNonCancelledOrderIdsByListingMock.mockResolvedValue(['o1']);
+      findProtectedOrderIdsMock.mockResolvedValue([]);
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', recipientId: 'r1', listingId: 'l1' },
+      ]);
+      cancelOrdersByIdsMock.mockResolvedValue(1);
+      updateListingStatusIfCurrentMock.mockResolvedValue({
+        _id: 'l1', donorId: 'd1', name: 'Bread', status: 'CANCELLED',
+      });
+      prepareDonorMocks();
+
+      const result = await cancelListingAsAdmin('l1', 'admin1');
+
+      expect(findListingByIdMock).toHaveBeenCalledWith('l1', databaseSession);
+      expect(cancelOrdersByIdsMock).toHaveBeenCalledWith(
+        ['o1'],
+        'admin1',
+        expect.any(Date),
+        databaseSession,
+      );
+      expect(result.cancelledOrderCount).toBe(1);
+      expect(sendNotificationMock).toHaveBeenCalledWith({
+        userId: 'r1',
+        type: 'ADMIN_CANCEL',
+        orderId: 'o1',
+        listingId: 'l1',
+        payload: { orderId: 'o1', listingName: 'Bread' },
+      });
     });
 
     it('rejects an invalid status transition', async () => {

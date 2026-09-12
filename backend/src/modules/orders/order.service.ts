@@ -296,10 +296,18 @@ async function markOrderPaid(
  * the Admin Delivery table (E11). Exposed through `order.interface` so other
  * modules never read the `ORDER` collection directly.
  */
-async function findOrdersByIds(orderIds: string[]) {
+async function findOrdersByIds(orderIds: string[], session?: ClientSession) {
   if (orderIds.length === 0) return [];
 
-  return orderRepository.findOrdersByIds(orderIds);
+  return orderRepository.findOrdersByIds(orderIds, session);
+}
+
+/** Loads non-terminal Orders for a page of Admin Listing rows. */
+async function findNonCancelledOrdersByListingIds(
+  listingIds: string[],
+  session?: ClientSession,
+) {
+  return orderRepository.findNonCancelledOrdersByListingIds(listingIds, session);
 }
 
 async function markOrderDelivered(
@@ -456,6 +464,7 @@ export {
   markOrderPaid,
   markOrderDelivered,
   findOrdersByIds,
+  findNonCancelledOrdersByListingIds,
   choosePaymentMethod,
   createCheckoutSession,
   cancelOrdersByIds,

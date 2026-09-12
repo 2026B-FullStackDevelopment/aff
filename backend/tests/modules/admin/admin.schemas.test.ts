@@ -4,6 +4,8 @@ import {
   createCourierSchema,
   adminCouriersQuerySchema,
   adminDeliveriesQuerySchema,
+  adminListingsQuerySchema,
+  adminListingParamsSchema,
 } from '../../../src/modules/admin/admin.schemas.js';
 
 describe('admin.schemas', () => {
@@ -90,6 +92,29 @@ describe('admin.schemas', () => {
       expect(result.error?.issues[0].message).toBe(
         'Stage must be a valid Delivery stage.',
       );
+    });
+  });
+
+  describe('adminListingsQuerySchema', () => {
+    it('trims search and coerces pagination', () => {
+      expect(
+        adminListingsQuerySchema.parse({ search: '  bakery  ', page: '2', limit: '10' }),
+      ).toEqual({ search: 'bakery', page: 2, limit: 10 });
+    });
+
+    it('rejects an overlong search term', () => {
+      expect(
+        adminListingsQuerySchema.safeParse({ search: 'x'.repeat(101) }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe('adminListingParamsSchema', () => {
+    it('accepts a MongoDB ObjectId and rejects malformed ids', () => {
+      expect(
+        adminListingParamsSchema.parse({ id: '507f1f77bcf86cd799439011' }),
+      ).toEqual({ id: '507f1f77bcf86cd799439011' });
+      expect(adminListingParamsSchema.safeParse({ id: 'not-an-id' }).success).toBe(false);
     });
   });
 });

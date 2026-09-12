@@ -44,6 +44,7 @@ import {
   setFeedback,
   findOrdersForRecipient,
   findOrdersByIds,
+  findNonCancelledOrdersByListingIds,
 } from '../../../src/modules/orders/order.repository.js';
 
 describe('order.repository', () => {
@@ -127,6 +128,30 @@ describe('order.repository', () => {
 
     it('skips the database entirely when asked for nothing', async () => {
       const result = await findOrdersByIds([]);
+
+      expect(findMock).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findNonCancelledOrdersByListingIds', () => {
+    it('loads only non-terminal Orders for the requested Listings', async () => {
+      leanMock.mockResolvedValue([{ _id: 'o1', recipientId: 'r1', listingId: 'l1' }]);
+
+      const result = await findNonCancelledOrdersByListingIds(['l1', 'l2']);
+
+      expect(findMock).toHaveBeenCalledWith(
+        {
+          listingId: { $in: ['l1', 'l2'] },
+          orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
+        },
+        { _id: 1, recipientId: 1, listingId: 1 },
+      );
+      expect(result).toEqual([{ _id: 'o1', recipientId: 'r1', listingId: 'l1' }]);
+    });
+
+    it('skips the database when no Listing ids are supplied', async () => {
+      const result = await findNonCancelledOrdersByListingIds([]);
 
       expect(findMock).not.toHaveBeenCalled();
       expect(result).toEqual([]);

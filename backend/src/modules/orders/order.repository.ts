@@ -60,6 +60,12 @@ interface OrderJoinSummary {
   amount: number;
 }
 
+interface CancellationOrderSummary {
+  _id: Types.ObjectId;
+  recipientId: Types.ObjectId;
+  listingId: Types.ObjectId;
+}
+
 interface RecipientOrderListingSummary {
   id: string;
   name: string;
@@ -262,10 +268,13 @@ async function hasNonCancelledOrderForListing(
  * Courier queue (E2) uses `quantity`, `deliveryAddressText`, `listingId` and
  * `amount`.
  */
-async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> {
+async function findOrdersByIds(
+  orderIds: string[],
+  session?: ClientSession,
+): Promise<OrderJoinSummary[]> {
   if (orderIds.length === 0) return [];
 
-  return Order.find(
+  const query = Order.find(
     { _id: { $in: orderIds } },
     {
       _id: 1,
@@ -277,7 +286,28 @@ async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> 
       listingId: 1,
       amount: 1,
     },
-  ).lean<OrderJoinSummary[]>();
+  );
+
+  return (session ? query.session(session) : query).lean<OrderJoinSummary[]>();
+}
+
+/** Loads active Orders for several Listings in one query. */
+async function findNonCancelledOrdersByListingIds(
+  listingIds: string[],
+  session?: ClientSession,
+): Promise<CancellationOrderSummary[]> {
+  if (listingIds.length === 0) return [];
+
+  const query = Order.find(
+    {
+      listingId: { $in: listingIds },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
+    },
+    { _id: 1, recipientId: 1, listingId: 1 },
+  );
+
+  return (session ? query.session(session) : query)
+    .lean<CancellationOrderSummary[]>();
 }
 
 async function cancelOrdersByIds(
@@ -565,6 +595,7 @@ async function findOrdersForRecipient(
 
 export {
   findOrdersByIds,
+  findNonCancelledOrdersByListingIds,
   findOrderById,
   findOrderByIdAndRecipient,
   createOrder,
@@ -585,6 +616,7 @@ export {
 export type {
   CreateOrderInput,
   OrderJoinSummary,
+  CancellationOrderSummary,
   ListingOrderRepositoryItem,
   ListingOrdersRepositoryResult,
   RecipientOrderRepositoryItem,

@@ -64,6 +64,66 @@ interface AvailableListingsAggregationResult {
   metadata: Array<{ total: number; }>;
 }
 
+interface AdminListingFilter {
+  page: number;
+  limit: number;
+  hasSearch: boolean;
+  donorIds?: string[];
+  listingId?: string;
+}
+
+interface AdminListingsRepositoryResult {
+  items: ListingDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+/**
+ * Returns every Listing status for Admin oversight. Search resolution for
+ * Donor names stays in the Users module; this repository receives only the
+ * matching ids and applies pagination to the Listing collection.
+ */
+async function findListingsForAdmin(
+  filter: AdminListingFilter,
+): Promise<AdminListingsRepositoryResult> {
+  const match: Record<string, unknown> = {};
+
+  if (filter.hasSearch) {
+    const matches: Record<string, unknown>[] = [];
+
+    if (filter.listingId) {
+      matches.push({ _id: new Types.ObjectId(filter.listingId) });
+    }
+    if (filter.donorIds?.length) {
+      matches.push({
+        donorId: { $in: filter.donorIds.map((id) => new Types.ObjectId(id)) },
+      });
+    }
+
+    match.$or = matches.length > 0 ? matches : [{ _id: { $in: [] } }];
+  }
+
+  const skip = (filter.page - 1) * filter.limit;
+  const [result] = await Listing.aggregate<AvailableListingsAggregationResult>([
+    { $match: match },
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [{ $skip: skip }, { $limit: filter.limit }],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ]);
+
+  return {
+    items: result?.items ?? [],
+    page: filter.page,
+    limit: filter.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 /**
  * Returns a page of publicly-browsable Listings, always scoped to
  * `status: 'ACTIVE'`. Supports D6's optional search/city/category/price
@@ -586,6 +646,7 @@ async function withTransaction<T>(
 }
 
 export {
+  findListingsForAdmin,
   findAvailableListings,
   findMyListingsWithStats,
   createListing,
@@ -598,3 +659,4 @@ export {
   restoreStockAtomically,
   withTransaction,
 };
+export type { AdminListingFilter, AdminListingsRepositoryResult };

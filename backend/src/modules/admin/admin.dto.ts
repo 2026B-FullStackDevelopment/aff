@@ -5,6 +5,8 @@ import type { UserDocument } from '../users/user.model.js';
 import type { CourierDocument } from '../users/courier.model.js';
 import type { DeliveryDocument } from '../delivery/delivery.model.js';
 import type { UpdateListingStatusResponseDto, ListingResponseDto } from '../listings/listing.dto.js';
+import { toListingResponseDto } from '../listings/listing.dto.js';
+import type { AdminListingDtoSource } from '../listings/listing.service.js';
 import { toDeliveryResponseDto } from '../delivery/delivery.dto.js';
 import type { DeliveryResponseDto, DeliveryOrderSource } from '../delivery/delivery.dto.js';
 
@@ -69,11 +71,26 @@ interface AdminDeliveriesResponseDto {
   total: number;
 }
 
+interface AdminListingResponseDto extends ListingResponseDto {
+  pendingOrderCount: number;
+}
+
 interface AdminListingsResponseDto {
-  items: ListingResponseDto[];
+  items: AdminListingResponseDto[];
   page: number;
   limit: number;
   total: number;
+}
+
+/** Maps a Listing directory row and its live cancellation estimate. */
+function toAdminListingResponseDto(
+  source: AdminListingDtoSource,
+): AdminListingResponseDto {
+  const listing = toListingResponseDto(source);
+
+  if (!listing) throw new Error('Cannot map a missing Listing.');
+
+  return { ...listing, pendingOrderCount: source.pendingOrderCount };
 }
 
 /**
@@ -124,7 +141,11 @@ function toAdminDeliveryResponseDto(
   };
 }
 
-export { toCourierResponseDto, toAdminDeliveryResponseDto };
+export {
+  toCourierResponseDto,
+  toAdminDeliveryResponseDto,
+  toAdminListingResponseDto,
+};
 export type {
   CourierResponseDto,
   AdminCouriersResponseDto,
@@ -134,6 +155,7 @@ export type {
   UpdateUserStatusRequestDto,
   AdminDeliveryResponseDto,
   AdminDeliveriesResponseDto,
+  AdminListingResponseDto,
   AdminListingsResponseDto,
 };
 export type { UpdateListingStatusResponseDto as CancelListingResponseDto };
