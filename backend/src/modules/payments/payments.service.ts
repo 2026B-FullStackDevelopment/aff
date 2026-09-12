@@ -5,6 +5,7 @@ import * as paymentRepository from './payment.repository.js';
 import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
 import { emailInterface } from '../../integrations/email/email.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
