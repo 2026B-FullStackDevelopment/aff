@@ -1,0 +1,129 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Payments API",
+    "version": "0.1.0",
+    "description": "The Stripe webhook endpoint (cross-cutting: one-off order payments, F1 subscription billing, D4 refunds). Reflects backend/src/modules/payments/payments.controller.ts::handleStripeWebhook and payments.service.ts::processWebhookEvent as implemented. No auth beyond Stripe's own signature header — this file documents event routing, not a typical request/response contract, since the request body is Stripe's own event payload. POST /orders/:id/checkout-session and POST /subscriptions/checkout-session (the endpoints that start the flows this webhook completes) are documented in docs/openapi/orders_openapi.json and docs/openapi/subscriptions_openapi.json respectively.",
+    "contact": { "name": "AFF Backend" }
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Payments", "description": "Stripe webhook — the single endpoint that completes order payments, subscription billing, and refunds" }
+  ],
+  "paths": {
+    "/webhooks/stripe": {
+      "post": {
+        "tags": ["Payments"],
+        "operationId": "handleStripeWebhook",
+        "summary": "Stripe webhook — routes one event to its effect based on event.type",
+        "description": "Auth: none (the Stripe-Signature request header, verified against STRIPE_WEBHOOK_SECRET, replaces JWT auth on this route). The raw, unparsed request body is required for signature verification (see req.rawBody in app.ts) — this is the one route in the API that is not JSON-parsed generically before reaching its handler. Always responds 200 once an event is durably processed or recognized as a duplicate, so Stripe does not retry it; a bad/missing signature is the only rejection.",
+        "requestBody": {
+          "required": true,
+          "description": "A raw Stripe Event payload (docs.stripe.com/api/events/object). Shape varies by event.type — see the event/effect table below.",
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "required": true,
+            "description": "HMAC signature Stripe computes over the raw request body, verified with STRIPE_WEBHOOK_SECRET",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event was routed (including a recognized-duplicate or an intentionally no-op event type). See the event/effect table below for what each event.type actually does.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OkResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidSignature" }
+        }
+      }
+    }
+  },
+  "x-event-effect-table": {
+    "description": "Not a formal OpenAPI construct — documents what payments.service.ts#processWebhookEvent does for each event.type, since a single endpoint fans out by payload shape rather than by path/method. Mirrors docs/api_design.md §8; keep both in sync.",
+    "events": [
+      {
+        "type": "checkout.session.completed",
+        "mode": "payment",
+        "effect": "Look up ORDER via session metadata → ORDER.paymentStatus=PAID, orderStatus=PREPARING; PAYMENT.status=PAID, paidAt=now, stripePaymentIntentId=session.payment_intent; DeliveryService.createForOrder; emit payment:success (docs/api_design.md §12)."
+      },
+      {
+        "type": "checkout.session.completed",
+        "mode": "subscription",
+        "effect": "No-op (logged only). Nothing is created here — there's no invoice/period data on the Checkout Session itself. The SUBSCRIPTION row is appended by invoice.paid below, which fires immediately after for both the first payment and every renewal."
+      },
+      {
+        "type": "invoice.paid",
+        "effect": "Append a new SUBSCRIPTION row for the new billing cycle (append-only ledger, docs/database_design.md): status=ACTIVE, currentPeriodEnd converted from invoice.lines.data[0].period.end (falling back to invoice.period_end), stripeInvoiceId=invoice.id. Then send the Premium confirmation email (Nodemailer) — only when the row is newly created.",
+        "idempotency": "Guards on SUBSCRIPTION.stripeInvoiceId (unique, sparse) — a re-delivered event finds the existing row by invoice id and appends nothing a second time, so no duplicate email either."
+      },
+      {
+        "type": "invoice.payment_failed",
+        "effect": "Latest SUBSCRIPTION.status=PAST_DUE for the Recipient resolved from invoice.customer. GET /subscriptions/me then derives tier=STANDARD."
+      },
+      {
+        "type": "customer.subscription.updated",
+        "effect": "Reconcile cancelAtPeriodEnd on the latest SUBSCRIPTION row from event.data.object.cancel_at_period_end. Optional — PATCH /subscriptions/me's response is the primary source of truth for the flag."
+      },
+      {
+        "type": "customer.subscription.deleted",
+        "effect": "Latest SUBSCRIPTION.status=CANCELLED for the Recipient resolved from event.data.object.customer. Fires at currentPeriodEnd for a cancel_at_period_end cancellation started via PATCH /subscriptions/me (docs/openapi/subscriptions_openapi.json). GET /subscriptions/me then derives tier=STANDARD."
+      },
+      {
+        "type": "charge.refunded",
+        "effect": "Confirms a refund initiated by DELETE /orders/:id (docs/openapi/orders_openapi.json) actually settled. Look up PAYMENT via stripeRefundId → PAYMENT.status=REFUNDED, refundedAt=now; ORDER.paymentStatus=REFUNDED; emit payment:refunded (docs/api_design.md §12). No matching PAYMENT (e.g. stripeRefundId not yet persisted) is safe to ignore.",
+        "idempotency": "Guards on PAYMENT.lastProcessedEventId."
+      },
+      {
+        "type": "(any other event type)",
+        "effect": "Ignored — not part of the documented flow. The controller still responds 200 so Stripe doesn't retry it."
+      }
+    ]
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "OkResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "nullable": true, "description": "Always null — this endpoint's response body carries no information back to Stripe" }
+        }
+      }
+    },
+    "responses": {
+      "InvalidSignature": {
+        "description": "The Stripe-Signature header is missing, or does not verify against STRIPE_WEBHOOK_SECRET for the given raw body",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Missing Stripe-Signature header or request body." } },
+              "invalid": { "value": { "message": "No signatures found matching the expected signature for payload" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

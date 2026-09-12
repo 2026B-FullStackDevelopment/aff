@@ -104,8 +104,9 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | stripeSubscriptionId | string | | |
 | status | SubscriptionStatus (enum) | | ACTIVE, PAST_DUE, CANCELLED |
 | currentPeriodEnd | datetime | | |
-| cancelAtPeriodEnd | boolean | | Default `false`. Set `true` by `DELETE /subscriptions/me` (F5) — subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
-| createdAt | datetime | | Append-only: new row per billing cycle |
+| cancelAtPeriodEnd | boolean | | Default `false`. Set by `PATCH /subscriptions/me` (F5) — `true` cancels, `false` resumes. While `true`, the subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
+| stripeInvoiceId | string | Unique, sparse | Idempotency key for the `invoice.paid` webhook (F1) — set on the row created for that invoice, so a re-delivered event is recognized and appends nothing a second time. Conditional on Stripe webhook flow, mirroring `PAYMENT.stripeInvoiceId` |
+| createdAt | datetime | | Append-only: new row per billing cycle, except `status` and `cancelAtPeriodEnd`, which are mutated in place on the latest row |
 
 ### LISTING
 

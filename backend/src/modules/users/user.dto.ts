@@ -58,7 +58,10 @@ function toUserResponseDto(user: UserDocument | null): UserResponseDto | null {
 /**
  * Maps a User plus their Recipient profile to the Recipient response shape.
  * `hasStripeCard` is derived from `stripeCustomerId` — the raw Stripe ID is
- * never sent to the client (`docs/api_design.md` §3).
+ * never sent to the client (`docs/api_design.md` §3). `tier` is likewise never read off
+ * `recipient.tier` — the caller must derive it (e.g. via `subscriptionInterface.getMySubscriptionStatus`)
+ * and pass it in explicitly, since tier is computed from SUBSCRIPTION rows, not a stored column
+ * anyone writes (F1, `backend/SUBSCRIPTION.md`).
  */
 function toRecipientResponseDto(
   user: UserDocument,

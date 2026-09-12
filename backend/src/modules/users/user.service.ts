@@ -263,7 +263,9 @@ function donorFieldsRejectedError(): Error {
 /**
  * Fetches the authoritative, role-appropriate profile DTO for `userId` — used
  * by both `getMyProfile` and `updateMyProfile` so they always return the same
- * shape (`docs/api_design.md` §5).
+ * shape (`docs/api_design.md` §5). For a RECIPIENT, `tier` is derived via
+ * `subscriptionInterface.getMySubscriptionStatus` rather than read off the stored
+ * `recipient.tier` column (F1, `backend/SUBSCRIPTION.md`).
  */
 async function getMyProfileDto(userId: string) {
   const user = await getUserById(userId);

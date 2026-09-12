@@ -21,11 +21,23 @@ function isActivePremiumRow(subscription: SubscriptionDocument | null): boolean 
   return subscription.status === 'ACTIVE' && subscription.currentPeriodEnd > new Date();
 }
 
+/**
+ * True iff `recipientId`'s latest SUBSCRIPTION row is ACTIVE and unexpired. Cheap boolean form of
+ * {@link getMySubscriptionStatus}, used by other modules' Premium gates (e.g. notification
+ * preferences) that only need a yes/no, not the full DTO.
+ * @param recipientId - a Recipient's USER._id
+ */
 async function isPremiumRecipient(recipientId: string): Promise<boolean> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
   return isActivePremiumRow(subscription);
 }
 
+/**
+ * Derives `tier` from the latest SUBSCRIPTION row for `GET /subscriptions/me` (and, via
+ * `subscriptionInterface`, `GET /users/me`) — `tier` is never a stored column, only ever computed
+ * here from `status` + `currentPeriodEnd`.
+ * @param recipientId - a Recipient's USER._id
+ */
 async function getMySubscriptionStatus(recipientId: string): Promise<SubscriptionStatusResponseDto> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
 
@@ -35,6 +47,12 @@ async function getMySubscriptionStatus(recipientId: string): Promise<Subscriptio
   };
 }
 
+/**
+ * Starts a Stripe Checkout Session for the $5/month Premium subscription (F1).
+ * Creates no SUBSCRIPTION row and sends no email — those happen later, in the webhook, once
+ * Stripe confirms `invoice.paid`.
+ * @param recipientId - a Recipient's USER._id
+ */
 async function startCheckout(recipientId: string) {
   const customerId = await paymentInterface.getOrCreateStripeCustomer(recipientId);
 
@@ -46,6 +64,14 @@ async function startCheckout(recipientId: string) {
   });
 }
 
+/**
+ * Schedules the caller's own latest subscription to cancel at the end of the current billing
+ * period (F5). Never calls Stripe's `subscriptions.cancel()`/`.del()`, so access is not revoked
+ * immediately — the tier stays PREMIUM until `currentPeriodEnd`. Idempotent: a no-op `200` if
+ * `cancelAtPeriodEnd` is already `true`, with no second Stripe call.
+ * @param recipientId - a Recipient's USER._id; always the caller's own, never another user's
+ * @throws {Error} with statusCode = 409 if there is no ACTIVE, unexpired subscription to cancel
+ */
 async function cancelMySubscription(recipientId: string): Promise<SubscriptionResponseDto | null> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
 
@@ -63,6 +89,13 @@ async function cancelMySubscription(recipientId: string): Promise<SubscriptionRe
   return toSubscriptionResponseDto(updated);
 }
 
+/**
+ * Undoes a pending cancellation on the caller's own latest subscription (F5) — the inverse of
+ * {@link cancelMySubscription}. Valid only while `currentPeriodEnd` is still in the future.
+ * Idempotent: a no-op `200` if `cancelAtPeriodEnd` is already `false`, with no second Stripe call.
+ * @param recipientId - a Recipient's USER._id; always the caller's own, never another user's
+ * @throws {Error} with statusCode = 409 if there is no ACTIVE, unexpired subscription to resume
+ */
 async function resumeMySubscription(recipientId: string): Promise<SubscriptionResponseDto | null> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
 
@@ -88,6 +121,16 @@ interface AppendBillingCycleInput {
   cancelAtPeriodEnd: boolean;
 }
 
+/**
+ * Appends one billing-cycle row to the SUBSCRIPTION ledger (F1), called from the `invoice.paid`
+ * webhook — which fires identically for both the first payment and every renewal. Idempotent on
+ * `stripeInvoiceId` (unique, sparse): a re-delivered event for an invoice already recorded is a
+ * no-op, so Stripe's at-least-once delivery never produces a duplicate row or a duplicate email.
+ * @param stripeCustomerId - resolves the Recipient via `userInterface.findRecipientByStripeCustomerId`
+ * @returns `{ created: false }` if the invoice was already recorded; otherwise
+ *   `{ created: true, recipientEmail, currentPeriodEnd }` so the caller can send the confirmation email
+ * @throws {Error} with statusCode = 404 if no Recipient matches `stripeCustomerId`
+ */
 async function appendBillingCycle({
   stripeCustomerId,
   stripeSubscriptionId,
@@ -119,6 +162,12 @@ async function appendBillingCycle({
   return { created: true as const, recipientEmail: user.email, currentPeriodEnd };
 }
 
+/**
+ * Marks the latest SUBSCRIPTION row PAST_DUE, called from the `invoice.payment_failed` webhook.
+ * Silently no-ops if no Recipient matches `stripeCustomerId` — a webhook handler has no caller to
+ * report a 404 to.
+ * @param stripeCustomerId - resolves the Recipient via `userInterface.findRecipientByStripeCustomerId`
+ */
 async function markLatestPastDue(stripeCustomerId: string): Promise<void> {
   const recipient = await userInterface.findRecipientByStripeCustomerId(stripeCustomerId);
   if (!recipient) return;
@@ -126,6 +175,12 @@ async function markLatestPastDue(stripeCustomerId: string): Promise<void> {
   await subscriptionRepository.setLatestSubscriptionFields(recipient.userId, { status: 'PAST_DUE' });
 }
 
+/**
+ * Marks the latest SUBSCRIPTION row CANCELLED, called from the `customer.subscription.deleted`
+ * webhook — the terminal event a `cancelAtPeriodEnd` cancellation reaches once `currentPeriodEnd`
+ * arrives. Silently no-ops if no Recipient matches `stripeCustomerId`.
+ * @param stripeCustomerId - resolves the Recipient via `userInterface.findRecipientByStripeCustomerId`
+ */
 async function markLatestCancelled(stripeCustomerId: string): Promise<void> {
   const recipient = await userInterface.findRecipientByStripeCustomerId(stripeCustomerId);
   if (!recipient) return;

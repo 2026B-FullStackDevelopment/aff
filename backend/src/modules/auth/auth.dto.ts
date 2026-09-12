@@ -51,7 +51,9 @@ function toAuthDto(session: AuthSession): AuthResponseDto {
 /**
  * Maps a session and a Recipient profile to the registration response.
  * `hasStripeCard` is derived from `stripeCustomerId` — the raw Stripe ID is
- * never sent to the client (`docs/api_design.md` §3).
+ * never sent to the client (`docs/api_design.md` §3). `tier` is always `'STANDARD'` here — a
+ * brand-new Recipient can't have an active subscription before their own registration response
+ * exists, so no subscription lookup is needed at this call site.
  *
  * @param session - The session just issued for the new user.
  * @param recipient - The newly created Recipient profile.
