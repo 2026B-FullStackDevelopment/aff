@@ -19,6 +19,10 @@ export function useCourierSession() {
     if (!token) {
       courierRealtimeService.stopTracking();
     }
+
+    return () => {
+      courierRealtimeService.stopTracking();
+    };
   }, [token]);
 }
 
