@@ -20,6 +20,7 @@ const {
   revokeTokenMock,
   getMySubscriptionStatusMock,
   findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChangedMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
@@ -40,6 +41,7 @@ const {
   revokeTokenMock: vi.fn(),
   getMySubscriptionStatusMock: vi.fn(),
   findRecipientByStripeCustomerIdMock: vi.fn(),
+  setRecipientTierIfChangedMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.repository.js', () => ({
@@ -59,6 +61,7 @@ vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
   createRecipient: createRecipientMock,
   findRecipientByUserId: findRecipientByUserIdMock,
   findRecipientByStripeCustomerId: findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChanged: setRecipientTierIfChangedMock,
 }));
 
 vi.mock('../../../src/modules/subscriptions/subscription.interface.js', () => ({
@@ -95,6 +98,7 @@ import {
   changeEmail,
   searchRecipientsByEmail,
   findRecipientByStripeCustomerId,
+  setRecipientTier,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -265,6 +269,14 @@ describe('user.service', () => {
 
     expect(findRecipientByStripeCustomerIdMock).toHaveBeenCalledWith('cus_123');
     expect(result).toEqual({ userId: 'u1', stripeCustomerId: 'cus_123' });
+  });
+
+  it('setRecipientTier delegates to the change-guarded repository setter', async () => {
+    setRecipientTierIfChangedMock.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+    await setRecipientTier('u1', 'PREMIUM');
+
+    expect(setRecipientTierIfChangedMock).toHaveBeenCalledWith('u1', 'PREMIUM');
   });
 
   it('createDonorProfile delegates to the donor repository', async () => {

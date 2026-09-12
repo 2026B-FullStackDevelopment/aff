@@ -58,7 +58,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | Field | Type | Key | Description |
 |---|---|---|---|
 | userId | ObjectId | PK, FK → USER._id | Subtype of USER |
-| tier | Tier (enum) | | STANDARD, PREMIUM |
+| tier | Tier (enum) | | STANDARD, PREMIUM. Default `STANDARD` (schema-level). **Denormalized cache, not authoritative** — the real tier is derived per request from the SUBSCRIPTION ledger (`ACTIVE` + `currentPeriodEnd > now`) in `subscription.service.ts#getMySubscriptionStatus`. This column is kept in sync by the subscription webhooks (`invoice.paid` → PREMIUM; `invoice.payment_failed` / `customer.subscription.deleted` → STANDARD) plus read-repair on `GET /subscriptions/me`, so it is safe to *inspect*, but no application read path consults it |
 | stripeCustomerId | string | | |
 
 ### NOTIFICATION_PREFERENCE

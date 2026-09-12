@@ -40,9 +40,16 @@ async function isPremiumRecipient(recipientId: string): Promise<boolean> {
  */
 async function getMySubscriptionStatus(recipientId: string): Promise<SubscriptionStatusResponseDto> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
+  const tier = isActivePremiumRow(subscription) ? 'PREMIUM' : 'STANDARD';
+
+  // Read-repair of the denormalized recipient.tier column. The webhooks below keep it fresh on
+  // billing events; this catches the two cases they can't — a webhook Stripe never delivered, and a
+  // subscription that simply lapsed at currentPeriodEnd with no further event. The repository
+  // filters on tier != this value, so an in-sync row is a no-op rather than a write per request.
+  await userInterface.setRecipientTier(recipientId, tier);
 
   return {
-    tier: isActivePremiumRow(subscription) ? 'PREMIUM' : 'STANDARD',
+    tier,
     subscription: toSubscriptionResponseDto(subscription),
   };
 }
@@ -157,6 +164,8 @@ async function appendBillingCycle({
     cancelAtPeriodEnd,
   });
 
+  await userInterface.setRecipientTier(recipient.userId, 'PREMIUM');
+
   const user = await userInterface.getUserById(String(recipient.userId));
 
   return { created: true as const, recipientEmail: user.email, currentPeriodEnd };
@@ -173,6 +182,7 @@ async function markLatestPastDue(stripeCustomerId: string): Promise<void> {
   if (!recipient) return;
 
   await subscriptionRepository.setLatestSubscriptionFields(recipient.userId, { status: 'PAST_DUE' });
+  await userInterface.setRecipientTier(recipient.userId, 'STANDARD');
 }
 
 /**
@@ -186,6 +196,7 @@ async function markLatestCancelled(stripeCustomerId: string): Promise<void> {
   if (!recipient) return;
 
   await subscriptionRepository.setLatestSubscriptionFields(recipient.userId, { status: 'CANCELLED' });
+  await userInterface.setRecipientTier(recipient.userId, 'STANDARD');
 }
 
 export {

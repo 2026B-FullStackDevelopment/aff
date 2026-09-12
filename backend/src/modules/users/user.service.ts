@@ -10,6 +10,7 @@ import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { Role, UserDocument } from './user.model.js';
+import type { Tier } from './recipient.model.js';
 import type { CourierDocument } from './courier.model.js';
 import type { Types } from 'mongoose';
 
@@ -154,6 +155,16 @@ async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, str
 
 async function findRecipientByStripeCustomerId(stripeCustomerId: string) {
   return recipientRepository.findRecipientByStripeCustomerId(stripeCustomerId);
+}
+
+/**
+ * Updates the Recipient's cached `tier` column. This is a denormalized copy for database
+ * inspection only — the authoritative tier is derived per request from the SUBSCRIPTION ledger in
+ * `subscription.service.ts`, and no read path should consult this column (F1,
+ * `backend/SUBSCRIPTION.md` risk #7 and its DEBUG section).
+ */
+async function setRecipientTier(userId: string | Types.ObjectId, tier: Tier) {
+  return recipientRepository.setRecipientTierIfChanged(userId, tier);
 }
 
 async function createDonorProfile(input: CreateDonorProfileInput) {
@@ -381,6 +392,7 @@ export {
   searchRecipientsByEmail,
   setRecipientStripeCustomerId,
   findRecipientByStripeCustomerId,
+  setRecipientTier,
   getMyProfileDto,
   updateUserProfile,
   changePassword,

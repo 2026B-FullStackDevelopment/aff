@@ -10,6 +10,7 @@ const {
   setSubscriptionCancelAtPeriodEndMock,
   findRecipientByStripeCustomerIdMock,
   getUserByIdMock,
+  setRecipientTierMock,
 } = vi.hoisted(() => ({
   findLatestSubscriptionByRecipientIdMock: vi.fn(),
   findSubscriptionByStripeInvoiceIdMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   setSubscriptionCancelAtPeriodEndMock: vi.fn(),
   findRecipientByStripeCustomerIdMock: vi.fn(),
   getUserByIdMock: vi.fn(),
+  setRecipientTierMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/subscriptions/subscription.repository.js', () => ({
@@ -41,6 +43,7 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   userInterface: {
     findRecipientByStripeCustomerId: findRecipientByStripeCustomerIdMock,
     getUserById: getUserByIdMock,
+    setRecipientTier: setRecipientTierMock,
   },
 }));
 
@@ -164,6 +167,46 @@ describe('subscription.service', () => {
 
       expect(result.tier).toBe('STANDARD');
     });
+
+    // Read-repair: keeps the denormalized recipient.tier column honest even when a billing webhook
+    // was never delivered, or when a subscription simply lapsed with no further Stripe event.
+    it('repairs the cached recipient tier to PREMIUM on read', async () => {
+      const future = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      findLatestSubscriptionByRecipientIdMock.mockResolvedValue({
+        _id: 'sub1',
+        status: 'ACTIVE',
+        currentPeriodEnd: future,
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+      });
+
+      await getMySubscriptionStatus('u1');
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'PREMIUM');
+    });
+
+    it('repairs the cached recipient tier to STANDARD on read when the latest row has expired', async () => {
+      const past = new Date(Date.now() - 1000 * 60 * 60 * 24);
+      findLatestSubscriptionByRecipientIdMock.mockResolvedValue({
+        _id: 'sub1',
+        status: 'ACTIVE',
+        currentPeriodEnd: past,
+        cancelAtPeriodEnd: false,
+        createdAt: new Date(),
+      });
+
+      await getMySubscriptionStatus('u1');
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'STANDARD');
+    });
+
+    it('repairs the cached recipient tier to STANDARD when no subscription exists', async () => {
+      findLatestSubscriptionByRecipientIdMock.mockResolvedValue(null);
+
+      await getMySubscriptionStatus('u1');
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'STANDARD');
+    });
   });
 
   describe('startCheckout', () => {
@@ -238,6 +281,26 @@ describe('subscription.service', () => {
       expect(result).toMatchObject({ cancelAtPeriodEnd: true });
     });
 
+    // A pending cancellation must not downgrade the tier — access runs to currentPeriodEnd (F5).
+    // The downgrade happens later, when customer.subscription.deleted arrives.
+    it('does not touch the cached tier — access continues until the period ends', async () => {
+      const future = new Date(Date.now() + 100_000);
+      const row = {
+        _id: 'sub1',
+        status: 'ACTIVE',
+        currentPeriodEnd: future,
+        cancelAtPeriodEnd: false,
+        stripeSubscriptionId: 'stripe_sub_1',
+        createdAt: new Date(),
+      };
+      findLatestSubscriptionByRecipientIdMock.mockResolvedValue(row);
+      setLatestSubscriptionFieldsMock.mockResolvedValue({ ...row, cancelAtPeriodEnd: true });
+
+      await cancelMySubscription('u1');
+
+      expect(setRecipientTierMock).not.toHaveBeenCalled();
+    });
+
     it('only ever targets the caller\'s own latest subscription (owner scoping)', async () => {
       const future = new Date(Date.now() + 100_000);
       findLatestSubscriptionByRecipientIdMock.mockResolvedValue({
@@ -301,6 +364,24 @@ describe('subscription.service', () => {
       expect(setLatestSubscriptionFieldsMock).toHaveBeenCalledWith('u1', { cancelAtPeriodEnd: false });
       expect(result).toMatchObject({ cancelAtPeriodEnd: false });
     });
+
+    it('does not touch the cached tier — the caller was already PREMIUM throughout', async () => {
+      const future = new Date(Date.now() + 100_000);
+      const row = {
+        _id: 'sub1',
+        status: 'ACTIVE',
+        currentPeriodEnd: future,
+        cancelAtPeriodEnd: true,
+        stripeSubscriptionId: 's1',
+        createdAt: new Date(),
+      };
+      findLatestSubscriptionByRecipientIdMock.mockResolvedValue(row);
+      setLatestSubscriptionFieldsMock.mockResolvedValue({ ...row, cancelAtPeriodEnd: false });
+
+      await resumeMySubscription('u1');
+
+      expect(setRecipientTierMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('appendBillingCycle', () => {
@@ -334,6 +415,24 @@ describe('subscription.service', () => {
       });
     });
 
+    it('caches PREMIUM on the recipient when a row is created', async () => {
+      findSubscriptionByStripeInvoiceIdMock.mockResolvedValue(null);
+      findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1' });
+      getUserByIdMock.mockResolvedValue({ id: 'u1', email: 'jane@example.com' });
+
+      await appendBillingCycle(input);
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'PREMIUM');
+    });
+
+    it('does not touch the cached tier when the invoice was already recorded', async () => {
+      findSubscriptionByStripeInvoiceIdMock.mockResolvedValue({ _id: 'sub1' });
+
+      await appendBillingCycle(input);
+
+      expect(setRecipientTierMock).not.toHaveBeenCalled();
+    });
+
     it('is idempotent: a duplicate invoice id creates no row', async () => {
       findSubscriptionByStripeInvoiceIdMock.mockResolvedValue({ _id: 'sub1' });
 
@@ -361,6 +460,14 @@ describe('subscription.service', () => {
       expect(setLatestSubscriptionFieldsMock).toHaveBeenCalledWith('u1', { status: 'PAST_DUE' });
     });
 
+    it('caches STANDARD on the recipient', async () => {
+      findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1' });
+
+      await markLatestPastDue('cus_123');
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'STANDARD');
+    });
+
     it('no-ops when no Recipient matches the Stripe customer id', async () => {
       findRecipientByStripeCustomerIdMock.mockResolvedValue(null);
 
@@ -377,6 +484,14 @@ describe('subscription.service', () => {
       await markLatestCancelled('cus_123');
 
       expect(setLatestSubscriptionFieldsMock).toHaveBeenCalledWith('u1', { status: 'CANCELLED' });
+    });
+
+    it('caches STANDARD on the recipient', async () => {
+      findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1' });
+
+      await markLatestCancelled('cus_123');
+
+      expect(setRecipientTierMock).toHaveBeenCalledWith('u1', 'STANDARD');
     });
 
     it('no-ops when no Recipient matches the Stripe customer id', async () => {
