@@ -79,7 +79,6 @@ const VARIANT_STYLES: Record<
 export function PortalTopNavigation({
   variant,
   brandLabel,
-  brandTo,
   navItems,
   avatarUrl,
   avatarAlt = 'Profile',
@@ -123,7 +122,7 @@ export function PortalTopNavigation({
   const renderAvatar = () => (
     <Link
       to={profileTo}
-      aria-label="Open profile"
+      title="Open profile"
       className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-slate-200 ${styles.avatar}`}
     >
       {avatarUrl ? (
@@ -144,12 +143,9 @@ export function PortalTopNavigation({
   return (
     <header className={`sticky top-0 z-40 border-b shadow-sm ${styles.header}`}>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link
-          to={brandTo}
-          className={`shrink-0 text-lg font-bold ${styles.brand}`}
-        >
+        <div className={`shrink-0 text-lg font-bold ${styles.brand}`}>
           {brandLabel}
-        </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <nav
@@ -187,6 +183,7 @@ export function PortalTopNavigation({
         {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
           {variant === 'recipient' && renderBell()}
+          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -224,13 +221,6 @@ export function PortalTopNavigation({
               </NavLink>
             ))}
           </nav>
-          <div className="border-t border-black/5 p-4 flex items-center gap-3">
-            {renderAvatar()}
-            <div className="flex flex-col flex-1">
-              <span className={`text-sm font-medium ${styles.brand}`}>{avatarAlt}</span>
-            </div>
-            {extraRightActions}
-          </div>
         </div>
       )}
     </header>

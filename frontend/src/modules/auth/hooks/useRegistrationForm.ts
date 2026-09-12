@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { validatePassword, validateUsername } from '../../../shared/utils/validation';
+import { validatePassword, validateUsername } from '@/shared/utils/validation';
 import { getResponseMessage } from '@/shared/utils/apiError';
 
 type FieldErrors<T> = Partial<Record<keyof T, string>>;

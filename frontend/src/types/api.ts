@@ -324,9 +324,18 @@ export interface SubscriptionDTO {
   id: string;
   status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
   currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
   createdAt: string;
 }
 
+export interface SubscriptionStatusResponse {
+  tier: 'STANDARD' | 'PREMIUM';
+  subscription: SubscriptionDTO | null;
+}
+
+export interface UpdateSubscriptionResponse {
+  subscription: SubscriptionDTO;
+}
 // --- Shared envelopes (api_design.md §2.2-2.4) ---
 
 export interface ApiErrorBody {
