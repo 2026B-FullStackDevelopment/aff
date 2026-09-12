@@ -5,6 +5,8 @@ import * as paymentRepository from './payment.repository.js';
 import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
+import { emailInterface } from '../../integrations/email/email.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
 import type { PayableType } from './payment.model.js';
 import type { ClientSession, Types } from 'mongoose';
@@ -26,6 +28,15 @@ function stripeApiError(message: string): Error {
   const error: Error = new Error(message);
   error.statusCode = 502;
   return error;
+}
+
+/**
+ * Resolves a Stripe id field to its plain string id, whether Stripe sent it un-expanded (a
+ * string) or expanded (an object with an `id`) — mirrors the `payment_intent` handling in
+ * handlePaymentCheckoutCompleted below.
+ */
+function resolveStripeId(value: string | { id: string } | null | undefined): string {
+  return typeof value === 'string' ? value : (value?.id ?? '');
 }
 
 /**
@@ -411,23 +422,42 @@ async function processWebhookEvent(event: Stripe.Event) {
       if (session.mode === 'payment') {
         await handlePaymentCheckoutCompleted(session, event.id);
       } else if (session.mode === 'subscription') {
-        // TODO(F1 - Stripe Recurring Subscription): create the initial SUBSCRIPTION row
-        // (status=ACTIVE) for this Recipient. No Payment row exists to check
-        // lastProcessedEventId against yet, since startSubscriptionCheckout doesn't create one.
+        // Creates nothing — the SUBSCRIPTION row is appended by invoice.paid instead, which
+        // fires for both the first payment and every renewal (F1, backend/SUBSCRIPTION.md).
+        console.info(`Stripe subscription checkout completed for session ${session.id}; awaiting invoice.paid.`);
       }
       break;
     }
     case 'invoice.paid': {
-      // TODO(F1): append a new SUBSCRIPTION row for the new billing cycle (append-only ledger
-      // per docs/database_design.md) and send the confirmation email (Nodemailer).
+      const invoice = event.data.object as Stripe.Invoice;
+      const stripeCustomerId = resolveStripeId(invoice.customer);
+      const stripeSubscriptionId = resolveStripeId(invoice.parent?.subscription_details?.subscription ?? null);
+      const currentPeriodEndSeconds = invoice.lines.data[0]?.period?.end ?? invoice.period_end;
+
+      const result = await subscriptionInterface.appendBillingCycle({
+        stripeCustomerId,
+        stripeSubscriptionId,
+        stripeInvoiceId: invoice.id,
+        currentPeriodEnd: new Date(currentPeriodEndSeconds * 1000),
+        cancelAtPeriodEnd: false,
+      });
+
+      if (result.created) {
+        await emailInterface.sendSubscriptionConfirmation({
+          to: result.recipientEmail,
+          currentPeriodEnd: result.currentPeriodEnd,
+        });
+      }
       break;
     }
     case 'invoice.payment_failed': {
-      // TODO(F1): set the latest SUBSCRIPTION.status=PAST_DUE for this Recipient.
+      const invoice = event.data.object as Stripe.Invoice;
+      await subscriptionInterface.markLatestPastDue(resolveStripeId(invoice.customer));
       break;
     }
     case 'customer.subscription.deleted': {
-      // TODO(F1): set the latest SUBSCRIPTION.status=CANCELLED for this Recipient.
+      const subscription = event.data.object as Stripe.Subscription;
+      await subscriptionInterface.markLatestCancelled(resolveStripeId(subscription.customer));
       break;
     }
     case 'charge.refunded': {
