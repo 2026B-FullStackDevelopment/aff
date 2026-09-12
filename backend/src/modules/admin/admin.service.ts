@@ -7,11 +7,13 @@ import type {
   CourierResponseDto,
   AdminCouriersResponseDto,
   AdminDeliveriesResponseDto,
+  AdminUsersResponseDto,
 } from './admin.dto.js';
 import type {
   CreateCourierPayload,
   AdminCouriersQuery,
   AdminDeliveriesQuery,
+  AdminUsersQuery,
 } from './admin.schemas.js';
 
 /** Collects the distinct, defined ids in `values`, preserving first-seen order. */
@@ -60,6 +62,15 @@ async function listCouriers(
 }
 
 /**
+ * Reads one filtered page of every account role for the Admin directory (G1).
+ * Profile joins and role-specific DTO mapping stay inside the users module,
+ * which owns the USER, RECIPIENT, DONOR, and COURIER collections.
+ */
+async function listUsers(query: AdminUsersQuery): Promise<AdminUsersResponseDto> {
+  return userInterface.listUsersForAdmin(query);
+}
+
+/**
  * Reads one page of the Admin's read-only Delivery table (E11).
  *
  * The Courier name and the Order's recipient live in other modules, so they
@@ -105,4 +116,4 @@ async function listDeliveries(
   };
 }
 
-export { createCourier, listCouriers, listDeliveries };
+export { createCourier, listCouriers, listUsers, listDeliveries };

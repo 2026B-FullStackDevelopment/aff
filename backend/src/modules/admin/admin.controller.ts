@@ -6,6 +6,7 @@ import {
   createCourierSchema,
   adminCouriersQuerySchema,
   adminDeliveriesQuerySchema,
+  adminUsersQuerySchema,
 } from './admin.schemas.js';
 import * as adminService from './admin.service.js';
 
@@ -45,13 +46,20 @@ async function listDeliveries(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// Still unwired: the general account directory (G1), account status changes
-// (G2), and the Admin listing directory and cancellation (G3/G4).
-// See docs/api_design.md §11.
-async function listUsers(_req: Request, res: Response) {
-  return notImplemented(res);
+/** `GET /admin/users` — the filterable, paginated account directory (G1). */
+async function listUsers(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = parseBody(adminUsersQuerySchema, req.query);
+    const result = await adminService.listUsers(query);
+
+    return paginated(res, result.items, result.page, result.limit, result.total);
+  } catch (error) {
+    return next(error);
+  }
 }
 
+// Still unwired: account status changes (G2), and the Admin listing directory
+// and cancellation (G3/G4). See docs/api_design.md §11.
 async function updateUserStatus(_req: Request, res: Response) {
   return notImplemented(res);
 }

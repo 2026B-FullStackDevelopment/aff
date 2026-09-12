@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   createCourierAccountMock,
   listCouriersMock,
+  listUsersForAdminMock,
   findCourierProfilesByUserIdsMock,
   listForAdminMock,
   findOrdersByIdsMock,
 } = vi.hoisted(() => ({
   createCourierAccountMock: vi.fn(),
   listCouriersMock: vi.fn(),
+  listUsersForAdminMock: vi.fn(),
   findCourierProfilesByUserIdsMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findOrdersByIdsMock: vi.fn(),
@@ -18,6 +20,7 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   userInterface: {
     createCourierAccount: createCourierAccountMock,
     listCouriers: listCouriersMock,
+    listUsersForAdmin: listUsersForAdminMock,
     findCourierProfilesByUserIds: findCourierProfilesByUserIdsMock,
   },
 }));
@@ -37,6 +40,7 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
 import {
   createCourier,
   listCouriers,
+  listUsers,
   listDeliveries,
 } from '../../../src/modules/admin/admin.service.js';
 
@@ -120,6 +124,28 @@ describe('admin.service', () => {
         id: 'u1',
         fullName: 'Nguyen Van A',
       });
+    });
+  });
+
+  describe('listUsers', () => {
+    it('delegates the validated filters to the users module', async () => {
+      const page = {
+        items: [courierUser],
+        page: 2,
+        limit: 10,
+        total: 11,
+      };
+      const query = {
+        page: 2,
+        limit: 10,
+        role: 'COURIER' as const,
+        status: 'ACTIVE' as const,
+        search: 'courier',
+      };
+      listUsersForAdminMock.mockResolvedValue(page);
+
+      await expect(listUsers(query)).resolves.toBe(page);
+      expect(listUsersForAdminMock).toHaveBeenCalledWith(query);
     });
   });
 
@@ -230,6 +256,7 @@ describe('admin.service', () => {
         'createCourier',
         'listCouriers',
         'listDeliveries',
+        'listUsers',
       ]);
     });
   });

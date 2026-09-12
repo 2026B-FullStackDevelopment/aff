@@ -6,7 +6,11 @@ import * as courierRepository from './courier.repository.js';
 import { securityInterface } from '../security/security.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
-import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
+import type {
+  AdminUsersQuery,
+  LoginStateUpdate,
+  RolePageQuery,
+} from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { Role, UserDocument } from './user.model.js';
 import type { CourierDocument } from './courier.model.js';
@@ -249,6 +253,37 @@ async function listCouriers(query: RolePageQuery): Promise<CourierAccountPage> {
   };
 }
 
+/**
+ * Builds the role-appropriate DTOs for one Admin account-directory page (G1).
+ * The repository supplies the joined role profiles, keeping this mapping free
+ * of per-row database calls.
+ */
+async function listUsersForAdmin(query: AdminUsersQuery) {
+  const page = await userRepository.findUsersForAdmin(query);
+
+  return {
+    ...page,
+    items: page.items.map((user) => {
+      if (user.role === 'RECIPIENT') {
+        return toRecipientResponseDto(user, user.recipientProfile ?? {});
+      }
+
+      if (user.role === 'DONOR') {
+        return toDonorResponseDto(user, user.donorProfile ?? {});
+      }
+
+      if (user.role === 'COURIER') {
+        return {
+          ...toUserResponseDto(user)!,
+          fullName: user.courierProfile?.fullName ?? '',
+        };
+      }
+
+      return toUserResponseDto(user)!;
+    }),
+  };
+}
+
 function donorFieldsRejectedError(): Error {
   const error: Error = new Error('Only Donors can edit company profile fields.');
   error.statusCode = 400;
@@ -366,6 +401,7 @@ export {
   createDonorProfile,
   createCourierAccount,
   listCouriers,
+  listUsersForAdmin,
   findCourierProfilesByUserIds,
   findDonorsByUserIds,
   getDonorByUserId,

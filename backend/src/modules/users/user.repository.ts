@@ -1,5 +1,12 @@
 // Contains user database queries so services do not call Mongoose directly.
-import User, { type UserDocument, type Role } from './user.model.js';
+import User, {
+  type UserDocument,
+  type Role,
+  type AccountStatus,
+} from './user.model.js';
+import Recipient, { type RecipientDocument } from './recipient.model.js';
+import Donor, { type DonorDocument } from './donor.model.js';
+import Courier, { type CourierDocument } from './courier.model.js';
 import type { PipelineStage, Types } from 'mongoose';
 
 /** Pagination for an Admin-facing account listing. */
@@ -16,8 +23,26 @@ interface UserPage {
   total: number;
 }
 
-interface UserPageAggregationResult {
-  items: UserDocument[];
+interface AdminUsersQuery extends RolePageQuery {
+  role?: Role;
+  status?: AccountStatus;
+  search?: string;
+}
+
+/** A USER row plus the role profile needed to build its Admin-facing DTO. */
+interface AdminUserDocument extends UserDocument {
+  recipientProfile?: RecipientDocument;
+  donorProfile?: DonorDocument;
+  courierProfile?: CourierDocument;
+  profileName: string;
+}
+
+interface AdminUserPage extends Omit<UserPage, 'items'> {
+  items: AdminUserDocument[];
+}
+
+interface UserPageAggregationResult<TItem = UserDocument> {
+  items: TItem[];
   metadata: Array<{ total: number }>;
 }
 
@@ -147,6 +172,107 @@ async function findUsersByRole(role: Role, query: RolePageQuery): Promise<UserPa
   };
 }
 
+/**
+ * Reads the Admin account directory with composable role, status, text, and
+ * pagination filters. Profile lookups happen before text filtering so a
+ * Donor's company name and a Courier's full name are searchable alongside
+ * USER.username and USER.email (G1).
+ */
+async function findUsersForAdmin(query: AdminUsersQuery): Promise<AdminUserPage> {
+  const baseMatch: Record<string, unknown> = {};
+
+  if (query.role) baseMatch.role = query.role;
+  if (query.status) baseMatch.status = query.status;
+
+  const pipeline: PipelineStage[] = [
+    { $match: baseMatch },
+    {
+      $lookup: {
+        from: Recipient.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'recipientProfiles',
+      },
+    },
+    {
+      $lookup: {
+        from: Donor.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'donorProfiles',
+      },
+    },
+    {
+      $lookup: {
+        from: Courier.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'courierProfiles',
+      },
+    },
+    {
+      $set: {
+        recipientProfile: { $arrayElemAt: ['$recipientProfiles', 0] },
+        donorProfile: { $arrayElemAt: ['$donorProfiles', 0] },
+        courierProfile: { $arrayElemAt: ['$courierProfiles', 0] },
+        profileName: {
+          $switch: {
+            branches: [
+              {
+                case: { $eq: ['$role', 'DONOR'] },
+                then: {
+                  $ifNull: [{ $arrayElemAt: ['$donorProfiles.companyName', 0] }, '$username'],
+                },
+              },
+              {
+                case: { $eq: ['$role', 'COURIER'] },
+                then: {
+                  $ifNull: [{ $arrayElemAt: ['$courierProfiles.fullName', 0] }, '$username'],
+                },
+              },
+            ],
+            default: '$username',
+          },
+        },
+      },
+    },
+  ];
+
+  if (query.search) {
+    const search = { $regex: escapeRegExp(query.search), $options: 'i' };
+    pipeline.push({
+      $match: {
+        $or: [{ username: search }, { email: search }, { profileName: search }],
+      },
+    });
+  }
+
+  pipeline.push(
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [
+          { $skip: (query.page - 1) * query.limit },
+          { $limit: query.limit },
+          { $unset: ['passwordHash', 'recipientProfiles', 'donorProfiles', 'courierProfiles'] },
+        ],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  );
+
+  const [result] = await User.aggregate<UserPageAggregationResult<AdminUserDocument>>(
+    pipeline,
+  );
+
+  return {
+    items: result?.items ?? [],
+    page: query.page,
+    limit: query.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 export {
   createUser,
   findUserByEmail,
@@ -159,6 +285,7 @@ export {
   lockAccount,
   deleteUser,
   findUsersByRole,
+  findUsersForAdmin,
 };
 export type {
   CreateUserInput,
@@ -166,4 +293,7 @@ export type {
   RecipientSearchResult,
   RolePageQuery,
   UserPage,
+  AdminUsersQuery,
+  AdminUserDocument,
+  AdminUserPage,
 };

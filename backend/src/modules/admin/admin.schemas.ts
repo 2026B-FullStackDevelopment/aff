@@ -29,6 +29,31 @@ const createCourierSchema = z
 const adminCouriersQuerySchema = paginationQuerySchema.strict();
 
 /**
+ * Validates the composable filters on `GET /admin/users` (G1). An omitted
+ * filter includes every value; `search` matches username, email, or the
+ * role-specific display name in the users repository.
+ */
+const adminUsersQuerySchema = paginationQuerySchema
+  .extend({
+    role: z
+      .enum(['RECIPIENT', 'DONOR', 'ADMIN', 'COURIER'], {
+        message: 'Role must be a valid account role.',
+      })
+      .optional(),
+    status: z
+      .enum(['ACTIVE', 'DEACTIVATED'], {
+        message: 'Status must be ACTIVE or DEACTIVATED.',
+      })
+      .optional(),
+    search: z
+      .string({ message: 'Search must be text.' })
+      .trim()
+      .max(100, { message: 'Search cannot be greater than 100 characters.' })
+      .optional(),
+  })
+  .strict();
+
+/**
  * Validates `GET /admin/deliveries`. `stage` is optional — omitting it returns
  * every stage. `CANCELLED` is filterable like any other: an Admin overseeing
  * the pipeline needs to see cascade-cancelled deliveries too.
@@ -45,7 +70,18 @@ const adminDeliveriesQuerySchema = paginationQuerySchema
 
 type CreateCourierPayload = z.infer<typeof createCourierSchema>;
 type AdminCouriersQuery = z.infer<typeof adminCouriersQuerySchema>;
+type AdminUsersQuery = z.infer<typeof adminUsersQuerySchema>;
 type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
 
-export { createCourierSchema, adminCouriersQuerySchema, adminDeliveriesQuerySchema };
-export type { CreateCourierPayload, AdminCouriersQuery, AdminDeliveriesQuery };
+export {
+  createCourierSchema,
+  adminCouriersQuerySchema,
+  adminUsersQuerySchema,
+  adminDeliveriesQuerySchema,
+};
+export type {
+  CreateCourierPayload,
+  AdminCouriersQuery,
+  AdminUsersQuery,
+  AdminDeliveriesQuery,
+};

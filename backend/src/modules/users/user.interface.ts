@@ -13,6 +13,7 @@ const userInterface = {
   createDonorProfile: userService.createDonorProfile,
   createCourierAccount: userService.createCourierAccount,
   listCouriers: userService.listCouriers,
+  listUsersForAdmin: userService.listUsersForAdmin,
   findCourierProfilesByUserIds: userService.findCourierProfilesByUserIds,
   findDonorsByUserIds: userService.findDonorsByUserIds,
   getDonorByUserId: userService.getDonorByUserId,
