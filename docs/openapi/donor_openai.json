@@ -70,7 +70,7 @@
         "tags": ["Donor Listings"],
         "operationId": "createDonorListing",
         "summary": "Create a listing",
-        "description": "Creates an ACTIVE listing owned by the authenticated Donor. city is inherited from the Donor profile and quantityRemaining is initialized to donationLimit; neither field may be sent by the client. PER_REQUEST is a valid unit, but those listings cannot create tracked Orders. Upload an image first through POST /media/upload-url with purpose LISTING_IMAGE, then send the returned mediaUrl as imageUrl.",
+        "description": "Creates an ACTIVE listing owned by the authenticated Donor. donationLimit and an optional rationLimitPerPerson must be positive whole numbers. city is inherited from the Donor profile and quantityRemaining is initialized to donationLimit; neither field may be sent by the client. PER_REQUEST is a valid unit, but those listings cannot create tracked Orders. Upload an image first through POST /media/upload-url with purpose LISTING_IMAGE, then send the returned mediaUrl as imageUrl.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -303,7 +303,7 @@
         "tags": ["Donor Donations"],
         "operationId": "createDonorInitiatedDonation",
         "summary": "Record a completed in-person Donor-initiated donation",
-        "description": "Records food already handed to a selected active Recipient at the Donor's premises and atomically decrements stock. Send only recipientEmail and quantity. A priced listing creates a CASH/PAID/DELIVERED Order; a free listing creates a FREE/DELIVERED Order. Neither case creates a Delivery or Payment. Cash received and change are frontend-only values and are not accepted or stored. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out.",
+        "description": "Records food already handed to a selected active Recipient at the Donor's premises and atomically decrements stock. The Recipient must not already have a non-cancelled Order for this listing, regardless of whether the existing intake path is RESERVATION or DONOR_INITIATED. Send only recipientEmail and quantity. A priced listing creates a CASH/PAID/DELIVERED Order; a free listing creates a FREE/DELIVERED Order. Neither case creates a Delivery or Payment. Cash received and change are frontend-only values and are not accepted or stored. If stock reaches zero, the listing becomes SOLD_OUT and the owning Donor receives listing:sold_out.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
@@ -490,9 +490,9 @@
             "description": "Must be exactly 0 (free) or greater than or equal to 15000 VND. OpenAPI 3.0 cannot express this disjoint numeric constraint compactly, so clients must enforce both branches."
           },
           "donationLimit": {
-            "type": "number",
-            "exclusiveMinimum": true,
-            "minimum": 0
+            "type": "integer",
+            "minimum": 1,
+            "description": "Required positive whole-number quantity; zero, negative, and decimal values are rejected."
           },
           "rationLimitPerPerson": {
             "type": "integer",
@@ -537,7 +537,7 @@
           "price": { "type": "number" },
           "city": { "type": "string" },
           "status": { "$ref": "#/components/schemas/ListingStatus" },
-          "donationLimit": { "type": "number" },
+          "donationLimit": { "type": "integer", "minimum": 1 },
           "rationLimitPerPerson": { "type": "integer", "minimum": 1, "nullable": true },
           "quantityRemaining": { "type": "number" },
           "createdAt": { "type": "string", "format": "date-time" }
@@ -876,12 +876,13 @@
         }
       },
       "DonationNotProcessable": {
-        "description": "The account is not an active Recipient, the listing is inactive or PER_REQUEST, or the requested quantity exceeds a ration/stock constraint",
+        "description": "The account is not an active Recipient, the Recipient already has a non-cancelled Order for the listing, the listing is inactive or PER_REQUEST, or the requested quantity exceeds a ration/stock constraint",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "examples": {
               "inactiveRecipient": { "value": { "message": "The selected account is not an active Recipient." } },
+              "duplicateRecipient": { "value": { "message": "This Recipient already has an order for this listing." } },
               "inactiveListing": { "value": { "message": "The listing is not active." } },
               "perRequest": { "value": { "message": "PER_REQUEST listings do not create Orders." } },
               "rationLimit": { "value": { "message": "Quantity exceeds the ration limit." } },

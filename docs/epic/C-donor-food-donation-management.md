@@ -20,9 +20,9 @@ Let Donors create, manage, and track food listings across all three intake model
 - [ ] #76 — Sold-Out Alert
 
 ## Acceptance Criteria
-- [ ] A Donor can create a listing with name, description, unit, category, vegetarian flag, donation limit, and price, enforcing the free-or-at-least-15000-VND price rule and accepting only positive whole-number ration limits
+- [ ] A Donor can create a listing with name, description, unit, category, vegetarian flag, donation limit, and price, enforcing the free-or-at-least-15000-VND price rule and accepting only positive whole-number donation and ration limits
 - [ ] A Donor can clone a past listing into a new pre-filled draft with quantity/status/dates reset
-- [ ] A Donor can record an in-person donation for a registered Recipient selected by email; a priced donation is cash-only and creates a `PAID`/`DELIVERED` Order, while a free donation creates a `FREE`/`DELIVERED` Order; neither creates a Delivery
+- [ ] A Donor can record one in-person donation per listing for a registered Recipient selected by email; an existing non-cancelled Order blocks another donation, a priced donation is cash-only and creates a `PAID`/`DELIVERED` Order, while a free donation creates a `FREE`/`DELIVERED` Order; neither creates a Delivery
 - [ ] A Donor can search, filter, and sort their own listings by name/category/date range/revenue, split into Active and Past groupings
 - [ ] A Donor can pause, resume, or cancel a listing; cancelling cascades to eligible pending Orders but never changes terminal in-person manual Orders
 - [ ] A Donor can cap the quantity a single Recipient may reserve from a listing via an optional positive whole-number `rationLimitPerPerson`

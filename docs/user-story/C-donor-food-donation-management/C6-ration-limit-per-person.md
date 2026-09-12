@@ -50,7 +50,7 @@ so that **my surplus food is distributed fairly across more Recipients rather th
 1. **This is an optional field on the C1 creation form.** Leaving it blank sends it as omitted/`null`; entering a value requires a positive whole number. Use an integer input step and mirror the rule in the backend schema so a modified client cannot submit zero, a negative number, or a decimal.
 2. **This story only covers setting and storing the field.** Do not build the reservation/donation-quantity check here — that enforcement belongs to `POST /listings/:id/reserve` (Epic D, story D2) and `POST /listings/:id/donations` (C3). Cross-check against those stories rather than duplicating the check in this one.
 3. **If C6 ships before D2/C3 exist**, treat this story as done once the field is captured and persisted — flag enforcement as a dependency on those stories rather than assuming it's covered here.
-4. **Do not apply the integer rule to donation quantities.** Listing quantity and order quantity may remain decimal for units such as kilograms, grams, litres, and millilitres; only `rationLimitPerPerson` is constrained to a whole number.
+4. **Keep Listing and Order quantities distinct.** `donationLimit` is also a positive whole number, while the quantity of an individual Reservation or Donor-initiated Order may remain decimal for units such as kilograms, grams, litres, and millilitres.
 5. **Do not silently round existing or submitted decimal values.** Reject invalid input so the Donor can correct it explicitly.
 
 ## Related Epic

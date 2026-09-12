@@ -155,9 +155,9 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **C1. Create Listing** (`4.1.1`)
 > As a Donor, I want to create a food listing with name, description, unit, category, vegetarian flag, donation limit, and price.
-- UI: creation form; optional `rationLimitPerPerson` accepts positive whole numbers only. Selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
-- API: `POST /listings` validates unit/category enums, the price rule (free or >= 15000 VND), and any supplied ration limit as a positive whole number.
-- Data: creates `LISTING` (status=ACTIVE, quantityRemaining=donationLimit).
+- UI: creation form with live inline validation; required `donationLimit` and optional `rationLimitPerPerson` accept positive whole numbers only. Selecting "Per Request" as the unit shows the SRS-mandated warning (no online reservation, discretionary quantities, Recipients may arrive after stock is gone).
+- API: `POST /listings` validates unit/category enums, the price rule (free or >= 15000 VND), and both quantity-limit fields as positive whole numbers.
+- Data: creates `LISTING` (`status=ACTIVE`, `quantityRemaining=donationLimit`); `donationLimit` is a positive integer.
 
 **C2. Clone Listing** (`4.1.3`)
 > As a Donor, I want to create a new listing pre-filled from a previous one.
@@ -167,8 +167,8 @@ Each story below is a **full vertical slice** — UI, API, and data model behavi
 
 **C3. Donor-Initiated Donation for a Registered Recipient** (`4.1.4`, revised per §10)
 > As a Donor, I want to record food handed directly to a registered Recipient at my premises, so stock and the completed Order are accurately recorded.
-- UI: Donor searches by Recipient email, selects a listing and quantity, and does not enter a delivery address. A priced listing shows a static Cash panel, a cash-received input, the Order total, and live `change = cash received - total`; insufficient cash blocks submission. Free listings show a Free summary. The layout follows the Reservation payment-summary pattern and stacks responsively, but offers no payment selector or Stripe action.
-- API: `POST /listings/:id/donations` accepts only `recipientEmail` and `quantity`. It validates ownership, Recipient, listing eligibility, stock, and ration limit, decrements stock, and creates a terminal Order. Priced Orders use `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`; free Orders use `paymentStatus=FREE` and `orderStatus=DELIVERED`. No Delivery is created.
+- UI: Donor searches by Recipient email, selects a listing and quantity, and does not enter a delivery address. The form checks the selected listing's Orders live and blocks a Recipient who already has a non-cancelled Order on it. A priced listing shows a static Cash panel, a cash-received input, the Order total, and live `change = cash received - total`; insufficient cash blocks submission. Free listings show a Free summary. The layout follows the Reservation payment-summary pattern and stacks responsively, but offers no payment selector or Stripe action.
+- API: `POST /listings/:id/donations` accepts only `recipientEmail` and `quantity`. It validates ownership, Recipient, listing eligibility, stock, ration limit, and that the Recipient has no existing non-cancelled Order for the listing before decrementing stock and creating a terminal Order. Priced Orders use `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`; free Orders use `paymentStatus=FREE` and `orderStatus=DELIVERED`. No Delivery is created.
 - Data: `ORDER` stores the transaction outcome and `intakePath=DONOR_INITIATED`. It has no delivery address or location for this path, and it does not persist cash received or calculated change.
 
 **C4. Search/Filter/Sort Own Listings, with Active/Past Grouping** (`4.1.2`, `4.2.2` — absorbs the standalone dashboard story, see §10)

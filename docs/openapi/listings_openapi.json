@@ -342,7 +342,7 @@
           "price": { "type": "number" },
           "city": { "type": "string" },
           "status": { "$ref": "#/components/schemas/ListingStatus" },
-          "donationLimit": { "type": "number" },
+          "donationLimit": { "type": "integer", "minimum": 1 },
           "rationLimitPerPerson": { "type": "integer", "minimum": 1, "nullable": true },
           "quantityRemaining": { "type": "number" },
           "createdAt": { "type": "string", "format": "date-time" }

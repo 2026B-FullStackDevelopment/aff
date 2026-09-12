@@ -24,7 +24,7 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] A negative price is rejected with `400`
 - [ ] Invalid unit values are rejected with `400`
 - [ ] Invalid category values are rejected with `400`
-- [ ] Invalid donation quantities are rejected with `400`
+- [ ] Donation limits that are zero, negative, or decimal are rejected with `400`
 - [ ] Ration limits that are zero, negative, or decimal are rejected with `400`
 
 ## Clone listing (#69)
@@ -43,6 +43,7 @@ This checklist tracks the backend verification required for the Donor Food Donat
 - [ ] A registered Recipient is resolved by email
 - [ ] A nonexistent Recipient email returns `404`
 - [ ] A non-Recipient account cannot be selected
+- [ ] A Recipient with an existing non-cancelled Order for the listing is rejected with `422` before stock changes
 - [ ] The request accepts only `recipientEmail` and `quantity`; delivery, payment-selection, cash-received, and change fields are rejected
 - [ ] A free donation creates a `DONOR_INITIATED` Order with `paymentStatus=FREE` and `orderStatus=DELIVERED`
 - [ ] A priced donation creates a `DONOR_INITIATED` Order with `paymentMethod=CASH`, `paymentStatus=PAID`, and `orderStatus=DELIVERED`

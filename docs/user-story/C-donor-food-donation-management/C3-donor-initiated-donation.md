@@ -48,6 +48,13 @@ so that **the listing stock and completed Order accurately reflect the in-person
 
   **Note:** lookup uses email because `USER.email` is unique while `username` is not.
 
+- [ ] **Scenario:** Recipient already has an Order for the listing
+  - **Given** the selected Recipient already has a non-cancelled Reservation or Donor-initiated Order for the selected listing
+  - **When** I choose that Recipient and listing
+  - **Then** the frontend displays the standard inline donor validation error and blocks submission
+  - **And** `POST /listings/:id/donations` returns `422` if the request bypasses or races the frontend check
+  - **And** stock is not decremented and no additional Order is created
+
 - [ ] **Scenario:** Quantity exceeds remaining stock or ration limit
   - **Given** I own an eligible listing
   - **When** I submit a quantity greater than `quantityRemaining`, or greater than `rationLimitPerPerson` when set
@@ -71,12 +78,12 @@ so that **the listing stock and completed Order accurately reflect the in-person
 ## Implementation Flow
 
 1. Build the Recipient field as an email autocomplete that stores a selected registered Recipient, not arbitrary text.
-2. Let the Donor select an owned active listing and enter a quantity. Reject `PER_REQUEST`, insufficient stock, and quantities above the stored ration limit.
+2. Let the Donor select an owned active listing and enter a quantity. Load all Order pages for the selected listing, ignore cancelled Orders, and validate the selected Recipient against the remaining Recipient IDs live. Reject `PER_REQUEST`, an existing non-cancelled Order for that Recipient, insufficient stock, and quantities above the stored ration limit.
 3. Do not render Delivery Details or collect a delivery address; the handoff already occurred at the Donor's premises.
 4. For a priced listing, render a static Cash summary using the established payment-panel styling. For a free listing, render the Free summary without a cash input.
 5. Calculate `orderTotal = listing.price * quantity` and `change = cashReceivedAmount - orderTotal` in frontend state. Require whole-number VND and block priced submission when the amount is missing or insufficient.
 6. Keep `cashReceivedAmount` and calculated change local to the frontend. Submit only `{ recipientEmail, quantity }`; do not add these transient values to a DTO, schema, model, or database record.
-7. In the Service layer, reload the owned Listing and Recipient, recalculate the trusted Order amount, validate stock/ration rules, and apply the stock decrement and Order creation atomically.
+7. In the Service layer, reload the owned Listing and Recipient, recalculate the trusted Order amount, validate the duplicate-Order and stock/ration rules, and apply the stock decrement and Order creation in the same transaction.
 8. Create priced manual Orders as `CASH`/`PAID`/`DELIVERED` and free manual Orders as `FREE`/`DELIVERED`. Never call `DeliveryService.createForOrder` for this intake path.
 9. Return the created `OrderDTO`, clear the form, and show a success message that describes an in-person completed donation rather than a queued delivery.
 10. Ensure Recipient, Donor listing-cancellation, and Admin listing-cancellation logic excludes terminal manual Orders even though they have no Delivery record.

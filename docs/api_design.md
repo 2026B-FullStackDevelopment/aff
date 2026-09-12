@@ -167,7 +167,7 @@ Referenced by multiple endpoints below; defined once here.
 | price | number (0 = free) |
 | city | string |
 | status | `ACTIVE`\|`PAUSED`\|`CANCELLED`\|`SOLD_OUT` |
-| donationLimit | number |
+| donationLimit | positive integer |
 | rationLimitPerPerson | positive integer \| null |
 | quantityRemaining | number |
 | createdAt | datetime |
@@ -309,9 +309,9 @@ Covers Donor-side listing management and Recipient-side browsing.
 ### `POST /listings` — *`4.1.1`*
 **Auth:** `DONOR`
 
-Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). When supplied, `rationLimitPerPerson` must be a positive whole number. Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
+Request body: `{ name, description?, imageUrl?, unit, category, isVegetarian, price, donationLimit, rationLimitPerPerson? }` (`city` is inherited from the Donor's profile). `donationLimit` must be a positive whole number; when supplied, `rationLimitPerPerson` must also be a positive whole number. Selecting `unit=PER_REQUEST` is valid here; see `POST /listings/:id/reserve` and `POST /listings/:id/donations` below for how such listings are excluded from those flows.
 Response `201`: `ListingDTO`
-Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VND" rule, or `rationLimitPerPerson` is zero, negative, or fractional
+Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VND" rule, or either quantity limit is zero, negative, or fractional
 
 ### `GET /listings/mine` — *`4.1.2`, `4.2.2`*
 **Auth:** `DONOR`
@@ -349,9 +349,9 @@ Response `200`: paginated `OrderDTO[]` (each including `recipient: { id, usernam
 **Ownership:** the listing must belong to `req.user.id`
 
 Request body: `{ recipientEmail: string, quantity: number }`. Delivery address, payment selection, cash received, and calculated change are not accepted by this endpoint.
-Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used because it is unique). Validates listing ownership and eligibility, remaining stock, and any ration limit; decrements stock; then creates an `ORDER` with `intakePath=DONOR_INITIATED` and `orderStatus=DELIVERED`. A priced listing produces `paymentMethod=CASH` and `paymentStatus=PAID`; a free listing produces `paymentMethod=null` and `paymentStatus=FREE`. This records an in-person handoff at the Donor's premises: no `DELIVERY`, `PAYMENT`, delivery address, cash-received value, or change value is created or stored.
+Behavior: looks up the Recipient by email (must be a registered account — no free-text names, per the §10 deviation from `4.1.4`'s literal text; email is used because it is unique). Validates listing ownership and eligibility, remaining stock, any ration limit, and that the Recipient has no existing non-cancelled Order for the listing. The browser performs a live pre-check using the existing Donor-owned `GET /listings/:id/orders` data, but this POST remains authoritative. It decrements stock and creates an `ORDER` with `intakePath=DONOR_INITIATED` and `orderStatus=DELIVERED`. A priced listing produces `paymentMethod=CASH` and `paymentStatus=PAID`; a free listing produces `paymentMethod=null` and `paymentStatus=FREE`. This records an in-person handoff at the Donor's premises: no `DELIVERY`, `PAYMENT`, delivery address, cash-received value, or change value is created or stored.
 Response `201`: `OrderDTO`
-Errors: `404` recipient email not found; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
+Errors: `404` recipient email not found; `422` Recipient already has a non-cancelled Order for this listing; `422` quantity exceeds `quantityRemaining` or `rationLimitPerPerson`; `422` listing is `PER_REQUEST` (donor-initiated donations aren't supported on untracked listings)
 
 ### `POST /listings/:id/reserve` — *`5.1.2`, `5.1.3`, `5.2.3` (revised per PRD §10)*
 **Auth:** `RECIPIENT`

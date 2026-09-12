@@ -105,7 +105,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | price | number | | Free or >= 15000 VND |
 | city | string | | |
 | status | ListingStatus (enum) | | ACTIVE, PAUSED, CANCELLED, SOLD_OUT |
-| donationLimit | number | | Total quantity offered |
+| donationLimit | integer | | Required positive whole-number total quantity offered |
 | rationLimitPerPerson | integer | | Optional positive whole-number cap per Recipient; null/absent means no ration cap |
 | quantityRemaining | number | | |
 | createdAt | datetime | | |
