@@ -133,13 +133,6 @@ interface UpdateListingStatusResponseDto {
 interface CreateDonorInitiatedDonationRequestDto {
   recipientEmail: string;
   quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: {
-    latitude: number;
-    longitude: number;
-  };
-  paymentMethod?: PaymentMethod;
-  cashReceivedAmount?: number;
 }
 
 interface ReserveListingRequestDto {

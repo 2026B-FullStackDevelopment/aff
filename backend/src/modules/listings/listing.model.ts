@@ -39,7 +39,14 @@ const listingSchema = new Schema<ListingDocument>(
     city: { type: String },
     status: { type: String, enum: ['ACTIVE', 'PAUSED', 'CANCELLED', 'SOLD_OUT'], default: 'ACTIVE' },
     donationLimit: { type: Number, required: true },
-    rationLimitPerPerson: { type: Number },
+    rationLimitPerPerson: {
+      type: Number,
+      min: 1,
+      validate: {
+        validator: Number.isSafeInteger,
+        message: 'Ration limit must be a whole number.',
+      },
+    },
     quantityRemaining: { type: Number, required: true },
     closedAt: { type: Date },
   },

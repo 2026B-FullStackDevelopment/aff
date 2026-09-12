@@ -22,8 +22,8 @@ interface OrderResponseDto {
   paymentMethod: PaymentMethod | undefined;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
-  deliveryAddressText: string;
-  deliveryLocation: GeoLocation;
+  deliveryAddressText?: string;
+  deliveryLocation?: GeoLocation;
   cancelledByUserId: string | null;
   feedback: OrderFeedback | null;
   createdAt: Date;
@@ -71,8 +71,12 @@ function toOrderResponseDto(
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     orderStatus: order.orderStatus,
-    deliveryAddressText: order.deliveryAddressText,
-    deliveryLocation: order.deliveryLocation,
+    ...(order.deliveryAddressText !== undefined
+      ? { deliveryAddressText: order.deliveryAddressText }
+      : {}),
+    ...(order.deliveryLocation !== undefined
+      ? { deliveryLocation: order.deliveryLocation }
+      : {}),
     cancelledByUserId: order.cancelledByUserId ? String(order.cancelledByUserId) : null,
     feedback: order.feedback ?? null,
     createdAt: order.createdAt,

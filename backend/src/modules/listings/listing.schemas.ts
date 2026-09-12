@@ -56,6 +56,14 @@ const positiveQuantitySchema = z
   .finite({ message: 'Quantity must be a finite number.' })
   .positive({ message: 'Quantity must be greater than 0.' });
 
+// Ration limits represent a count-like per-person cap, unlike quantities for
+// weight or volume units, so decimals are rejected rather than rounded.
+const positiveWholeNumberSchema = z
+  .number({ message: 'Ration limit must be a number.' })
+  .finite({ message: 'Ration limit must be a finite number.' })
+  .int({ message: 'Ration limit must be a whole number.' })
+  .positive({ message: 'Ration limit must be greater than 0.' });
+
 // Listing prices must be free or greater than or equal to 15000 VND.
 const listingPriceSchema = z
   .number({ message: 'Price must be a number.' })
@@ -96,9 +104,9 @@ const createListingSchema = z
 
     donationLimit: positiveQuantitySchema,
 
-    // The field is optional, but it must be greater than zero when supplied.
+    // The field is optional, but it must be a positive integer when supplied.
     // An omitted value means that the listing has no per-person ration limit.
-    rationLimitPerPerson: positiveQuantitySchema.optional(),
+    rationLimitPerPerson: positiveWholeNumberSchema.optional(),
   })
   .strict(); // Reject the entire object if it contains any property that was not explicitly declared.
 
@@ -264,12 +272,6 @@ const updateListingStatusSchema = z
 /**
  * Validates `POST /listings/:id/donations`.
  */
-const deliveryLocationSchema = z.object({
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-});
-
-
 // data validation: ensure data's format is valid
 const donorInitiatedDonationSchema = z
   // the value coming in has to be a JS object
@@ -281,50 +283,8 @@ const donorInitiatedDonationSchema = z
       .transform((email) => email.toLowerCase()), // transform input to lowercase
 
     quantity: positiveQuantitySchema,
-
-    deliveryAddressText: z
-      .string({ message: 'Delivery address is required.' })
-      .trim()
-      .min(1, { message: 'Delivery address is required.' }),
-
-    deliveryLocation: deliveryLocationSchema,
-
-    paymentMethod: paymentMethodSchema.optional(),
-
-    cashReceivedAmount: z
-      .number({ message: 'Cash received amount must be a number.' })
-      .finite({ message: 'Cash received amount must be a finite number.' })
-      .int({ message: 'Cash received amount must be a whole number.' })
-      .nonnegative({ message: 'Cash received amount cannot be negative.' })
-      .max(Number.MAX_SAFE_INTEGER, {
-        message: 'Cash received amount is too large.',
-      })
-      .optional(),
   })
-  .strict()
-  .superRefine((payload, context) => {
-    if (
-      payload.paymentMethod === 'CASH' &&
-      payload.cashReceivedAmount === undefined
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['cashReceivedAmount'],
-        message: 'Cash received amount is required for cash payment.',
-      });
-    }
-
-    if (
-      payload.paymentMethod !== 'CASH' &&
-      payload.cashReceivedAmount !== undefined
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['cashReceivedAmount'],
-        message: 'Cash received amount is only allowed for cash payment.',
-      });
-    }
-  });
+  .strict();
 
 /**
  * Validates pagination for `GET /listings/:id/orders`.
