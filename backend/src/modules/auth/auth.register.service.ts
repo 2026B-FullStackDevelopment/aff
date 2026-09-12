@@ -5,6 +5,7 @@ import type { AuthSession } from './auth.token.service.js';
 import type { RegisterRecipientRequestDto, RegisterDonorRequestDto } from './auth.dto.js';
 import type { RecipientDocument } from '../users/recipient.model.js';
 import type { DonorDocument } from '../users/donor.model.js';
+import { createActiveSession } from './active-session.repository.js';
 
 /** The result of a successful Recipient registration: the new session plus the created profile. */
 interface RecipientRegistration {
@@ -40,6 +41,18 @@ async function createProfileOrRollback<T>(userId: string, create: () => Promise<
   }
 }
 
+async function trackSession(session: AuthSession): Promise<void> {
+  // Older unit-test fixtures omit expiry metadata; real signed sessions always
+  // include it through auth.token.service.
+  if (!session.expiresAt) return;
+
+  await createActiveSession({
+    jti: session.jti,
+    userId: session.user._id,
+    expiresAt: session.expiresAt,
+  });
+}
+
 /**
  * Registers a new Recipient: creates the `USER` row, then the `RECIPIENT`
  * profile, then issues a session. Story #47.
@@ -63,7 +76,9 @@ async function registerRecipient(
     userInterface.createRecipientProfile(userId)
   );
 
-  return { session: issueSession(user), recipient };
+  const session = issueSession(user);
+  await trackSession(session);
+  return { session, recipient };
 }
 
 /**
@@ -94,7 +109,9 @@ async function registerDonor(payload: RegisterDonorRequestDto): Promise<DonorReg
     })
   );
 
-  return { session: issueSession(user), donor };
+  const session = issueSession(user);
+  await trackSession(session);
+  return { session, donor };
 }
 
 export { registerRecipient, registerDonor };

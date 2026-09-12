@@ -2,6 +2,7 @@
 import type { UserDocument, Role, AccountStatus } from './user.model.js';
 import type { RecipientDocument } from './recipient.model.js';
 import type { DonorDocument } from './donor.model.js';
+import type { CourierDocument } from './courier.model.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface UserResponseDto {
@@ -29,6 +30,11 @@ interface DonorResponseDto extends UserResponseDto {
   taxCode: string;
   addressText: string;
   location: GeoLocation;
+}
+
+/** The shape returned for a Courier — base account fields plus their full name. */
+interface CourierResponseDto extends UserResponseDto {
+  fullName: string;
 }
 
 interface CreateUserRequestDto {
@@ -84,5 +90,26 @@ function toDonorResponseDto(user: UserDocument, donor: Partial<DonorDocument>): 
   };
 }
 
-export { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto };
-export type { UserResponseDto, CreateUserRequestDto, RecipientResponseDto, DonorResponseDto };
+function toCourierResponseDto(
+  user: UserDocument,
+  courier: Partial<CourierDocument>,
+): CourierResponseDto {
+  return {
+    ...toUserResponseDto(user),
+    fullName: courier.fullName || user.username,
+  };
+}
+
+export {
+  toUserResponseDto,
+  toRecipientResponseDto,
+  toDonorResponseDto,
+  toCourierResponseDto,
+};
+export type {
+  UserResponseDto,
+  CreateUserRequestDto,
+  RecipientResponseDto,
+  DonorResponseDto,
+  CourierResponseDto,
+};

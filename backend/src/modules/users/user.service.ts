@@ -2,13 +2,20 @@
 import * as userRepository from './user.repository.js';
 import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
+import * as courierRepository from './courier.repository.js';
 import { hashPassword } from '../../shared/security/password.js';
 import { authInterface } from '../auth/auth.interface.js';
-import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
+import {
+  toUserResponseDto,
+  toRecipientResponseDto,
+  toDonorResponseDto,
+  toCourierResponseDto,
+} from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
-import type { Role } from './user.model.js';
+import type { Role, AccountStatus } from './user.model.js';
+import type { ListUsersQuery } from './user.repository.js';
 import type { Types } from 'mongoose';
 
 /** The presented token's claims, from `req.auth` (set by `requireAuth`). */
@@ -23,6 +30,11 @@ interface CreateDonorProfileInput {
   taxCode: string;
   addressText: string;
   location: { latitude: number; longitude: number };
+}
+
+interface CreateCourierProfileInput {
+  userId: string | Types.ObjectId;
+  fullName: string;
 }
 
 function duplicateEmailError(): Error {
@@ -124,6 +136,66 @@ async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, str
 
 async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
+}
+
+async function createCourierProfile(input: CreateCourierProfileInput) {
+  return courierRepository.createCourier(input);
+}
+
+async function listAccounts(query: ListUsersQuery) {
+  const result = await userRepository.listUsers(query);
+
+  return {
+    ...result,
+    items: result.items.map((user) => toUserResponseDto(user)!),
+  };
+}
+
+async function listCourierAccounts(query: Omit<ListUsersQuery, 'role'>) {
+  const result = await userRepository.listUsers({ ...query, role: 'COURIER' });
+  const profiles = await courierRepository.findCouriersByUserIds(
+    result.items.map((user) => user._id),
+  );
+  const profileByUserId = new Map(
+    profiles.map((profile) => [String(profile.userId), profile]),
+  );
+
+  return {
+    ...result,
+    items: result.items.map((user) =>
+      toCourierResponseDto(user, profileByUserId.get(String(user._id)) || {}),
+    ),
+  };
+}
+
+async function updateAccountStatus(
+  id: string | Types.ObjectId,
+  status: AccountStatus,
+) {
+  const user = await userRepository.updateUserStatus(id, status);
+
+  if (!user) {
+    const error: Error = new Error('User not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return toUserResponseDto(user);
+}
+
+async function getCourierAccountById(userId: string | Types.ObjectId) {
+  const [user, courier] = await Promise.all([
+    getUserById(String(userId)),
+    courierRepository.findCourierByUserId(userId),
+  ]);
+
+  if (user.role !== 'COURIER' || !courier) {
+    const error: Error = new Error('Courier profile not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return toCourierResponseDto(user, courier);
 }
 
 function donorFieldsRejectedError(): Error {
@@ -240,6 +312,11 @@ export {
   lockAccount,
   createRecipientProfile,
   createDonorProfile,
+  createCourierProfile,
+  listAccounts,
+  listCourierAccounts,
+  updateAccountStatus,
+  getCourierAccountById,
   getDonorByUserId,
   findRecipientByUserId,
   searchRecipientsByEmail,
@@ -249,4 +326,4 @@ export {
   changePassword,
   changeEmail,
 };
-export type { CreateDonorProfileInput };
+export type { CreateDonorProfileInput, CreateCourierProfileInput };

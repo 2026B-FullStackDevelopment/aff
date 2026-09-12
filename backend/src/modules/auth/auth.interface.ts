@@ -10,6 +10,7 @@ import * as authLogoutService from './auth.logout.service.js';
 const authInterface = {
   verifyAccessToken: authTokenService.verifyAccessToken,
   revokeTokenForPasswordChange: authLogoutService.revokeForPasswordChange,
+  revokeAllUserSessions: authLogoutService.revokeAllUserSessions,
 };
 
 export { authInterface };
