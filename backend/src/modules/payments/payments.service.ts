@@ -209,6 +209,21 @@ async function startSubscriptionCheckout({
 }
 
 /**
+ * Toggles a Stripe Subscription's cancel-at-period-end flag (F5 — cancel/resume Premium).
+ * Never calls Stripe's `subscriptions.cancel()`/`.del()`, so access is never revoked mid-period.
+ * @param subscriptionId - the Stripe Subscription id to update
+ * @param cancelAtPeriodEnd - `true` to schedule cancellation at period end, `false` to resume
+ * @throws {Error} with statusCode = 502 if the Stripe API call fails
+ */
+async function setSubscriptionCancelAtPeriodEnd(subscriptionId: string, cancelAtPeriodEnd: boolean) {
+  try {
+    return await paymentProvider.updateSubscriptionCancelAtPeriodEnd(subscriptionId, cancelAtPeriodEnd);
+  } catch (error) {
+    throw stripeApiError(error instanceof Error ? error.message : 'Failed to update Stripe subscription.');
+  }
+}
+
+/**
  * Completes an Order payment after Stripe verifies checkout success.
  * All database changes commit together; the Recipient event is emitted only
  * after the transaction succeeds.
@@ -428,5 +443,5 @@ async function processWebhookEvent(event: Stripe.Event) {
 }
 
 export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout,
-  refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
+  setSubscriptionCancelAtPeriodEnd, refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
 };
