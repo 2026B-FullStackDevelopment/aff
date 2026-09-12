@@ -38,13 +38,12 @@ describe('auth.dto', () => {
     expect(dto.user).not.toHaveProperty('lockedUntil');
   });
 
-  it('toRecipientAuthDto adds tier', () => {
+  it('toRecipientAuthDto always reports tier STANDARD (a brand-new Recipient can\'t have a subscription yet)', () => {
     const dto = toRecipientAuthDto(session, {
-      tier: 'PREMIUM',
       stripeCustomerId: 'cus_123',
     });
 
-    expect(dto.user.tier).toBe('PREMIUM');
+    expect(dto.user.tier).toBe('STANDARD');
     expect(dto.user.email).toBe('alice@example.com');
   });
 

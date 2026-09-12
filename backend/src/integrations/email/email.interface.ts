@@ -9,10 +9,13 @@ import * as emailProvider from './email.provider.js';
  * @param currentPeriodEnd - when the current billing cycle (and Premium access) renews
  */
 async function sendSubscriptionConfirmation({ to, currentPeriodEnd }: { to: string; currentPeriodEnd: Date }) {
+  // Pinned to UTC so the printed date doesn't shift with the server's local time zone —
+  // currentPeriodEnd is stored as a UTC instant derived straight from Stripe's epoch seconds.
   const renewalDate = currentPeriodEnd.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'UTC',
   });
 
   return emailProvider.sendEmail({

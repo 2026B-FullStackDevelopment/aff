@@ -16,6 +16,7 @@ vi.mock('../../../src/modules/users/recipient.model.js', () => ({
 import {
   createRecipient,
   findRecipientByUserId,
+  findRecipientByStripeCustomerId,
 } from '../../../src/modules/users/recipient.repository.js';
 
 describe('recipient.repository', () => {
@@ -39,6 +40,13 @@ describe('recipient.repository', () => {
     await findRecipientByUserId('u1');
 
     expect(findOneMock).toHaveBeenCalledWith({ userId: 'u1' });
+    expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('findRecipientByStripeCustomerId queries by stripeCustomerId and returns a lean document', async () => {
+    await findRecipientByStripeCustomerId('cus_123');
+
+    expect(findOneMock).toHaveBeenCalledWith({ stripeCustomerId: 'cus_123' });
     expect(leanMock).toHaveBeenCalled();
   });
 });
