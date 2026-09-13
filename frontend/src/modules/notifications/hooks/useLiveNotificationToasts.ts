@@ -4,6 +4,7 @@
 // once, at the app root (see LiveNotifications) — replaces the toast/sound
 // dispatch previously hand-written inside useSoldOutNotifications.ts.
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from '@/shared/components/ui/sonner';
 import { getStoredUser } from '@/services/authStorage';
 import { soldOutAlertSoundService } from '@/modules/donations/services/soldOutAlertSound.service';
@@ -12,6 +13,7 @@ import { NOTIFICATION_REGISTRY } from '../notificationRegistry';
 
 export function useLiveNotificationToasts() {
   const role = getStoredUser()?.role;
+  const navigate = useNavigate();
 
   useEffect(() => {
     function prepareSound() {
@@ -33,7 +35,11 @@ export function useLiveNotificationToasts() {
     const unsubscribes = entries.map((entry) =>
       realtimeSocket.on<Record<string, unknown>>(entry.event, (payload) => {
         const { variant, title, description, duration } = entry.toast(payload);
-        toast[variant](title, { description, duration });
+        const action = entry.getLink
+          ? { label: 'View listing', onClick: () => navigate(entry.getLink!(payload)) }
+          : undefined;
+
+        toast[variant](title, { description, duration, action });
 
         if (entry.sound) {
           soldOutAlertSoundService.play();
@@ -44,7 +50,7 @@ export function useLiveNotificationToasts() {
     return () => {
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [role]);
+  }, [role, navigate]);
 }
 
 export default useLiveNotificationToasts;
