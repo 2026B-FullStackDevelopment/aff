@@ -67,6 +67,7 @@ export const API_ROUTES = {
     deliver: (deliveryId: string) => `/deliveries/${deliveryId}/deliver`,
   },
   admin: {
-    dashboard: '/admin/dashboard',
+    users: '/admin/users',
+    couriers: '/admin/couriers',
   },
 };
