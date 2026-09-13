@@ -21,6 +21,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock,
   emitToUserMock,
   sendNotificationMock,
+  notifyPremiumMatchesMock,
 } = vi.hoisted(() => ({
   findAvailableListingsMock: vi.fn(),
   createListingMock: vi.fn(),
@@ -42,6 +43,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   emitToUserMock: vi.fn(),
   sendNotificationMock: vi.fn(),
+  notifyPremiumMatchesMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
@@ -90,6 +92,10 @@ vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
   notificationInterface: {
     sendNotification: sendNotificationMock,
   },
+}));
+
+vi.mock('../../../src/modules/listings/listing.premium-match.js', () => ({
+  notifyPremiumMatches: notifyPremiumMatchesMock,
 }));
 
 // import real listing service functions to test
@@ -246,6 +252,8 @@ describe('listing.service', () => {
           location,
         },
       });
+
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith(createdListing);
     });
 
     it('copies optional Listing fields into the repository input', async () => {
@@ -436,6 +444,7 @@ describe('listing.service', () => {
       expect(createListingMock).not.toHaveBeenCalledWith(
         expect.objectContaining({ _id: 'source' }),
       );
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith({ _id: 'clone', donorId: 'd1' });
     });
   });
 

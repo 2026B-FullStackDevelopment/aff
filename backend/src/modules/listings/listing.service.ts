@@ -5,6 +5,7 @@ import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
 import { notificationInterface } from '../notifications/notification.interface.js';
+import { notifyPremiumMatches } from './listing.premium-match.js';
 import type { ClientSession } from 'mongoose';
 import type {
   MeasurementUnit,
@@ -248,6 +249,8 @@ async function createListing(
     quantityRemaining: payload.donationLimit,
   });
 
+  void notifyPremiumMatches(listing);
+
   return { listing, donor };
 }
 
@@ -335,6 +338,8 @@ async function cloneListing(
     rationLimitPerPerson: source.rationLimitPerPerson,
     quantityRemaining: source.donationLimit,
   });
+
+  void notifyPremiumMatches(cloned);
 
   return { listing: cloned, donor };
 }
