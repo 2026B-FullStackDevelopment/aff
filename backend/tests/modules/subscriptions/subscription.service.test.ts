@@ -449,6 +449,44 @@ describe('subscription.service', () => {
       await expect(appendBillingCycle(input)).rejects.toMatchObject({ statusCode: 404 });
       expect(createSubscriptionMock).not.toHaveBeenCalled();
     });
+
+    it('appends a second, distinct row for a renewal invoice after the first payment — both created:true', async () => {
+      // Each invoice is genuinely new to the ledger (a renewal never shares the first payment's
+      // invoice id), so the idempotency guard must not treat the second call as a duplicate.
+      findSubscriptionByStripeInvoiceIdMock.mockResolvedValue(null);
+      findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1' });
+      getUserByIdMock.mockResolvedValue({ id: 'u1', email: 'jane@example.com' });
+
+      const firstPayment = { ...input, stripeInvoiceId: 'in_first' };
+      const renewal = {
+        ...input,
+        stripeInvoiceId: 'in_renewal',
+        currentPeriodEnd: new Date('2026-04-01T00:00:00.000Z'),
+      };
+
+      const firstResult = await appendBillingCycle(firstPayment);
+      const renewalResult = await appendBillingCycle(renewal);
+
+      expect(firstResult).toEqual({
+        created: true,
+        recipientEmail: 'jane@example.com',
+        currentPeriodEnd: firstPayment.currentPeriodEnd,
+      });
+      expect(renewalResult).toEqual({
+        created: true,
+        recipientEmail: 'jane@example.com',
+        currentPeriodEnd: renewal.currentPeriodEnd,
+      });
+      expect(createSubscriptionMock).toHaveBeenCalledTimes(2);
+      expect(createSubscriptionMock).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ stripeInvoiceId: 'in_first' }),
+      );
+      expect(createSubscriptionMock).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ stripeInvoiceId: 'in_renewal', currentPeriodEnd: renewal.currentPeriodEnd }),
+      );
+    });
   });
 
   describe('markLatestPastDue', () => {

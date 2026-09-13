@@ -455,10 +455,18 @@ async function processWebhookEvent(event: Stripe.Event) {
       });
 
       if (result.created) {
-        await emailInterface.sendSubscriptionConfirmation({
-          to: result.recipientEmail,
-          currentPeriodEnd: result.currentPeriodEnd,
-        });
+        // The ledger row above is already committed — an email failure (bad SMTP creds, a
+        // provider rate-limit, a timeout) must never turn into a non-2xx response here. A non-2xx
+        // would make Stripe retry this same event, and the retry's appendBillingCycle would find
+        // the row already recorded and return created:false, silently skipping the email forever.
+        try {
+          await emailInterface.sendSubscriptionConfirmation({
+            to: result.recipientEmail,
+            currentPeriodEnd: result.currentPeriodEnd,
+          });
+        } catch (error) {
+          console.error('Failed to send the Premium subscription confirmation email:', error);
+        }
       }
       break;
     }
