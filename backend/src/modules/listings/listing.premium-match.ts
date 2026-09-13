@@ -55,43 +55,51 @@ function matchesPreference(
  * create/clone request this is called from is never blocked or failed by this function.
  */
 async function notifyPremiumMatches(listing: ListingDocument): Promise<void> {
-  let preferences: NotificationPreferenceDocument[];
-
   try {
-    preferences = await notificationPreferenceInterface.listActivePreferencesForMatching();
-  } catch (error) {
-    console.error('Failed to load notification preferences for F3 matching:', error);
-    return;
-  }
+    let preferences: NotificationPreferenceDocument[];
 
-  const matches = preferences.filter((preference) => matchesPreference(listing, preference));
+    try {
+      preferences = await notificationPreferenceInterface.listActivePreferencesForMatching();
+    } catch (error) {
+      console.error('Failed to load notification preferences for F3 matching:', error);
+      return;
+    }
 
-  await Promise.all(
-    matches.map(async (preference) => {
-      try {
-        const recipientId = String(preference.recipientId);
+    const matches = preferences.filter((preference) => matchesPreference(listing, preference));
 
-        const isPremium = await subscriptionInterface.isPremiumRecipient(recipientId);
-        if (!isPremium) return;
+    await Promise.all(
+      matches.map(async (preference) => {
+        try {
+          const recipientId = String(preference.recipientId);
 
-        await notificationInterface.sendNotification({
-          userId: recipientId,
-          type: 'PREMIUM_MATCH',
-          listingId: String(listing._id),
-          payload: {
+          const isPremium = await subscriptionInterface.isPremiumRecipient(recipientId);
+          if (!isPremium) return;
+
+          await notificationInterface.sendNotification({
+            userId: recipientId,
+            type: 'PREMIUM_MATCH',
             listingId: String(listing._id),
-            name: listing.name,
-            matchedPreferenceId: String(preference._id),
-          },
-        });
-      } catch (error) {
-        console.error(
-          `Failed to process a PREMIUM_MATCH candidate for preference ${String(preference._id)}:`,
-          error,
-        );
-      }
-    }),
-  );
+            payload: {
+              listingId: String(listing._id),
+              name: listing.name,
+              matchedPreferenceId: String(preference._id),
+            },
+          });
+        } catch (error) {
+          console.error(
+            `Failed to process a PREMIUM_MATCH candidate for preference ${String(preference._id)}:`,
+            error,
+          );
+        }
+      }),
+    );
+  } catch (error) {
+    // Backstop for the "never throws" guarantee above: covers anything between the two inner
+    // try/catches (e.g. matchesPreference throwing on a malformed stored preference) that would
+    // otherwise surface as an unhandled promise rejection at the `void notifyPremiumMatches(...)`
+    // call sites in listing.service.ts.
+    console.error('Unexpected failure while processing PREMIUM_MATCH candidates:', error);
+  }
 }
 
 export { matchesPreference, notifyPremiumMatches };

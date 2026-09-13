@@ -64,7 +64,7 @@ Based on `docs/PRD.md` (all 47 stories across Epics A–H), cross-checked agains
 |---|---|---|
 | `listing.model.ts` / `order.model.ts` still on pre-PRD-v2 schema | All of Epic C, D | Rebuild per `docs/database_design.md` + `docs/api_design.md` (category/unit/price rule, intakePath/paymentMethod/paymentStatus/orderStatus, etc.) |
 | No `delivery` module in codebase | All of Epic E, plus C3/C5/D2/D4/D7/G3 | Build the module from scratch (own MongoDB collection, `DeliveryService.createForOrder`) |
-| Socket.IO real-time layer not yet implemented | C9, D4 (`payment:refunded` only — not the Cancel button, which needs no live update), E6, E8, E9, F3, G5 | Stand up the shared layer before any of these can be demoed |
+| Socket.IO real-time layer not yet implemented | C9, D4 (`payment:refunded` only — not the Cancel button, which needs no live update), E6, E8, E9, G5 | Stand up the shared layer before any of these can be demoed |
 | Stripe/Supabase/SMTP credentials are placeholders in `.env.example` | B1, D2, D3, D4 (refund), F1, F5 | Provision real sandbox/test-mode credentials |
 | Open PRD questions (§11) not yet decided | F1 (email provider, webhook event set) | Team decision — PRD marks these as non-blocking for starting work, but each story is incomplete without a decision |
 
