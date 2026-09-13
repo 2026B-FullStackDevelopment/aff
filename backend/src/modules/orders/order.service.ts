@@ -158,6 +158,7 @@ async function cancelOrder(orderId: string, recipientId: string) {
   ) {
     try {
       await paymentInterface.refundOrderPayment(orderId);
+      await orderRepository.markOrderRefundPending(orderId);
       refundStatus = 'REFUND_PENDING';
     } catch {
       refundStatus = 'FAILED';
@@ -169,7 +170,7 @@ async function cancelOrder(orderId: string, recipientId: string) {
 
 /**
  * Flips a cancelled Order's `paymentStatus` to `REFUNDED` once the
- * `charge.refunded` webhook confirms the refund (D4).
+ * `refund.updated` webhook confirms the refund (D4).
  */
 async function markOrderRefunded(
   orderId: string,
@@ -296,10 +297,10 @@ async function markOrderPaid(
  * the Admin Delivery table (E11). Exposed through `order.interface` so other
  * modules never read the `ORDER` collection directly.
  */
-async function findOrdersByIds(orderIds: string[]) {
+async function findOrdersByIds(orderIds: string[], session?: ClientSession) {
   if (orderIds.length === 0) return [];
 
-  return orderRepository.findOrdersByIds(orderIds);
+  return orderRepository.findOrdersByIds(orderIds, session);
 }
 
 async function markOrderDelivered(
@@ -420,18 +421,87 @@ async function createCheckoutSession(
   });
 }
 
-async function cancelOrdersByIds(
+/**
+ * Cancels a batch of Orders as part of a Listing being cancelled out from
+ * under them (Donor `PATCH /listings/:id/status`, and Admin's equivalent
+ * cascade once G3 ships) — the DB-only half of the same rules `cancelOrder`
+ * applies to a single self-cancelled Order (D4). Runs inside the caller's
+ * transaction: restores each cancelled Order's Listing stock and cancels a
+ * dangling `PAYMENT_PENDING` row, exactly like `cancelOrder` does, but keeps
+ * the bulk atomic `updateMany` instead of looping `cancelOrder` — a cascade
+ * has no per-order ownership or delivery-state check to re-run; those were
+ * already applied when the caller computed `orderIds` and bulk-cancelled the
+ * awaiting Deliveries a moment earlier in the same transaction.
+ *
+ * A refund is a network call and must never run inside a DB transaction, so
+ * it is deliberately not attempted here — this only returns which of the
+ * cancelled Orders are refundable (`STRIPE` + `PAID`); the caller is
+ * responsible for refunding them via `refundCancelledOrders` after the
+ * transaction commits.
+ */
+async function cancelOrdersForListingCancellation(
   orderIds: string[],
   cancelledByUserId: string,
   cancelledAt: Date,
   session?: ClientSession,
-): Promise<number> {
-  return orderRepository.cancelOrdersByIds(
+): Promise<{ cancelledCount: number; refundableOrderIds: string[] }> {
+  if (orderIds.length === 0) {
+    return { cancelledCount: 0, refundableOrderIds: [] };
+  }
+
+  const orders = await orderRepository.findOrdersByIds(orderIds, session);
+
+  const cancelledCount = await orderRepository.cancelOrdersByIds(
     orderIds,
     cancelledByUserId,
     cancelledAt,
     session,
   );
+
+  const refundableOrderIds: string[] = [];
+
+  for (const order of orders) {
+    await listingInterface.restoreStock(
+      String(order.listingId),
+      order.quantity,
+      session,
+    );
+
+    if (order.paymentMethod === 'STRIPE' && order.paymentStatus === 'PAYMENT_PENDING') {
+      await paymentInterface.cancelPendingOrderPayment(String(order._id), session);
+    }
+
+    if (order.paymentMethod === 'STRIPE' && order.paymentStatus === 'PAID') {
+      refundableOrderIds.push(String(order._id));
+    }
+  }
+
+  return { cancelledCount, refundableOrderIds };
+}
+
+/**
+ * Refunds a batch of Orders left `STRIPE` + `PAID` by a Listing-cancellation
+ * cascade, after that cascade's transaction has committed (D4's `cancelOrder`
+ * uses the same post-commit shape for its single-order refund). One Order's
+ * Stripe failure never stops the rest — each outcome is reported back so the
+ * caller can surface which Orders still need manual reconciliation.
+ */
+async function refundCancelledOrders(
+  orderIds: string[],
+): Promise<Array<{ orderId: string; refundStatus: 'REFUND_PENDING' | 'FAILED' }>> {
+  const outcomes: Array<{ orderId: string; refundStatus: 'REFUND_PENDING' | 'FAILED' }> = [];
+
+  for (const orderId of orderIds) {
+    try {
+      await paymentInterface.refundOrderPayment(orderId);
+      await orderRepository.markOrderRefundPending(orderId);
+      outcomes.push({ orderId, refundStatus: 'REFUND_PENDING' });
+    } catch {
+      outcomes.push({ orderId, refundStatus: 'FAILED' });
+    }
+  }
+
+  return outcomes;
 }
 
 async function listOrdersForListing(
@@ -458,6 +528,7 @@ export {
   findOrdersByIds,
   choosePaymentMethod,
   createCheckoutSession,
-  cancelOrdersByIds,
+  cancelOrdersForListingCancellation,
+  refundCancelledOrders,
   listOrdersForListing,
 };

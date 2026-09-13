@@ -56,6 +56,7 @@ interface OrderJoinSummary {
   deliveryAddressText: string;
   deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
   paymentMethod?: 'STRIPE' | 'CASH';
+  paymentStatus: PaymentStatus;
   listingId: Types.ObjectId;
   amount: number;
 }
@@ -262,10 +263,13 @@ async function hasNonCancelledOrderForListing(
  * Courier queue (E2) uses `quantity`, `deliveryAddressText`, `listingId` and
  * `amount`.
  */
-async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> {
+async function findOrdersByIds(
+  orderIds: string[],
+  session?: ClientSession,
+): Promise<OrderJoinSummary[]> {
   if (orderIds.length === 0) return [];
 
-  return Order.find(
+  const query = Order.find(
     { _id: { $in: orderIds } },
     {
       _id: 1,
@@ -274,10 +278,13 @@ async function findOrdersByIds(orderIds: string[]): Promise<OrderJoinSummary[]> 
       deliveryAddressText: 1,
       deliveryLocation: 1,
       paymentMethod: 1,
+      paymentStatus: 1,
       listingId: 1,
       amount: 1,
     },
-  ).lean<OrderJoinSummary[]>();
+  );
+
+  return (session ? query.session(session) : query).lean<OrderJoinSummary[]>();
 }
 
 async function cancelOrdersByIds(
@@ -338,8 +345,37 @@ function cancelOrderById(
 }
 
 /**
+ * Flips a cancelled Order's `paymentStatus` from `PAID` to `REFUND_PENDING`
+ * once a Stripe refund has actually been created for it (D4). Guarding on
+ * `paymentStatus: 'PAID'` makes this a safe no-op if called twice, or if the
+ * `refund.updated` webhook has already raced ahead and flipped the Order to
+ * `REFUNDED` first.
+ */
+function markOrderRefundPending(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      paymentStatus: 'PAID',
+    },
+    {
+      $set: {
+        paymentStatus: 'REFUND_PENDING',
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
+/**
  * Flips a cancelled Order's `paymentStatus` from `REFUND_PENDING` to
- * `REFUNDED` once the `charge.refunded` webhook confirms the refund (D4).
+ * `REFUNDED` once the `refund.updated` webhook confirms the refund (D4).
  * Mirrors `markOrderPaid`'s exact guard-then-set shape.
  */
 function markOrderRefunded(
@@ -575,6 +611,7 @@ export {
   hasNonCancelledOrderForListing,
   cancelOrdersByIds,
   cancelOrderById,
+  markOrderRefundPending,
   markOrderRefunded,
   setFeedback,
   withTransaction,

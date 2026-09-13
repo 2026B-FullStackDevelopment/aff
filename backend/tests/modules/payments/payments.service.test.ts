@@ -173,14 +173,14 @@ function subscriptionDeletedEvent(overrides: Record<string, unknown> = {}) {
   } as unknown as Stripe.Event;
 }
 
-function chargeRefundedEvent(overrides: Partial<Stripe.Charge> = {}, eventId = 'evt_9') {
+function refundUpdatedEvent(overrides: Partial<Stripe.Refund> = {}, eventId = 'evt_9') {
   return {
     id: eventId,
-    type: 'charge.refunded',
+    type: 'refund.updated',
     data: {
       object: {
-        id: 'ch_123',
-        refunds: { data: [{ id: 're_123' }] },
+        id: 're_123',
+        status: 'succeeded',
         ...overrides,
       },
     },
@@ -688,7 +688,7 @@ describe('payments.service', () => {
         paymentStatus: 'REFUNDED',
       });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(findPaymentByRefundIdMock).toHaveBeenCalledWith('re_123');
       expect(updatePaymentEventMock).toHaveBeenCalledWith('p1', {
@@ -705,10 +705,10 @@ describe('payments.service', () => {
       });
     });
 
-    it('skips already-processed charge.refunded events (idempotency)', async () => {
+    it('skips already-processed refund.updated events (idempotency)', async () => {
       findPaymentByRefundIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: 'evt_9' });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(updatePaymentEventMock).not.toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
@@ -722,7 +722,7 @@ describe('payments.service', () => {
         lastProcessedEventId: undefined,
       });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(updatePaymentEventMock).toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
@@ -738,7 +738,7 @@ describe('payments.service', () => {
       });
       markOrderRefundedMock.mockResolvedValue(null);
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
       expect(sendNotificationMock).not.toHaveBeenCalled();
@@ -747,16 +747,19 @@ describe('payments.service', () => {
     it('no-ops when no Payment row matches the refund id', async () => {
       findPaymentByRefundIdMock.mockResolvedValue(null);
 
-      await expect(processWebhookEvent(chargeRefundedEvent())).resolves.toBeUndefined();
+      await expect(processWebhookEvent(refundUpdatedEvent())).resolves.toBeUndefined();
       expect(updatePaymentEventMock).not.toHaveBeenCalled();
     });
 
-    it('no-ops on a charge.refunded event with no refunds on the charge', async () => {
-      await expect(
-        processWebhookEvent(chargeRefundedEvent({ refunds: { data: [] } } as never)),
-      ).resolves.toBeUndefined();
-      expect(findPaymentByRefundIdMock).not.toHaveBeenCalled();
-    });
+    it.each(['pending', 'failed', 'canceled'] as const)(
+      'no-ops on a refund.updated event whose status is not yet succeeded (%s)',
+      async (status) => {
+        await expect(
+          processWebhookEvent(refundUpdatedEvent({ status })),
+        ).resolves.toBeUndefined();
+        expect(findPaymentByRefundIdMock).not.toHaveBeenCalled();
+      },
+    );
 
     it('no-ops on an undocumented event type', async () => {
       const event = { id: 'evt_3', type: 'account.updated', data: { object: {} } } as unknown as Stripe.Event;

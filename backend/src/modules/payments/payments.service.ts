@@ -314,7 +314,7 @@ async function handlePaymentCheckoutCompleted(
 /**
  * Synchronously refunds a Stripe-paid order's payment as part of cancellation (D4). Only touches
  * the PAYMENT row — sets REFUND_PENDING, not REFUNDED; final confirmation is the caller's job to
- * surface once the charge.refunded webhook (see handleChargeRefunded below) settles it. Marking
+ * surface once the refund.updated webhook (see handleRefundUpdated below) settles it. Marking
  * ORDER.paymentStatus is the caller's responsibility, same division as handlePaymentCheckoutCompleted.
  * Idempotent: a payment already REFUND_PENDING or REFUNDED is not refunded again.
  * @param orderId - the cancelled ORDER._id. The caller is expected to have already confirmed the
@@ -367,22 +367,27 @@ async function cancelPendingOrderPayment(
 }
 
 /**
- * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
- * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
- * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and sending the
- * PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors handlePaymentCheckoutCompleted.
+ * Reconciles a verified "refund.updated" event against its Payment row (matched by
+ * stripeRefundId, set synchronously by refundOrderPayment above): ignores the refund
+ * until it reaches a terminal `succeeded` status, skips if already processed, otherwise
+ * marks it REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED
+ * and sending the PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors
+ * handlePaymentCheckoutCompleted.
+ *
+ * Listens to the Refund object directly rather than the older `charge.refunded` event:
+ * as of Stripe's 2024-10-28 API change, `charge.refunded` no longer reliably carries the
+ * refund's id/status in its payload, whereas `refund.updated` (now sent for every refund
+ * type, not just chargeless ones) gives both directly with no extra API call.
  */
-async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
-  const refundId = charge.refunds?.data[0]?.id;
-
-  // No refund on this charge (shouldn't happen for this event type) — nothing to reconcile.
-  if (!refundId) {
+async function handleRefundUpdated(refund: Stripe.Refund, eventId: string) {
+  // Only a terminal success confirms the refund; ignore pending/failed/canceled updates.
+  if (refund.status !== 'succeeded') {
     return;
   }
 
-  const payment = await paymentRepository.findPaymentByRefundId(refundId);
+  const payment = await paymentRepository.findPaymentByRefundId(refund.id);
 
-  // No matching Payment row (e.g. stripeRefundId not yet persisted, or an unrelated charge) —
+  // No matching Payment row (e.g. stripeRefundId not yet persisted, or an unrelated refund) —
   // nothing to reconcile.
   if (!payment) {
     return;
@@ -467,9 +472,9 @@ async function processWebhookEvent(event: Stripe.Event) {
       await subscriptionInterface.markLatestCancelled(resolveStripeId(subscription.customer));
       break;
     }
-    case 'charge.refunded': {
-      const charge = event.data.object as Stripe.Charge;
-      await handleChargeRefunded(charge, event.id);
+    case 'refund.updated': {
+      const refund = event.data.object as Stripe.Refund;
+      await handleRefundUpdated(refund, event.id);
       break;
     }
     default:

@@ -101,6 +101,7 @@ async function updateListingStatus(req: Request, res: Response, next: NextFuncti
     return ok(res, {
       listing: toListingResponseDto(result.listing),
       cancelledOrderCount: result.cancelledOrderCount,
+      refundOutcomes: result.refundOutcomes,
     });
   } catch (error) {
     return next(error);

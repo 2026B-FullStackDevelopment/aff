@@ -124,9 +124,15 @@ interface UpdateListingStatusRequestDto {
   status: 'PAUSED' | 'ACTIVE' | 'CANCELLED';
 }
 
+interface RefundOutcomeDto {
+  orderId: string;
+  refundStatus: 'REFUND_PENDING' | 'FAILED';
+}
+
 interface UpdateListingStatusResponseDto {
   listing: ListingResponseDto;
   cancelledOrderCount: number;
+  refundOutcomes: RefundOutcomeDto[];
 }
 
 // dto interface restricts the attributes being transfered
