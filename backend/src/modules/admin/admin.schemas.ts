@@ -33,6 +33,10 @@ const adminCouriersQuerySchema = paginationQuerySchema.strict();
  * filter includes every value; `search` matches username, email, or the
  * role-specific display name in the users repository.
  */
+
+// Validates the filter request  `GET /admin/users`
+// The req sent has role, status, search according to filter options
+// Used by parsedBody to check req
 const adminUsersQuerySchema = paginationQuerySchema
   .extend({
     role: z
