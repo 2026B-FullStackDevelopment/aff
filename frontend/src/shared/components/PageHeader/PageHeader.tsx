@@ -5,6 +5,7 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   actions?: ReactNode;
+  theme?: 'default' | 'admin';
   className?: string;
 }
 
@@ -12,6 +13,7 @@ export function PageHeader({
   title,
   description,
   actions,
+  theme = 'default',
   className,
 }: PageHeaderProps) {
   return (
@@ -22,12 +24,22 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#1B1C1C]">
+        <h1
+          className={cn(
+            'text-3xl font-extrabold tracking-tight',
+            theme === 'admin' ? 'text-admin-title sm:text-4xl' : 'text-[#1B1C1C]',
+          )}
+        >
           {title}
         </h1>
 
         {description && (
-          <p className="mt-1 text-sm text-[#6B7280]">
+          <p
+            className={cn(
+              'mt-1 text-sm',
+              theme === 'admin' ? 'text-admin-text-muted' : 'text-[#6B7280]',
+            )}
+          >
             {description}
           </p>
         )}
