@@ -1,3 +1,4 @@
+// A layout component shared by admin pages
 import { Outlet } from 'react-router-dom';
 import { getStoredUser } from '@/services/authStorage';
 import { PortalTopNavigation } from '@/shared/components/PortalTopNavigation/PortalTopNavigation';

@@ -11,7 +11,8 @@ function parsePage(value: string | null): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-/** Loads the current Admin directory page and keeps its page in the URL. */
+// load the AdminUser directory
+// fetch the data and user list with pagination, and exposed them
 export function useAdminUsers() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parsePage(searchParams.get('page'));

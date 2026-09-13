@@ -1,3 +1,5 @@
+// Dashboard page component
+
 import { Link } from 'react-router-dom';
 import { Plus, Users } from 'lucide-react';
 import { buttonVariants } from '@/shared/components/Button/Button';
