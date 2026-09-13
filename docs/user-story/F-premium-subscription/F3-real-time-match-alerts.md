@@ -12,32 +12,32 @@ so that **I can act on scarce food before it runs out, without polling or refres
 
 ## Acceptance Criteria
 
-- [ ] **Scenario:** A new listing matches my preference
+- [x] **Scenario:** A new listing matches my preference
   - **Given** I am a connected Premium Recipient with a saved preference "vegetarian BAKED_GOODS under $5 in District 1"
   - **When** a Donor publishes a new `ACTIVE` listing that satisfies every set constraint of that preference
   - **Then** I receive `notification:premium_match` on `user:<recipientId>` with `{ listingId, name, matchedPreferenceId }`, and a toast links me to that listing
 
-- [ ] **Scenario:** Null constraints are treated as "no filter"
+- [x] **Scenario:** Null constraints are treated as "no filter"
   - **Given** my preference sets only `categories: [MEAT]` and leaves price, vegetarian, and city null
   - **When** any new `ACTIVE` MEAT listing is published, at any price, in any city
   - **Then** it matches and I am alerted
 
-- [ ] **Scenario:** Non-matching listing produces no alert
+- [x] **Scenario:** Non-matching listing produces no alert
   - **Given** my only preference is for `DRINK` listings
   - **When** a new `VEGETABLE` listing is published
   - **Then** I receive no event
 
-- [ ] **Scenario:** Standard-tier Recipients are never matched
+- [x] **Scenario:** Standard-tier Recipients are never matched
   - **Given** a Recipient on the `STANDARD` tier (including one with stale preference rows from a lapsed subscription)
   - **When** any listing is published
   - **Then** no `notification:premium_match` is emitted to them
 
-- [ ] **Scenario:** The toast is transient, but the notification persists
+- [x] **Scenario:** The toast is transient, but the notification persists
   - **Given** I received a match toast and then reloaded the page
   - **When** the page comes back
   - **Then** the toast itself is gone (it only ever existed in the live session), but the underlying `NOTIFICATION` row is fetchable via `GET /notifications` (Epic H) — there is still no read/unread record of it
 
-- [ ] **Scenario:** Offline Premium Recipient misses the event
+- [x] **Scenario:** Offline Premium Recipient misses the event
   - **Given** I am Premium but not currently connected over Socket.IO
   - **When** a matching listing is published
   - **Then** the event is simply not delivered — there is no queue or catch-up on reconnect (matches the "live feed only" scope)
