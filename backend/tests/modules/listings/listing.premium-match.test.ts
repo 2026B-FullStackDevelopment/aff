@@ -142,7 +142,6 @@ describe('notifyPremiumMatches', () => {
       payload: {
         listingId: 'l1',
         name: 'Fresh Bread',
-        matchedPreferenceId: 'pref1',
         preferenceTitle: 'Vegetarian Bakery',
       },
     });
@@ -191,6 +190,7 @@ describe('notifyPremiumMatches', () => {
       {
         _id: 'pref1',
         recipientId: 'r1',
+        preferenceTitle: 'Vegetarian Bakery',
         categories: ['BAKED_GOODS'],
         vegetarian: null,
         priceMin: null,
@@ -200,6 +200,7 @@ describe('notifyPremiumMatches', () => {
       {
         _id: 'pref2',
         recipientId: 'r1',
+        preferenceTitle: 'Any Vegetarian Item',
         categories: [],
         vegetarian: true,
         priceMin: null,
@@ -213,10 +214,10 @@ describe('notifyPremiumMatches', () => {
 
     expect(sendNotificationMock).toHaveBeenCalledTimes(2);
     expect(sendNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: expect.objectContaining({ matchedPreferenceId: 'pref1' }) }),
+      expect.objectContaining({ payload: expect.objectContaining({ preferenceTitle: 'Vegetarian Bakery' }) }),
     );
     expect(sendNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: expect.objectContaining({ matchedPreferenceId: 'pref2' }) }),
+      expect.objectContaining({ payload: expect.objectContaining({ preferenceTitle: 'Any Vegetarian Item' }) }),
     );
   });
 

@@ -186,13 +186,12 @@ describe('notification.service', () => {
       await sendNotification({
         userId: 'u1',
         type: 'PREMIUM_MATCH',
-        payload: { listingId: 'l1', name: 'Fresh Bread', matchedPreferenceId: 'pref1', preferenceTitle: 'Vegetarian Bakery' },
+        payload: { listingId: 'l1', name: 'Fresh Bread', preferenceTitle: 'Vegetarian Bakery' },
       });
 
       expect(emitToUserMock).toHaveBeenCalledWith('u1', 'notification:premium_match', {
         listingId: 'l1',
         name: 'Fresh Bread',
-        matchedPreferenceId: 'pref1',
         preferenceTitle: 'Vegetarian Bakery',
         message: 'A new listing "Fresh Bread" matches your "Vegetarian Bakery" preference.',
       });
