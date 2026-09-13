@@ -3,6 +3,10 @@
 import type { ListingDocument } from './listing.model.js';
 import type { NotificationPreferenceDocument } from '../notification-preferences/notification-preference.model.js';
 
+import { notificationPreferenceInterface } from '../notification-preferences/notification-preference.interface.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
+
 interface MatchableListing {
   category: ListingDocument['category'];
   isVegetarian: ListingDocument['isVegetarian'];
@@ -43,5 +47,52 @@ function matchesPreference(
   return true;
 }
 
-export { matchesPreference };
+/**
+ * Scans every active NotificationPreference against a newly ACTIVE Listing and sends
+ * `PREMIUM_MATCH` to each still-Premium Recipient whose preference matches (F3). Never throws:
+ * a failure loading preferences is logged and matching is skipped entirely; a failure on one
+ * candidate (tier lookup or send) is logged and does not stop the rest. Either way, the
+ * create/clone request this is called from is never blocked or failed by this function.
+ */
+async function notifyPremiumMatches(listing: ListingDocument): Promise<void> {
+  let preferences: NotificationPreferenceDocument[];
+
+  try {
+    preferences = await notificationPreferenceInterface.listActivePreferencesForMatching();
+  } catch (error) {
+    console.error('Failed to load notification preferences for F3 matching:', error);
+    return;
+  }
+
+  const matches = preferences.filter((preference) => matchesPreference(listing, preference));
+
+  await Promise.all(
+    matches.map(async (preference) => {
+      try {
+        const recipientId = String(preference.recipientId);
+
+        const isPremium = await subscriptionInterface.isPremiumRecipient(recipientId);
+        if (!isPremium) return;
+
+        await notificationInterface.sendNotification({
+          userId: recipientId,
+          type: 'PREMIUM_MATCH',
+          listingId: String(listing._id),
+          payload: {
+            listingId: String(listing._id),
+            name: listing.name,
+            matchedPreferenceId: String(preference._id),
+          },
+        });
+      } catch (error) {
+        console.error(
+          `Failed to process a PREMIUM_MATCH candidate for preference ${String(preference._id)}:`,
+          error,
+        );
+      }
+    }),
+  );
+}
+
+export { matchesPreference, notifyPremiumMatches };
 export type { MatchableListing };
