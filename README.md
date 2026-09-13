@@ -67,7 +67,7 @@ The project is a TypeScript full-stack monorepo: a React/Vite frontend, a Node.j
 
    ```bash
    npm run typecheck
-   npm --workspace backend run test
+   npm test
    ```
 
 See [`AGENTS.md`](AGENTS.md) for the full architecture reference and the required development workflow.

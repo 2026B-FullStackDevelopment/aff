@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "node ../node_modules/vite/bin/vite.js",
     "build": "node ../node_modules/typescript/bin/tsc -b && node ../node_modules/vite/bin/vite.js build",
+    "test": "node ../node_modules/vitest/vitest.mjs run --config vitest.config.ts",
     "typecheck": "node ../node_modules/typescript/bin/tsc -b --noEmit",
     "preview": "node ../node_modules/vite/bin/vite.js preview"
   },
@@ -28,13 +29,18 @@
     "vite": "^7.2.7"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.4",
+    "jsdom": "^28.1.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

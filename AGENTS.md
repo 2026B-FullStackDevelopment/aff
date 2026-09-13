@@ -94,12 +94,11 @@ npm --workspace backend run build       # Full build, verifies the compiled outp
 
 ```bash
 npm --workspace frontend run typecheck  # TypeScript project build in --noEmit mode
+npm --workspace frontend run test       # Vitest + Testing Library
 npm --workspace frontend run build      # Full production build
 ```
 
-The frontend currently has no automated test suite — do not assume test coverage exists there.
-
-A convenience shortcut runs both workspaces' type checks together: `npm run typecheck` (root `package.json`).
+Convenience shortcuts run both workspaces' type checks or tests together: `npm run typecheck` and `npm test` (root `package.json`).
 
 **Documentation:** after completing a feature, use the `code-documentation` skill (see below) to document the code — this includes TSDoc/JSDoc on new exported functions and types, and any README or API documentation the change warrants. When the change adds or modifies a backend endpoint, also update the corresponding OpenAPI spec under `docs/openapi/` and, if the contract itself changed, `docs/api_design.md`. Documentation is part of finishing a feature, not an optional follow-up.
 

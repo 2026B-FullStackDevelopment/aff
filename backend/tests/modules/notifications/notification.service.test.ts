@@ -214,12 +214,12 @@ describe('notification.service', () => {
 
       expect(emitToUserMock).toHaveBeenCalledWith('r1', 'notification:admin_cancel', {
         orderId: 'o1',
-        message: 'Your order was cancelled by an admin.',
+        message: 'Your order was cancelled because its listing was closed.',
       });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'r1',
         type: 'ADMIN_CANCEL',
-        message: 'Your order was cancelled by an admin.',
+        message: 'Your order was cancelled because its listing was closed.',
         orderId: 'o1',
         listingId: undefined,
       });

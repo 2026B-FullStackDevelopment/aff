@@ -56,7 +56,7 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
       description:
         typeof payload.message === 'string'
           ? payload.message
-          : 'An Admin cancelled a listing in your order.',
+          : 'Your order was cancelled because its listing was closed.',
       duration: 8000,
     }),
   },

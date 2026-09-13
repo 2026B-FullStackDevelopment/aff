@@ -57,7 +57,7 @@ function buildMessage(type: NotificationType, event: string, payload: Record<str
     case 'PREMIUM_MATCH':
       return 'A new listing matches your notification preferences.';
     case 'ADMIN_CANCEL':
-      return 'Your order was cancelled by an admin.';
+      return 'Your order was cancelled because its listing was closed.';
     default:
       return 'You have a new notification.';
   }

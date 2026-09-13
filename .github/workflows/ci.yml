@@ -67,7 +67,8 @@ jobs:
       - name: Typecheck
         run: npm --workspace frontend run typecheck
 
-      # No test step: the frontend has no tests. Adding an empty one would
-      # imply coverage that does not exist.
+      - name: Test
+        run: npm --workspace frontend run test
+
       - name: Build
         run: npm --workspace frontend run build
