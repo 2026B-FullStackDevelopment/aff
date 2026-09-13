@@ -3,7 +3,7 @@ title: "[STORY][RECIPIENT] Cancel Order Before Courier Claim"
 labels: user-story
 ---
 
-**Traceability:** PRD `D4` (revised — Stripe refund on cancellation is now automatic) · API: `DELETE /orders/:id` (`docs/api_design.md` §7), `charge.refunded` webhook (§8), `payment:refunded` event (§12)
+**Traceability:** PRD `D4` (revised — Stripe refund on cancellation is now automatic) · API: `DELETE /orders/:id` (`docs/api_design.md` §7), `refund.updated` webhook (§8), `payment:refunded` event (§12)
 
 ## User Story
 As a **Recipient**,
@@ -39,7 +39,7 @@ so that **I'm not locked into a mistaken purchase just because I've already plac
 
 - [ ] **Scenario:** Refund confirmation arrives live
   - **Given** my cancellation just returned `refundStatus: 'REFUND_PENDING'` and I'm still on the order page
-  - **When** the `charge.refunded` webhook later confirms the refund
+  - **When** the `refund.updated` webhook later confirms the refund
   - **Then** a `payment:refunded` event updates my view to `REFUNDED` without a page reload, matching `ORDER.paymentStatus`/`PAYMENT.status` server-side
 
 - [ ] **Scenario:** A failed refund attempt doesn't block cancellation

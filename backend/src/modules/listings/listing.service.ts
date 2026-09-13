@@ -50,9 +50,15 @@ interface MyListingsServiceResult {
   total: number;
 }
 
+interface RefundOutcome {
+  orderId: string;
+  refundStatus: 'REFUND_PENDING' | 'FAILED';
+}
+
 interface UpdateListingStatusServiceResult {
   listing: ListingDtoSource;
   cancelledOrderCount: number;
+  refundOutcomes: RefundOutcome[];
 }
 
 interface ListingOrdersServiceResult {
@@ -351,6 +357,7 @@ async function updateListingStatus(
 ): Promise<UpdateListingStatusServiceResult> {
   let updatedListing: ListingDocument;
   let cancelledOrderCount = 0;
+  let refundOutcomes: RefundOutcome[] = [];
 
   if (nextStatus === 'CANCELLED') {
     const transactionResult = await listingRepository.withTransaction(
@@ -379,12 +386,13 @@ async function updateListingStatus(
           session,
         );
 
-        const cancelledCount = await orderInterface.cancelOrdersByIds(
-          cancellableOrderIds,
-          donorId,
-          cancelledAt,
-          session,
-        );
+        const { cancelledCount, refundableOrderIds } =
+          await orderInterface.cancelOrdersForListingCancellation(
+            cancellableOrderIds,
+            donorId,
+            cancelledAt,
+            session,
+          );
 
         const listing = assertStatusUpdated(
           await listingRepository.updateListingStatusIfCurrent(
@@ -396,12 +404,20 @@ async function updateListingStatus(
           ),
         );
 
-        return { listing, cancelledOrderCount: cancelledCount };
+        return { listing, cancelledOrderCount: cancelledCount, refundableOrderIds };
       },
     );
 
     updatedListing = transactionResult.listing;
     cancelledOrderCount = transactionResult.cancelledOrderCount;
+
+    // Refund only after the database transaction has committed successfully —
+    // a Stripe call must never happen inside an open transaction.
+    if (transactionResult.refundableOrderIds.length > 0) {
+      refundOutcomes = await orderInterface.refundCancelledOrders(
+        transactionResult.refundableOrderIds,
+      );
+    }
   } else {
     const current = await requireOwnedListing(listingId, donorId);
     assertValidStatusTransition(current.status, nextStatus);
@@ -422,6 +438,7 @@ async function updateListingStatus(
       donor: await getListingDonorData(donorId),
     },
     cancelledOrderCount,
+    refundOutcomes,
   };
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import { reservationService } from '../services/reservation.service';
+import { orderRealtimeService } from '../services/orderRealtime.service';
 import type { RecipientOrderDTO } from '@/types/api';
 
 const ORDER_HISTORY_PAGE_SIZE = 20;
@@ -54,6 +55,25 @@ export function useOrderHistory() {
 
   useEffect(() => {
     void load(page);
+  }, [load, page]);
+
+  // Unlike the order detail page (useOrderTracking/useOrderRealtime), this list has no
+  // single orderId to scope a room join to, but payment:success/payment:refunded are
+  // emitted to this Recipient's own user room regardless (no join needed) — so refetch
+  // the currently-viewed page on either, otherwise a row's paymentStatus stays stale
+  // until a manual reload.
+  useEffect(() => {
+    const unsubscribeSuccess = orderRealtimeService.subscribeToPaymentSuccess(() => {
+      void load(page);
+    });
+    const unsubscribeRefunded = orderRealtimeService.subscribeToPaymentRefunded(() => {
+      void load(page);
+    });
+
+    return () => {
+      unsubscribeSuccess();
+      unsubscribeRefunded();
+    };
   }, [load, page]);
 
   return {

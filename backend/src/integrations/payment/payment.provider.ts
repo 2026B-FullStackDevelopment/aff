@@ -153,7 +153,7 @@ async function updateSubscriptionCancelAtPeriodEnd(subscriptionId: string, cance
 /**
  * Fully refunds a previously captured payment. The returned status reflects Stripe's synchronous
  * response only — for most card refunds this is `succeeded` immediately, but it is not guaranteed
- * final; the caller should treat this as provisional and rely on the `charge.refunded` webhook
+ * final; the caller should treat this as provisional and rely on the `refund.updated` webhook
  * (docs/api_design.md §8) for confirmation, not this return value alone.
  * @param paymentIntentId - the Stripe PaymentIntent id backing the original checkout session
  */

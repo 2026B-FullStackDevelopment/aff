@@ -82,8 +82,8 @@
         "effect": "Latest SUBSCRIPTION.status=CANCELLED for the Recipient resolved from event.data.object.customer. Fires at currentPeriodEnd for a cancel_at_period_end cancellation started via PATCH /subscriptions/me (docs/openapi/subscriptions_openapi.json). GET /subscriptions/me then derives tier=STANDARD."
       },
       {
-        "type": "charge.refunded",
-        "effect": "Confirms a refund initiated by DELETE /orders/:id (docs/openapi/orders_openapi.json) actually settled. Look up PAYMENT via stripeRefundId → PAYMENT.status=REFUNDED, refundedAt=now; ORDER.paymentStatus=REFUNDED; emit payment:refunded (docs/api_design.md §12). No matching PAYMENT (e.g. stripeRefundId not yet persisted) is safe to ignore.",
+        "type": "refund.updated",
+        "effect": "Confirms a refund initiated by DELETE /orders/:id (docs/openapi/orders_openapi.json) actually settled. Ignored unless event.data.object.status=succeeded. Look up PAYMENT via stripeRefundId=event.data.object.id → PAYMENT.status=REFUNDED, refundedAt=now; ORDER.paymentStatus=REFUNDED; emit payment:refunded (docs/api_design.md §12). No matching PAYMENT (e.g. stripeRefundId not yet persisted) is safe to ignore. Used instead of the older charge.refunded event, which as of Stripe's 2024-10-28 API change no longer reliably carries refund id/status in its payload.",
         "idempotency": "Guards on PAYMENT.lastProcessedEventId."
       },
       {

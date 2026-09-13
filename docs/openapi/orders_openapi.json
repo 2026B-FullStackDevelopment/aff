@@ -295,7 +295,7 @@
       "RefundStatus": {
         "type": "string",
         "enum": ["NOT_APPLICABLE", "REFUND_PENDING", "FAILED"],
-        "description": "NOT_APPLICABLE: free/cash/never-paid Order, no Stripe call made. REFUND_PENDING: the synchronous stripe.refunds.create() call succeeded, awaiting the charge.refunded webhook for final confirmation (see payment:refunded, docs/api_design.md §12). FAILED: the Stripe refund call itself errored — cancellation still proceeded regardless. This is a response-only field, distinct from the persisted paymentStatus enum — NOT_APPLICABLE and FAILED never appear as ORDER.paymentStatus."
+        "description": "NOT_APPLICABLE: free/cash/never-paid Order, no Stripe call made. REFUND_PENDING: the synchronous stripe.refunds.create() call succeeded, awaiting the refund.updated webhook for final confirmation (see payment:refunded, docs/api_design.md §12). FAILED: the Stripe refund call itself errored — cancellation still proceeded regardless. This is a response-only field, distinct from the persisted paymentStatus enum — NOT_APPLICABLE and FAILED never appear as ORDER.paymentStatus."
       },
       "Order": {
         "type": "object",
