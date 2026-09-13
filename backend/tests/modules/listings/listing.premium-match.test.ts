@@ -122,6 +122,7 @@ describe('notifyPremiumMatches', () => {
       {
         _id: 'pref1',
         recipientId: 'r1',
+        preferenceTitle: 'Vegetarian Bakery',
         categories: ['BAKED_GOODS'],
         vegetarian: null,
         priceMin: null,
@@ -138,7 +139,12 @@ describe('notifyPremiumMatches', () => {
       userId: 'r1',
       type: 'PREMIUM_MATCH',
       listingId: 'l1',
-      payload: { listingId: 'l1', name: 'Fresh Bread', matchedPreferenceId: 'pref1' },
+      payload: {
+        listingId: 'l1',
+        name: 'Fresh Bread',
+        matchedPreferenceId: 'pref1',
+        preferenceTitle: 'Vegetarian Bakery',
+      },
     });
   });
 

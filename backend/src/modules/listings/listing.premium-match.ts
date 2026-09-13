@@ -83,6 +83,7 @@ async function notifyPremiumMatches(listing: ListingDocument): Promise<void> {
               listingId: String(listing._id),
               name: listing.name,
               matchedPreferenceId: String(preference._id),
+              preferenceTitle: preference.preferenceTitle,
             },
           });
         } catch (error) {

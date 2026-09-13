@@ -180,23 +180,26 @@ describe('notification.service', () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it('emits the default event for PREMIUM_MATCH and persists a matching message', async () => {
+    it('emits the default event for PREMIUM_MATCH and persists a message naming the listing and preference', async () => {
       createMock.mockResolvedValue({ _id: 'n1' });
 
       await sendNotification({
         userId: 'u1',
         type: 'PREMIUM_MATCH',
-        payload: { listingId: 'l1' },
+        payload: { listingId: 'l1', name: 'Fresh Bread', matchedPreferenceId: 'pref1', preferenceTitle: 'Vegetarian Bakery' },
       });
 
       expect(emitToUserMock).toHaveBeenCalledWith('u1', 'notification:premium_match', {
         listingId: 'l1',
-        message: 'A new listing matches your notification preferences.',
+        name: 'Fresh Bread',
+        matchedPreferenceId: 'pref1',
+        preferenceTitle: 'Vegetarian Bakery',
+        message: 'A new listing "Fresh Bread" matches your "Vegetarian Bakery" preference.',
       });
       expect(createMock).toHaveBeenCalledWith({
         userId: 'u1',
         type: 'PREMIUM_MATCH',
-        message: 'A new listing matches your notification preferences.',
+        message: 'A new listing "Fresh Bread" matches your "Vegetarian Bakery" preference.',
         orderId: undefined,
         listingId: undefined,
       });

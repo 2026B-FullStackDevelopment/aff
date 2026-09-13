@@ -79,7 +79,7 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
     toast: (payload) => ({
       variant: 'info',
       title: 'New match found',
-      description: String(payload.name),
+      description: String(payload.message),
     }),
     getLink: (payload) => `/marketplace/${String(payload.listingId)}`,
   },
