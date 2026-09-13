@@ -1,4 +1,4 @@
-import { Award, Medal, UserRound } from 'lucide-react';
+import { Award, UserRound } from 'lucide-react';
 import { DisplayField } from '@/shared/components/DisplayField/DisplayField';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 import { cn } from '@/shared/utils';
@@ -36,7 +36,7 @@ export function ProfileView({ profile, isDonor, isPremium }: ProfileViewProps) {
                 )}>
                   {isPremium ? 'Premium Recipient' : 'Standard Recipient'}
                 </span>
-                {isPremium && <Medal className="size-5 text-[#3D6852]" />}
+                {isPremium && <Award className="size-5 text-[#3D6852]" />}
               </div>
             ) : (
               <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#805300]/10 text-[#805300] ml-2">

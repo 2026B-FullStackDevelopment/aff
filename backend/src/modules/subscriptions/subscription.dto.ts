@@ -5,6 +5,7 @@ interface SubscriptionResponseDto {
   id: string;
   status: SubscriptionStatus;
   currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
   createdAt: Date;
 }
 
@@ -24,6 +25,7 @@ function toSubscriptionResponseDto(subscription: SubscriptionDocument | null): S
     id: String(subscription._id),
     status: subscription.status,
     currentPeriodEnd: subscription.currentPeriodEnd,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
     createdAt: subscription.createdAt,
   };
 }

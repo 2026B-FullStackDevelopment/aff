@@ -239,7 +239,7 @@
         "tags": ["Donor Listings"],
         "operationId": "updateDonorListingStatus",
         "summary": "Pause, resume, or cancel an owned listing",
-        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling cascades to non-terminal Orders whose Delivery is AWAITING_COURIER and Stripe Reservations awaiting payment before Delivery creation. DELIVERED manual Orders are untouched even though they intentionally have no Delivery. cancelledOrderCount is authoritative.",
+        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling cascades to non-terminal Orders whose Delivery is AWAITING_COURIER and Stripe Reservations awaiting payment before Delivery creation. DELIVERED manual Orders are untouched even though they intentionally have no Delivery. cancelledOrderCount is authoritative. Each cascaded Order also has its Listing stock restored and, for STRIPE Orders, its pending payment cancelled or its PAID payment refunded (refund happens after the transaction commits); refundOutcomes reports one entry per refunded Order.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
@@ -639,12 +639,27 @@
           "data": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["listing", "cancelledOrderCount"],
+            "required": ["listing", "cancelledOrderCount", "refundOutcomes"],
             "properties": {
               "listing": { "$ref": "#/components/schemas/Listing" },
               "cancelledOrderCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "refundOutcomes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["orderId", "refundStatus"],
+                  "properties": {
+                    "orderId": { "type": "string" },
+                    "refundStatus": {
+                      "type": "string",
+                      "enum": ["REFUND_PENDING", "FAILED"]
+                    }
+                  }
+                }
               }
             }
           }

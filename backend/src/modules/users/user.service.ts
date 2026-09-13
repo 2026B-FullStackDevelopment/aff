@@ -4,11 +4,13 @@ import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import * as courierRepository from './courier.repository.js';
 import { securityInterface } from '../security/security.interface.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
 import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { Role, UserDocument } from './user.model.js';
+import type { Tier } from './recipient.model.js';
 import type { CourierDocument } from './courier.model.js';
 import type { Types } from 'mongoose';
 
@@ -151,6 +153,20 @@ async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, str
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
 }
 
+async function findRecipientByStripeCustomerId(stripeCustomerId: string) {
+  return recipientRepository.findRecipientByStripeCustomerId(stripeCustomerId);
+}
+
+/**
+ * Updates the Recipient's cached `tier` column. This is a denormalized copy for database
+ * inspection only — the authoritative tier is derived per request from the SUBSCRIPTION ledger in
+ * `subscription.service.ts`, and no read path should consult this column (F1,
+ * `backend/SUBSCRIPTION.md` risk #7 and its DEBUG section).
+ */
+async function setRecipientTier(userId: string | Types.ObjectId, tier: Tier) {
+  return recipientRepository.setRecipientTierIfChanged(userId, tier);
+}
+
 async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
@@ -258,7 +274,9 @@ function donorFieldsRejectedError(): Error {
 /**
  * Fetches the authoritative, role-appropriate profile DTO for `userId` — used
  * by both `getMyProfile` and `updateMyProfile` so they always return the same
- * shape (`docs/api_design.md` §5).
+ * shape (`docs/api_design.md` §5). For a RECIPIENT, `tier` is derived via
+ * `subscriptionInterface.getMySubscriptionStatus` rather than read off the stored
+ * `recipient.tier` column (F1, `backend/SUBSCRIPTION.md`).
  */
 async function getMyProfileDto(userId: string) {
   const user = await getUserById(userId);
@@ -270,7 +288,8 @@ async function getMyProfileDto(userId: string) {
 
   if (user.role === 'RECIPIENT') {
     const recipient = await recipientRepository.findRecipientByUserId(userId);
-    return toRecipientResponseDto(user, recipient || {});
+    const { tier } = await subscriptionInterface.getMySubscriptionStatus(userId);
+    return toRecipientResponseDto(user, recipient || {}, tier);
   }
 
   return toUserResponseDto(user);
@@ -372,6 +391,8 @@ export {
   findRecipientByUserId,
   searchRecipientsByEmail,
   setRecipientStripeCustomerId,
+  findRecipientByStripeCustomerId,
+  setRecipientTier,
   getMyProfileDto,
   updateUserProfile,
   changePassword,

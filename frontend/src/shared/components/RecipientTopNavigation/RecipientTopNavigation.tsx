@@ -1,5 +1,5 @@
 ﻿import { Award } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   PortalTopNavigation,
   type PortalNavItem,
@@ -71,9 +71,13 @@ export function RecipientTopNavigation({
       profileTo="/profile"
       extraRightActions={
         isPremium ? (
-          <div className="flex items-center justify-center size-9">
-            <Award className="size-5 text-[#3D6852]" aria-label="Premium Recipient" />
-          </div>
+          <Link
+            to="/subscription"
+            title="Premium subscription"
+            className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[#e9f5ee]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e9f5ee]"
+          >
+            <Award className="size-5 text-[#e9f5ee]" aria-label="Premium Recipient" />
+          </Link>
         ) : undefined
       }
     />

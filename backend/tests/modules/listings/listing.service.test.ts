@@ -16,7 +16,8 @@ const {
   createForOrderMock,
   findNonCancelledOrderIdsByListingMock,
   hasNonCancelledOrderForListingMock,
-  cancelOrdersByIdsMock,
+  cancelOrdersForListingCancellationMock,
+  refundCancelledOrdersMock,
   findProtectedOrderIdsMock,
   cancelAwaitingDeliveriesByOrderIdsMock,
   emitToUserMock,
@@ -37,7 +38,8 @@ const {
   createForOrderMock: vi.fn(),
   findNonCancelledOrderIdsByListingMock: vi.fn(),
   hasNonCancelledOrderForListingMock: vi.fn(),
-  cancelOrdersByIdsMock: vi.fn(),
+  cancelOrdersForListingCancellationMock: vi.fn(),
+  refundCancelledOrdersMock: vi.fn(),
   findProtectedOrderIdsMock: vi.fn(),
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   emitToUserMock: vi.fn(),
@@ -69,7 +71,8 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
     findNonCancelledOrderIdsByListing:
       findNonCancelledOrderIdsByListingMock,
     hasNonCancelledOrderForListing: hasNonCancelledOrderForListingMock,
-    cancelOrdersByIds: cancelOrdersByIdsMock,
+    cancelOrdersForListingCancellation: cancelOrdersForListingCancellationMock,
+    refundCancelledOrders: refundCancelledOrdersMock,
   },
 }));
 
@@ -449,7 +452,10 @@ describe('listing.service', () => {
       findNonCancelledOrderIdsByListingMock.mockResolvedValue(['o1', 'o2']);
       findProtectedOrderIdsMock.mockResolvedValue(['o2']);
       cancelAwaitingDeliveriesByOrderIdsMock.mockResolvedValue(1);
-      cancelOrdersByIdsMock.mockResolvedValue(1);
+      cancelOrdersForListingCancellationMock.mockResolvedValue({
+        cancelledCount: 1,
+        refundableOrderIds: [],
+      });
       updateListingStatusIfCurrentMock.mockResolvedValue({
         _id: 'l1',
         donorId: 'd1',
@@ -468,13 +474,79 @@ describe('listing.service', () => {
         expect.any(Date),
         databaseSession,
       );
-      expect(cancelOrdersByIdsMock).toHaveBeenCalledWith(
+      expect(cancelOrdersForListingCancellationMock).toHaveBeenCalledWith(
         ['o1'],
         'd1',
         expect.any(Date),
         databaseSession,
       );
       expect(result.cancelledOrderCount).toBe(1);
+      expect(result.refundOutcomes).toEqual([]);
+      expect(refundCancelledOrdersMock).not.toHaveBeenCalled();
+    });
+
+    it('refunds STRIPE+PAID orders only after the transaction has committed', async () => {
+      findListingByIdMock.mockResolvedValue({
+        _id: 'l1',
+        donorId: 'd1',
+        status: 'ACTIVE',
+      });
+      findNonCancelledOrderIdsByListingMock.mockResolvedValue(['o1']);
+      findProtectedOrderIdsMock.mockResolvedValue([]);
+      cancelAwaitingDeliveriesByOrderIdsMock.mockResolvedValue(1);
+      cancelOrdersForListingCancellationMock.mockResolvedValue({
+        cancelledCount: 1,
+        refundableOrderIds: ['o1'],
+      });
+      updateListingStatusIfCurrentMock.mockResolvedValue({
+        _id: 'l1',
+        donorId: 'd1',
+        status: 'CANCELLED',
+      });
+      prepareDonorMocks();
+
+      const callOrder: string[] = [];
+      withTransactionMock.mockImplementation(async (operation) => {
+        callOrder.push('transaction');
+        return operation(databaseSession);
+      });
+      refundCancelledOrdersMock.mockImplementation(async () => {
+        callOrder.push('refund');
+        return [{ orderId: 'o1', refundStatus: 'REFUND_PENDING' }];
+      });
+
+      const result = await updateListingStatus('l1', 'd1', 'CANCELLED');
+
+      expect(callOrder).toEqual(['transaction', 'refund']);
+      expect(refundCancelledOrdersMock).toHaveBeenCalledWith(['o1']);
+      expect(result.refundOutcomes).toEqual([
+        { orderId: 'o1', refundStatus: 'REFUND_PENDING' },
+      ]);
+    });
+
+    it('skips the refund call entirely when no order is refundable', async () => {
+      findListingByIdMock.mockResolvedValue({
+        _id: 'l1',
+        donorId: 'd1',
+        status: 'ACTIVE',
+      });
+      findNonCancelledOrderIdsByListingMock.mockResolvedValue([]);
+      findProtectedOrderIdsMock.mockResolvedValue([]);
+      cancelAwaitingDeliveriesByOrderIdsMock.mockResolvedValue(0);
+      cancelOrdersForListingCancellationMock.mockResolvedValue({
+        cancelledCount: 0,
+        refundableOrderIds: [],
+      });
+      updateListingStatusIfCurrentMock.mockResolvedValue({
+        _id: 'l1',
+        donorId: 'd1',
+        status: 'CANCELLED',
+      });
+      prepareDonorMocks();
+
+      await updateListingStatus('l1', 'd1', 'CANCELLED');
+
+      expect(refundCancelledOrdersMock).not.toHaveBeenCalled();
     });
 
     it('rejects an invalid status transition', async () => {

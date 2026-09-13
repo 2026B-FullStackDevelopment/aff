@@ -7,6 +7,13 @@ interface CreateSubscriptionInput {
   stripeSubscriptionId: string;
   status: SubscriptionStatus;
   currentPeriodEnd: Date;
+  cancelAtPeriodEnd?: boolean;
+  stripeInvoiceId?: string;
+}
+
+interface SetLatestSubscriptionFieldsPatch {
+  status?: SubscriptionStatus;
+  cancelAtPeriodEnd?: boolean;
 }
 
 function createSubscription(data: CreateSubscriptionInput) {
@@ -17,4 +24,17 @@ function findLatestSubscriptionByRecipientId(recipientId: string | Types.ObjectI
   return Subscription.findOne({ recipientId }).sort({ createdAt: -1 }).lean<SubscriptionDocument>();
 }
 
-export { createSubscription, findLatestSubscriptionByRecipientId };
+function findSubscriptionByStripeInvoiceId(invoiceId: string) {
+  return Subscription.findOne({ stripeInvoiceId: invoiceId }).lean<SubscriptionDocument>();
+}
+
+function setLatestSubscriptionFields(recipientId: string | Types.ObjectId, patch: SetLatestSubscriptionFieldsPatch) {
+  return Subscription.findOneAndUpdate({ recipientId }, patch, { new: true, sort: { createdAt: -1 } }).lean<SubscriptionDocument>();
+}
+
+export {
+  createSubscription,
+  findLatestSubscriptionByRecipientId,
+  findSubscriptionByStripeInvoiceId,
+  setLatestSubscriptionFields,
+};

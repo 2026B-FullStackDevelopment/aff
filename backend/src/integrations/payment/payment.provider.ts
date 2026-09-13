@@ -130,9 +130,30 @@ async function createSubscriptionCheckoutSession({
 }
 
 /**
+ * Toggles whether a Stripe Subscription cancels at the end of its current billing period.
+ * Never calls `subscriptions.cancel()` / `.del()` — that would revoke access mid-period.
+ * @param subscriptionId - the Stripe Subscription id to update
+ * @param cancelAtPeriodEnd - `true` to schedule cancellation at period end, `false` to resume
+ */
+async function updateSubscriptionCancelAtPeriodEnd(subscriptionId: string, cancelAtPeriodEnd: boolean) {
+  const sub = await getClient().subscriptions.update(subscriptionId, { cancel_at_period_end: cancelAtPeriodEnd });
+  // `current_period_end` moved from the Subscription root onto each SubscriptionItem in newer
+  // Stripe API versions — read it off the first (and, for this single-price subscription, only) item.
+  const currentPeriodEnd = sub.items.data[0]?.current_period_end;
+
+  return {
+    provider: 'stripe',
+    subscriptionId: sub.id,
+    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null,
+    status: sub.status,
+  };
+}
+
+/**
  * Fully refunds a previously captured payment. The returned status reflects Stripe's synchronous
  * response only — for most card refunds this is `succeeded` immediately, but it is not guaranteed
- * final; the caller should treat this as provisional and rely on the `charge.refunded` webhook
+ * final; the caller should treat this as provisional and rely on the `refund.updated` webhook
  * (docs/api_design.md §8) for confirmation, not this return value alone.
  * @param paymentIntentId - the Stripe PaymentIntent id backing the original checkout session
  */
@@ -168,5 +189,5 @@ function verifyWebhookSignature(rawBody: Buffer, signatureHeader: string) {
 }
 
 export { createStripeCustomer, createCheckoutSession, createSubscriptionCheckoutSession,
-  createRefund, verifyWebhookSignature,
+  updateSubscriptionCancelAtPeriodEnd, createRefund, verifyWebhookSignature,
 };

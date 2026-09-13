@@ -105,7 +105,7 @@ describe('payment.repository', () => {
     expect(result).toEqual({ _id: 'p1', status: 'PAID' });
   });
 
-  it('updatePaymentEvent can also set REFUNDED + refundedAt (charge.refunded reconciliation)', async () => {
+  it('updatePaymentEvent can also set REFUNDED + refundedAt (refund.updated reconciliation)', async () => {
     leanMock.mockResolvedValue({ _id: 'p1', status: 'REFUNDED' });
 
     await updatePaymentEvent('p1', {

@@ -5,9 +5,13 @@ import { Pagination } from '@/shared/components/Pagination/Pagination';
 import { CollectionHistoryTable } from '../components/CollectionHistoryTable';
 import { useOrderHistory } from '../hooks/useOrderHistory';
 import { getStoredUser } from '@/services/authStorage';
+import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
+
+const RECIPIENT_HAS_UNREAD_NOTIFICATIONS = false;
 
 export function ReservationsPage() {
   const user = getStoredUser();
+  const { tier } = useSubscription();
   const {
     items,
     page,
@@ -22,8 +26,10 @@ export function ReservationsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5faf7] to-[#e9f5ee]">
       <RecipientTopNavigation
-        avatarUrl={user?.avatarUrl}
-        avatarAlt={user?.username ?? 'Recipient profile'}
+        avatarUrl={user?.avatarUrl ?? null}
+        onNotificationsClick={() => {}}
+        hasUnreadNotifications={RECIPIENT_HAS_UNREAD_NOTIFICATIONS}
+        isPremium={tier === 'PREMIUM'}
       />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 lg:px-8">
