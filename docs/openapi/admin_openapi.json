@@ -3,12 +3,13 @@
   "info": {
     "title": "AFF Admin API",
     "version": "0.1.0",
-    "description": "Admin Courier account management and read-only Delivery oversight (stories E1 and E11). Design intent lives in docs/api_design.md §11; this document reflects the routes as implemented in backend/src/modules/admin. The remaining §11 routes — GET /admin/users (G1), PATCH /admin/users/{id}/status (G2), GET /admin/listings (G4) and PATCH /admin/listings/{id}/cancel (G3) — are registered but still return 501, and are deliberately not documented here until they are wired."
+    "description": "Admin account management and read-only Delivery oversight (stories E1, E11, and G1). Design intent lives in docs/api_design.md §11; this document reflects the routes as implemented in backend/src/modules/admin. PATCH /admin/users/{id}/status (G2), GET /admin/listings (G4), and PATCH /admin/listings/{id}/cancel (G3) are registered but still return 501, and are deliberately not documented here until they are wired."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
   ],
   "tags": [
+    { "name": "Admin Users", "description": "Role-aware account directory" },
     { "name": "Admin Couriers", "description": "Courier account creation and roster" },
     { "name": "Admin Deliveries", "description": "Read-only oversight of the Courier pipeline" }
   ],
@@ -17,7 +18,7 @@
       "post": {
         "tags": ["Admin Couriers"],
         "summary": "Create a Courier account",
-        "description": "The only way a Courier account is ever created — neither auth registration endpoint accepts role=COURIER (E1). Creates the USER row (role=COURIER) and its COURIER profile together; if the profile write fails, the just-created USER is deleted so the email is not permanently blocked. tempPassword is set by the Admin at creation time, is held to the same strength rules as any registration password, and is an ordinary password from then on — there is no forced-reset flow behind it. The new account is immediately visible in GET /admin/couriers.",
+        "description": "The only way a Courier account is ever created — neither auth registration endpoint accepts role=COURIER (E1). Creates the USER row (role=COURIER) and its COURIER profile together; if the profile write fails, the just-created USER is deleted so the email is not permanently blocked. tempPassword is set by the Admin at creation time, is held to the same strength rules as any registration password, and is an ordinary password from then on — there is no forced-reset flow behind it. The new account is immediately visible in GET /admin/couriers and GET /admin/users.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -55,7 +56,7 @@
       "get": {
         "tags": ["Admin Couriers"],
         "summary": "List Courier accounts",
-        "description": "Paginated Courier roster, newest account first. Couriers carry the same account-management fields as Recipients and Donors (id, username, email, role, status), plus the Courier's fullName. Also reachable, once G1 is implemented, via GET /admin/users?role=COURIER — this route is the convenience alias the PRD calls out separately.",
+        "description": "Paginated Courier roster, newest account first. Couriers carry the same account-management fields as Recipients and Donors (id, username, email, role, status), plus the Courier's fullName. The same records are reachable through GET /admin/users?role=COURIER; this route remains the convenience alias the PRD calls out separately.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/Page" },
@@ -78,6 +79,67 @@
                             "items": {
                               "type": "array",
                               "items": { "$ref": "#/components/schemas/Courier" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin Users"],
+        "summary": "List all user accounts",
+        "description": "Returns one newest-first page of role-appropriate account DTOs. role and status are exact filters. search is case-insensitive and matches username, email, Donor companyName, or Courier fullName.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["RECIPIENT", "DONOR", "ADMIN", "COURIER"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["ACTIVE", "DEACTIVATED"] }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "maxLength": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of role-aware user accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": { "$ref": "#/components/schemas/AdminAccount" }
                             }
                           }
                         }
@@ -237,6 +299,29 @@
           }
         },
         "required": ["id", "username", "email", "role", "status", "createdAt", "fullName"]
+      },
+      "AdminAccount": {
+        "type": "object",
+        "description": "A base USER DTO plus the profile fields for its role.",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["RECIPIENT", "DONOR", "ADMIN", "COURIER"] },
+          "country": { "type": "string", "nullable": true },
+          "city": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["ACTIVE", "DEACTIVATED"] },
+          "avatarUrl": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "tier": { "type": "string", "nullable": true },
+          "hasStripeCard": { "type": "boolean", "nullable": true },
+          "companyName": { "type": "string", "nullable": true },
+          "taxCode": { "type": "string", "nullable": true },
+          "addressText": { "type": "string", "nullable": true },
+          "location": { "allOf": [{ "$ref": "#/components/schemas/GeoLocation" }], "nullable": true },
+          "fullName": { "type": "string", "nullable": true }
+        },
+        "required": ["id", "username", "email", "role", "status", "createdAt"]
       },
       "AdminDelivery": {
         "type": "object",

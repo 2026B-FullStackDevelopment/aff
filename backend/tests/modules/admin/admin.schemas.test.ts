@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createCourierSchema,
   adminCouriersQuerySchema,
+  adminUsersQuerySchema,
   adminDeliveriesQuerySchema,
 } from '../../../src/modules/admin/admin.schemas.js';
 
@@ -60,6 +61,35 @@ describe('admin.schemas', () => {
         page: 1,
         limit: 20,
       });
+    });
+  });
+
+  describe('adminUsersQuerySchema', () => {
+    it('defaults pagination while leaving every filter optional', () => {
+      expect(adminUsersQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
+    });
+
+    it('accepts composable role, status, and trimmed search filters', () => {
+      expect(
+        adminUsersQuerySchema.parse({
+          page: '2',
+          limit: '10',
+          role: 'COURIER',
+          status: 'ACTIVE',
+          search: '  Nguyen  ',
+        }),
+      ).toEqual({
+        page: 2,
+        limit: 10,
+        role: 'COURIER',
+        status: 'ACTIVE',
+        search: 'Nguyen',
+      });
+    });
+
+    it('rejects unsupported role and status filters', () => {
+      expect(adminUsersQuerySchema.safeParse({ role: 'SUPER_ADMIN' }).success).toBe(false);
+      expect(adminUsersQuerySchema.safeParse({ status: 'LOCKED' }).success).toBe(false);
     });
   });
 

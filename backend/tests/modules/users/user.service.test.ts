@@ -11,6 +11,7 @@ const {
   startFailedLoginWindowMock,
   lockAccountMock,
   deleteUserMock,
+  findUsersForAdminMock,
   createRecipientMock,
   findRecipientByUserIdMock,
   createDonorMock,
@@ -29,6 +30,7 @@ const {
   startFailedLoginWindowMock: vi.fn(),
   lockAccountMock: vi.fn(),
   deleteUserMock: vi.fn(),
+  findUsersForAdminMock: vi.fn(),
   createRecipientMock: vi.fn(),
   findRecipientByUserIdMock: vi.fn(),
   createDonorMock: vi.fn(),
@@ -49,6 +51,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   startFailedLoginWindow: startFailedLoginWindowMock,
   lockAccount: lockAccountMock,
   deleteUser: deleteUserMock,
+  findUsersForAdmin: findUsersForAdminMock,
 }));
 
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
@@ -83,6 +86,7 @@ import {
   changePassword,
   changeEmail,
   searchRecipientsByEmail,
+  listUsersForAdmin,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -119,6 +123,51 @@ describe('user.service', () => {
     it('does not query the database for fewer than three characters', async () => {
       await expect(searchRecipientsByEmail('re')).resolves.toEqual([]);
       expect(searchActiveRecipientsByEmailMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listUsersForAdmin', () => {
+    it('maps a mixed account page to role-appropriate response DTOs', async () => {
+      const createdAt = new Date('2026-09-13T00:00:00.000Z');
+      findUsersForAdminMock.mockResolvedValue({
+        page: 1,
+        limit: 20,
+        total: 2,
+        items: [
+          {
+            _id: 'admin-1',
+            username: 'admin',
+            email: 'admin@aff.com',
+            role: 'ADMIN',
+            status: 'ACTIVE',
+            avatarUrl: null,
+            createdAt,
+          },
+          {
+            _id: 'courier-1',
+            username: 'courier_01',
+            email: 'courier@aff.com',
+            role: 'COURIER',
+            status: 'ACTIVE',
+            avatarUrl: null,
+            createdAt,
+            courierProfile: { fullName: 'Nguyen Van A' },
+          },
+        ],
+      });
+
+      const result = await listUsersForAdmin({ page: 1, limit: 20 });
+
+      expect(findUsersForAdminMock).toHaveBeenCalledWith({ page: 1, limit: 20 });
+      expect(result).toMatchObject({
+        page: 1,
+        limit: 20,
+        total: 2,
+        items: [
+          { id: 'admin-1', role: 'ADMIN', username: 'admin' },
+          { id: 'courier-1', role: 'COURIER', fullName: 'Nguyen Van A' },
+        ],
+      });
     });
   });
 
