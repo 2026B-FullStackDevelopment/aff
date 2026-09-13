@@ -64,13 +64,12 @@ export function useOrderTracking(orderId: string | undefined) {
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
   const handleRefunded = useCallback(() => {
-    setRefundStatus('REFUND_PENDING' as RefundStatus extends never ? never : 'REFUND_PENDING');
     // Flip local state to REFUNDED without a refetch, matching how
     // payment:success flips paymentStatus live elsewhere in this hook.
     setOrder((prev) =>
       prev ? { ...prev, paymentStatus: 'REFUNDED' } : prev,
     );
-    setRefundStatus('REFUNDED' as unknown as RefundStatus);
+    setRefundStatus('NOT_APPLICABLE');
   }, []);
 
   // I1 — `OrderFeedbackSection` gates on `order.orderStatus === 'DELIVERED'`,
