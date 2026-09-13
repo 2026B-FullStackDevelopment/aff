@@ -15,7 +15,7 @@ interface EmptyStateProps {
 }
 
 const themeIconStyles: Record<ThemeRole, string> = {
-  admin: 'bg-[#eef2fa] text-[#5b7bc0]',
+  admin: 'bg-[#eff4ff] text-admin-primary',
   recipient: 'bg-[#e9f5ee] text-[#3D6852]',
   donor: 'bg-[#FFF6E3] text-[#805300]',
 };

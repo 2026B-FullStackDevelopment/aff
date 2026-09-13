@@ -2,6 +2,18 @@
 @import "tailwindcss";
 
 @theme {
+  /* Admin portal — Figma AFF Admin desktop/mobile frames */
+  --color-admin-bg: #f8f9ff;
+  --color-admin-surface: #ffffff;
+  --color-admin-border: #c5c5d3;
+  --color-admin-title: #00236f;
+  --color-admin-text: #1e293b;
+  --color-admin-text-muted: #64748b;
+  --color-admin-primary: #0058be;
+  --color-admin-primary-hover: #00489d;
+  --color-admin-nav: #00236f;
+  --color-admin-on-primary: #ffffff;
+
   /* Courier (Teal) — see docs/design_system.md */
   --color-courier-bg: #f2faf9;
   --color-courier-surface: #ffffff;
