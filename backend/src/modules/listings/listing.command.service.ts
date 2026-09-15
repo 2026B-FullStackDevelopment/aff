@@ -11,6 +11,7 @@ import type { ListingDocument, ListingStatus } from './listing.types.js';
 import type { ListingDtoSource } from './listing.response.dto.js';
 import type { CreateListingPayload } from './listing.schemas.js';
 import type { RequestedListingStatus, UpdateListingStatusServiceResult } from './listing.command.types.js';
+import { notifyPremiumMatches } from './listing.premium-match.js';
 
 function assertStatusUpdated(listing: ListingDocument | null): ListingDocument {
   if (!listing) {
@@ -59,6 +60,8 @@ async function createListing(
     quantityRemaining: payload.donationLimit,
   });
 
+  void notifyPremiumMatches(listing);
+
   return { listing, donor };
 }
 
@@ -83,6 +86,8 @@ async function cloneListing(
     rationLimitPerPerson: source.rationLimitPerPerson,
     quantityRemaining: source.donationLimit,
   });
+
+  void notifyPremiumMatches(cloned);
 
   return { listing: cloned, donor };
 }

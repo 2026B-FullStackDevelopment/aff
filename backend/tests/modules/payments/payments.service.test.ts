@@ -661,6 +661,17 @@ describe('payments.service', () => {
 
         expect(sendSubscriptionConfirmationMock).not.toHaveBeenCalled();
       });
+
+      it('does not throw when the confirmation email fails to send — the ledger row is already committed', async () => {
+        appendBillingCycleMock.mockResolvedValue({
+          created: true,
+          recipientEmail: 'jane@example.com',
+          currentPeriodEnd: new Date(1780000000 * 1000),
+        });
+        sendSubscriptionConfirmationMock.mockRejectedValue(new Error('SMTP is down'));
+
+        await expect(processWebhookEvent(invoicePaidEvent())).resolves.toBeUndefined();
+      });
     });
 
     it('invoice.payment_failed marks the latest subscription PAST_DUE for the resolved customer', async () => {
