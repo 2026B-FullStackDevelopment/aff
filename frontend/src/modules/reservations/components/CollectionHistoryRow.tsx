@@ -4,9 +4,9 @@ import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import { formatPrice, UNIT_LABELS, formatCategory } from '@/shared/utils/listingFormatting';
 import type { RecipientOrderDTO } from '@/types/api';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  STRIPE: 'Credit Card',
-  CASH: 'Cash',
+const PAYMENT_METHOD_CONFIG: Record<string, { label: string; emoji: string }> = {
+  STRIPE: { label: 'Credit Card', emoji: '💳' },
+  CASH: { label: 'Cash', emoji: '💵' },
 };
 
 function formatCollectedAt(iso: string): { date: string; time: string } {
@@ -90,13 +90,12 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
       </td>
 
       <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
-        {/* TODO(D5): card-last4 display needs a new Payment→PaymentMethod
-            field, not part of the documented contract — showing
-            paymentMethod instead of the mock's masked card digits. */}
         {item.paymentMethod ? (
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true">💳</span>
-            {PAYMENT_METHOD_LABELS[item.paymentMethod] ?? item.paymentMethod}
+            <span aria-hidden="true">
+              {PAYMENT_METHOD_CONFIG[item.paymentMethod]?.emoji ?? ''}
+            </span>
+            {PAYMENT_METHOD_CONFIG[item.paymentMethod]?.label ?? item.paymentMethod}
           </span>
         ) : (
           <span className="text-[#6B7280]">Free</span>
@@ -104,11 +103,10 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
       </td>
 
       <td className="px-4 py-3 align-middle">
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col items-start gap-1 w-max">
           <StatusBadge status={statusKey} />
 
-          {/* TODO(D7): feedback action lives on the order detail page now —
-              this is a read-only indicator, not a trigger. */}
+          {/* Read-only feedback indicator — feedback form lives on the order detail page. */}
           {isDelivered && (
             item.feedback ? (
               <span

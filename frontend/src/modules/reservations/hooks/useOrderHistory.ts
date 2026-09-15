@@ -4,7 +4,7 @@ import { reservationService } from '../services/reservation.service';
 import { orderRealtimeService } from '../services/orderRealtime.service';
 import type { RecipientOrderDTO } from '@/types/api';
 
-const ORDER_HISTORY_PAGE_SIZE = 20;
+const ORDER_HISTORY_PAGE_SIZE = 5;
 
 /**
  * Loads the authenticated Recipient's own Order history from `GET /orders/mine`
