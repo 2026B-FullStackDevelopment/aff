@@ -77,7 +77,6 @@ const VARIANT_STYLES: Record<
 export function PortalTopNavigation({
   variant,
   brandLabel,
-  brandTo,
   navItems,
   avatarUrl,
   avatarAlt = 'Profile',
@@ -121,7 +120,7 @@ export function PortalTopNavigation({
   const renderAvatar = () => (
     <Link
       to={profileTo}
-      aria-label="Open profile"
+      title="Open profile"
       className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-slate-200 ${styles.avatar}`}
     >
       {avatarUrl ? (
@@ -142,12 +141,9 @@ export function PortalTopNavigation({
   return (
     <header className={`sticky top-0 z-40 border-b shadow-sm ${styles.header}`}>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link
-          to={brandTo}
-          className={`shrink-0 text-lg font-bold ${styles.brand}`}
-        >
+        <div className={`shrink-0 text-lg font-bold ${styles.brand}`}>
           {brandLabel}
-        </Link>
+        </div>
 
         <PortalNavigationLinks
           ariaLabel={`${brandLabel} desktop navigation`}
@@ -164,6 +160,7 @@ export function PortalTopNavigation({
 
         <div className="flex md:hidden shrink-0 items-center gap-1">
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
+          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -181,6 +178,7 @@ export function PortalTopNavigation({
       </div>
 
       {isMobileMenuOpen && (
+<<<<<<< HEAD
         <PortalMobileMenu
           brandLabel={brandLabel}
           items={navItems}
@@ -192,6 +190,28 @@ export function PortalTopNavigation({
           extraRightActions={extraRightActions}
           onNavigate={() => setIsMobileMenuOpen(false)}
         />
+=======
+        <div className="md:hidden border-t border-black/5">
+          <nav className="flex flex-col px-2 pt-2 pb-3 space-y-1" aria-label={`${brandLabel} mobile navigation`}>
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  [
+                    'block rounded-md px-3 py-2 text-base font-medium transition-colors',
+                    isActive ? styles.activeLink : styles.inactiveLink,
+                  ].join(' ')
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+>>>>>>> main
       )}
     </header>
   );

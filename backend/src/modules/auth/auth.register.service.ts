@@ -63,7 +63,7 @@ async function registerRecipient(
     userInterface.createRecipientProfile(userId)
   );
 
-  return { session: securityInterface.issueSession(user), recipient };
+  return { session: await securityInterface.issueSession(user), recipient };
 }
 
 /**
@@ -94,7 +94,7 @@ async function registerDonor(payload: RegisterDonorRequestDto): Promise<DonorReg
     })
   );
 
-  return { session: securityInterface.issueSession(user), donor };
+  return { session: await securityInterface.issueSession(user), donor };
 }
 
 export { registerRecipient, registerDonor };

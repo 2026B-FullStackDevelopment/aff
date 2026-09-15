@@ -13,6 +13,7 @@ describe('toSubscriptionResponseDto', () => {
       _id: 'sub1',
       status: 'ACTIVE',
       currentPeriodEnd,
+      cancelAtPeriodEnd: false,
       createdAt,
     };
 
@@ -20,7 +21,20 @@ describe('toSubscriptionResponseDto', () => {
       id: 'sub1',
       status: 'ACTIVE',
       currentPeriodEnd,
+      cancelAtPeriodEnd: false,
       createdAt,
     });
+  });
+
+  it('includes a pending cancellation flag when set (F5)', () => {
+    const subscription = {
+      _id: 'sub1',
+      status: 'ACTIVE',
+      currentPeriodEnd: new Date('2026-02-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: true,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+
+    expect(toSubscriptionResponseDto(subscription).cancelAtPeriodEnd).toBe(true);
   });
 });

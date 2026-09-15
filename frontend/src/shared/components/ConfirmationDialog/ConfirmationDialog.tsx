@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Modal } from '@/shared/components/Modal/Modal';
+import type { ThemeRole } from '@/shared/components/WarningCallout/WarningCallout';
 
 type ConfirmationTone = 'default' | 'danger';
 
@@ -12,6 +13,7 @@ interface ConfirmationDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: ConfirmationTone;
+  theme?: ThemeRole;
   isPending?: boolean;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
@@ -24,6 +26,7 @@ export function ConfirmationDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Go Back',
   tone = 'default',
+  theme = 'donor',
   isPending = false,
   onConfirm,
   onClose,
@@ -52,15 +55,34 @@ export function ConfirmationDialog({
     }
   }
 
+  const themeStyles = {
+    admin: {
+      icon: 'bg-[#eef2fa] text-[#5b7bc0]',
+      confirm: 'bg-[#5b7bc0] hover:bg-[#4d6eaf]',
+    },
+    recipient: {
+      icon: 'bg-[#f0f7f3] text-[#3D6852]',
+      confirm: 'bg-[#3D6852] hover:bg-[#2E5A47]',
+    },
+    donor: {
+      icon: 'bg-[#FFF6E3] text-[#805300]',
+      confirm: 'bg-[#805300] hover:bg-[#694400]',
+    },
+  } satisfies Record<ThemeRole, { icon: string; confirm: string }>;
+
+  const styles = themeStyles[theme];
+
   return (
     <Modal title={title} onClose={handleClose}>
       <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3">
-          {tone === 'danger' && (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-700">
-              <AlertTriangle className="size-5" aria-hidden="true" />
-            </div>
-          )}
+          <div
+            className={`flex size-10 shrink-0 items-center justify-center rounded-full ${
+              tone === 'danger' ? 'bg-red-50 text-red-700' : styles.icon
+            }`}
+          >
+            <AlertTriangle className="size-5" aria-hidden="true" />
+          </div>
 
           <div className="text-sm leading-6 text-[#414844]">
             {description}
@@ -85,7 +107,7 @@ export function ConfirmationDialog({
             className={
               tone === 'danger'
                 ? 'h-10 px-4 bg-red-700 text-white transition-all duration-200 ease-out hover:bg-red-800 hover:shadow-md active:scale-[0.98]'
-                : 'h-10 px-4 bg-[#805300] text-white transition-all duration-200 ease-out hover:bg-[#694400] hover:shadow-md active:scale-[0.98]'
+                : `h-10 px-4 ${styles.confirm} text-white transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98]`
             }
           >
             {isPending ? 'Please wait…' : confirmLabel}

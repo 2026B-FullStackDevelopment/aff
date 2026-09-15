@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Bell } from 'lucide-react';
+import { Award, X, Bell } from 'lucide-react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 import { useProfileEditForm } from '../hooks/useProfileEditForm';
@@ -184,14 +184,24 @@ export function ProfilePage() {
             </p>
           </div>
           {!isEditing && isPremium && (
-            <Button
-              variant="outline"
-              className="bg-[#3D6852]/10 text-[#3D6852] hover:bg-[#3D6852]/20 border-transparent font-semibold h-10"
-              onClick={() => navigate('/profile/notification-preferences')}
-            >
-              <Bell className="size-4 mr-2" />
-              Create Notification Preference
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                className="bg-[#3D6852]/10 text-[#3D6852] hover:bg-[#3D6852]/20 border-transparent font-semibold h-10"
+                onClick={() => navigate('/profile/notification-preferences')}
+              >
+                <Bell className="size-4 mr-2" />
+                Manage Notification Preference
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-[#3D6852]/10 text-[#3D6852] hover:bg-[#3D6852]/20 border-transparent font-semibold h-10"
+                onClick={() => navigate('/subscription')}
+              >
+                <Award className="size-4 mr-2" />
+                Manage Subscription
+              </Button>
+            </div>
           )}
         </div>
 

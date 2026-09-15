@@ -39,26 +39,30 @@ describe('toUserResponseDto', () => {
 });
 
 describe('toRecipientResponseDto', () => {
-  it('maps base fields plus tier and a derived hasStripeCard', () => {
-    const recipient = { tier: 'PREMIUM', stripeCustomerId: 'cus_123' };
+  it('maps base fields plus the given tier and a derived hasStripeCard', () => {
+    const recipient = { stripeCustomerId: 'cus_123' };
 
-    expect(toRecipientResponseDto(baseUser, recipient)).toEqual({
+    expect(toRecipientResponseDto(baseUser, recipient, 'PREMIUM')).toEqual({
       ...toUserResponseDto(baseUser),
       tier: 'PREMIUM',
       hasStripeCard: true,
     });
   });
 
-  it('never leaks the raw stripeCustomerId', () => {
-    const recipient = { tier: 'STANDARD', stripeCustomerId: 'cus_123' };
+  it('uses the passed-in tier, not recipient.tier (tier is derived, never stored writable)', () => {
+    const recipient = { tier: 'PREMIUM', stripeCustomerId: 'cus_123' };
 
-    expect(toRecipientResponseDto(baseUser, recipient)).not.toHaveProperty('stripeCustomerId');
+    expect(toRecipientResponseDto(baseUser, recipient, 'STANDARD').tier).toBe('STANDARD');
+  });
+
+  it('never leaks the raw stripeCustomerId', () => {
+    const recipient = { stripeCustomerId: 'cus_123' };
+
+    expect(toRecipientResponseDto(baseUser, recipient, 'STANDARD')).not.toHaveProperty('stripeCustomerId');
   });
 
   it('sets hasStripeCard to false when there is no Stripe customer', () => {
-    const recipient = { tier: 'STANDARD' };
-
-    expect(toRecipientResponseDto(baseUser, recipient).hasStripeCard).toBe(false);
+    expect(toRecipientResponseDto(baseUser, {}, 'STANDARD').hasStripeCard).toBe(false);
   });
 });
 

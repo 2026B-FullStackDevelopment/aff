@@ -20,6 +20,9 @@ const {
   updateDonorMock,
   hashPasswordMock,
   revokeTokenMock,
+  getMySubscriptionStatusMock,
+  findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChangedMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
@@ -40,6 +43,9 @@ const {
   updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   revokeTokenMock: vi.fn(),
+  getMySubscriptionStatusMock: vi.fn(),
+  findRecipientByStripeCustomerIdMock: vi.fn(),
+  setRecipientTierIfChangedMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.repository.js', () => ({
@@ -60,6 +66,14 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
   createRecipient: createRecipientMock,
   findRecipientByUserId: findRecipientByUserIdMock,
+  findRecipientByStripeCustomerId: findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChanged: setRecipientTierIfChangedMock,
+}));
+
+vi.mock('../../../src/modules/subscriptions/subscription.interface.js', () => ({
+  subscriptionInterface: {
+    getMySubscriptionStatus: getMySubscriptionStatusMock,
+  },
 }));
 
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
@@ -89,6 +103,8 @@ import {
   changePassword,
   changeEmail,
   searchRecipientsByEmail,
+  findRecipientByStripeCustomerId,
+  setRecipientTier,
   listUsersForAdmin,
   updateAccountStatusForAdmin,
 } from '../../../src/modules/users/user.service.js';
@@ -107,6 +123,7 @@ describe('user.service', () => {
     hashPasswordMock.mockResolvedValue('hashed-value');
     findUserByEmailMock.mockResolvedValue(null);
     createUserMock.mockResolvedValue({ _id: 'u1' });
+    getMySubscriptionStatusMock.mockResolvedValue({ tier: 'STANDARD', subscription: null });
   });
 
   describe('searchRecipientsByEmail', () => {
@@ -326,6 +343,23 @@ describe('user.service', () => {
     expect(createRecipientMock).toHaveBeenCalledWith({ userId: 'u1' });
   });
 
+  it('findRecipientByStripeCustomerId delegates to the recipient repository', async () => {
+    findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1', stripeCustomerId: 'cus_123' });
+
+    const result = await findRecipientByStripeCustomerId('cus_123');
+
+    expect(findRecipientByStripeCustomerIdMock).toHaveBeenCalledWith('cus_123');
+    expect(result).toEqual({ userId: 'u1', stripeCustomerId: 'cus_123' });
+  });
+
+  it('setRecipientTier delegates to the change-guarded repository setter', async () => {
+    setRecipientTierIfChangedMock.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+    await setRecipientTier('u1', 'PREMIUM');
+
+    expect(setRecipientTierIfChangedMock).toHaveBeenCalledWith('u1', 'PREMIUM');
+  });
+
   it('createDonorProfile delegates to the donor repository', async () => {
     createDonorMock.mockResolvedValue({ userId: 'u1' });
     const input = {
@@ -357,14 +391,26 @@ describe('user.service', () => {
       expect(dto).toMatchObject({ companyName: 'Fresh Foods Ltd', taxCode: '0123456789' });
     });
 
-    it('returns the Recipient DTO for a RECIPIENT', async () => {
+    it('returns the Recipient DTO for a RECIPIENT, with tier derived from the subscription status (not recipient.tier)', async () => {
       findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
-      findRecipientByUserIdMock.mockResolvedValue({ tier: 'PREMIUM' });
+      findRecipientByUserIdMock.mockResolvedValue({});
+      getMySubscriptionStatusMock.mockResolvedValue({ tier: 'PREMIUM', subscription: null });
 
       const dto = await getMyProfileDto('u1');
 
       expect(findRecipientByUserIdMock).toHaveBeenCalledWith('u1');
+      expect(getMySubscriptionStatusMock).toHaveBeenCalledWith('u1');
       expect(dto).toMatchObject({ tier: 'PREMIUM' });
+    });
+
+    it('derives STANDARD for a RECIPIENT with no active subscription', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
+      findRecipientByUserIdMock.mockResolvedValue({});
+      getMySubscriptionStatusMock.mockResolvedValue({ tier: 'STANDARD', subscription: null });
+
+      const dto = await getMyProfileDto('u1');
+
+      expect(dto).toMatchObject({ tier: 'STANDARD' });
     });
 
     it('returns the base DTO for an ADMIN', async () => {

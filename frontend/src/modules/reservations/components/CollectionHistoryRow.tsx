@@ -2,7 +2,7 @@ import { Check, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
 import { formatPrice, UNIT_LABELS, formatCategory } from '@/shared/utils/listingFormatting';
-import type { FoodCategory, RecipientOrderDTO } from '@/types/api';
+import type { RecipientOrderDTO } from '@/types/api';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   STRIPE: 'Credit Card',

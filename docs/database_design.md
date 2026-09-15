@@ -14,6 +14,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | COURIER | Role-specific profile for a User who delivers orders |
 | NOTIFICATION_PREFERENCE | A Premium Recipient's saved alert criteria for new listings |
 | REVOKED_TOKEN | Denylist of revoked JWTs (TTL-indexed) |
+| ACTIVE_TOKEN | Live-session table of currently-valid JWTs (TTL-indexed), keyed by jti |
 | SUBSCRIPTION | Append-only ledger of a Recipient's Premium billing cycles |
 | LISTING | A food donation/sale posted by a Donor |
 | ORDER | A Recipient's reservation/purchase of a Listing |
@@ -58,7 +59,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | Field | Type | Key | Description |
 |---|---|---|---|
 | userId | ObjectId | PK, FK → USER._id | Subtype of USER |
-| tier | Tier (enum) | | STANDARD, PREMIUM |
+| tier | Tier (enum) | | STANDARD, PREMIUM. Default `STANDARD` (schema-level). **Denormalized cache, not authoritative** — the real tier is derived per request from the SUBSCRIPTION ledger (`ACTIVE` + `currentPeriodEnd > now`) in `subscription.service.ts#getMySubscriptionStatus`. This column is kept in sync by the subscription webhooks (`invoice.paid` → PREMIUM; `invoice.payment_failed` / `customer.subscription.deleted` → STANDARD) plus read-repair on `GET /subscriptions/me`, so it is safe to *inspect*, but no application read path consults it |
 | stripeCustomerId | string | | |
 
 ### NOTIFICATION_PREFERENCE
@@ -95,6 +96,16 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | revokedAt | datetime | | |
 | expiresAt | datetime | | TTL index; document auto-purged after this time |
 
+### ACTIVE_TOKEN
+
+| Field | Type | Key | Description |
+|---|---|---|---|
+| _id | ObjectId | PK | |
+| jti | string | UK | JWT ID currently live |
+| userId | ObjectId | FK → USER._id | |
+| issuedAt | datetime | | |
+| expiresAt | datetime | | TTL index; document auto-purged after this time. Row is also deleted early whenever the token is revoked (`REVOKED_TOKEN` write), so its presence always means the token is still usable |
+
 ### SUBSCRIPTION
 
 | Field | Type | Key | Description |
@@ -104,8 +115,9 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | stripeSubscriptionId | string | | |
 | status | SubscriptionStatus (enum) | | ACTIVE, PAST_DUE, CANCELLED |
 | currentPeriodEnd | datetime | | |
-| cancelAtPeriodEnd | boolean | | Default `false`. Set `true` by `DELETE /subscriptions/me` (F5) — subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
-| createdAt | datetime | | Append-only: new row per billing cycle |
+| cancelAtPeriodEnd | boolean | | Default `false`. Set by `PATCH /subscriptions/me` (F5) — `true` cancels, `false` resumes. While `true`, the subscription stays `ACTIVE` and tier stays `PREMIUM` until `currentPeriodEnd`, then `customer.subscription.deleted` flips `status` to `CANCELLED` (`docs/api_design.md` §8, §10) |
+| stripeInvoiceId | string | Unique, sparse | Idempotency key for the `invoice.paid` webhook (F1) — set on the row created for that invoice, so a re-delivered event is recognized and appends nothing a second time. Conditional on Stripe webhook flow, mirroring `PAYMENT.stripeInvoiceId` |
+| createdAt | datetime | | Append-only: new row per billing cycle, except `status` and `cancelAtPeriodEnd`, which are mutated in place on the latest row |
 
 ### LISTING
 
@@ -140,7 +152,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | quantity | number | | |
 | amount | number | | |
 | paymentMethod | PaymentMethod (enum) | | STRIPE, CASH; absent/null when `amount` is 0 (free order) |
-| paymentStatus | PaymentStatus (enum) | | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED. `REFUND_PENDING` is set synchronously when a Stripe-paid order is cancelled before Courier claim (D4); `REFUNDED` only after the `charge.refunded` webhook confirms it (`docs/api_design.md` §8) |
+| paymentStatus | PaymentStatus (enum) | | FREE, PAYMENT_PENDING, PAID, REFUND_PENDING, REFUNDED. `REFUND_PENDING` is set synchronously when a Stripe-paid order is cancelled before Courier claim (D4); `REFUNDED` only after the `refund.updated` webhook confirms it (`docs/api_design.md` §8) |
 | orderStatus | OrderStatus (enum) | | PENDING_PAYMENT, PREPARING, DELIVERED, CANCELLED. Coarse/payment-oriented only — granular delivery progress (claimed, picked up) lives on `DELIVERY.stage`, not here; see `docs/api_design.md` §9 |
 | deliveryAddressText | string | | Required for `RESERVATION`; absent for an in-person `DONOR_INITIATED` Order |
 | deliveryLocation | GeoLocation | | Embedded value object; required for `RESERVATION`, absent for `DONOR_INITIATED` |
@@ -187,12 +199,12 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | stripeSessionId | string | | |
 | stripeInvoiceId | string | | Conditional on Stripe webhook flow |
 | stripePaymentIntentId | string | | Captured from the `checkout.session.completed` webhook payload; what a later refund is issued against (Stripe refunds a PaymentIntent, not a Checkout Session) |
-| stripeRefundId | string | | Captured from the synchronous `stripe.refunds.create()` response at cancellation time; what the `charge.refunded` webhook is matched against to confirm the refund |
+| stripeRefundId | string | | Captured from the synchronous `stripe.refunds.create()` response at cancellation time; what the `refund.updated` webhook is matched against to confirm the refund |
 | amount | number | | |
 | currency | string | | |
 | status | TransactionStatus (enum) | | PENDING, PAID, FAILED, EXPIRED, CANCELLED, REFUND_PENDING, REFUNDED |
 | paidAt | datetime | | |
-| refundedAt | datetime | | Set when the `charge.refunded` webhook confirms the refund, mirroring `paidAt` |
+| refundedAt | datetime | | Set when the `refund.updated` webhook confirms the refund, mirroring `paidAt` |
 | lastProcessedEventId | string | | Guards against duplicate Stripe webhook delivery |
 | createdAt | datetime | | |
 
@@ -218,6 +230,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | USER | RECIPIENT | 1 : 1 | RECIPIENT.userId | is a (subtype) |
 | USER | COURIER | 1 : 1 | COURIER.userId | is a (subtype) |
 | USER | REVOKED_TOKEN | 1 : N | REVOKED_TOKEN.userId | revokes access |
+| USER | ACTIVE_TOKEN | 1 : N | ACTIVE_TOKEN.userId | has live session |
 | USER | NOTIFICATION | 1 : N | NOTIFICATION.userId | receives |
 | USER | ORDER | 0..1 : N | ORDER.cancelledByUserId | cancelled by (optional) |
 | DONOR | LISTING | 1 : N | LISTING.donorId | creates |
@@ -274,6 +287,9 @@ read-then-write check, which would reopen the race the index exists to close.
 | NOTIFICATION_PREFERENCE | `{ recipientId }` | Supports "list my preferences" and F3's future per-recipient matching scan |
 | REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
 | REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |
+| ACTIVE_TOKEN | `{ jti }` unique | One live-session row per token |
+| ACTIVE_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Live-session rows are removed once expired, so the collection does not grow without bound |
+| ACTIVE_TOKEN | `{ userId }` | Supports listing a user's live sessions (e.g. to revoke them all on deactivation) |
 
 The partial index on `DELIVERY.courierId` requires **MongoDB 6.1 or newer** —
 `partialFilterExpression` did not accept `$in` before that version.

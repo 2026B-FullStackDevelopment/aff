@@ -6,10 +6,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // findOneMock represents Order.findOne().
 // createMock represents Order.create().
 // leanMock represents the .lean() method returned
-const { findMock, findOneMock, createMock, existsMock, updateManyMock, findOneAndUpdateMock, aggregateMock, leanMock } = vi.hoisted(() => {
+const { findMock, findOneMock, createMock, existsMock, updateManyMock, findOneAndUpdateMock, aggregateMock, leanMock, sessionMock } = vi.hoisted(() => {
   const leanMock = vi.fn();
+  const sessionMock = vi.fn(() => ({ lean: leanMock }));
   return {
-    findMock: vi.fn(() => ({ lean: leanMock })),
+    findMock: vi.fn(() => ({ lean: leanMock, session: sessionMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     createMock: vi.fn(),
     existsMock: vi.fn(),
@@ -17,6 +18,7 @@ const { findMock, findOneMock, createMock, existsMock, updateManyMock, findOneAn
     findOneAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
     aggregateMock: vi.fn(),
     leanMock,
+    sessionMock,
   };
 });
 
@@ -41,6 +43,7 @@ import {
   cancelOrderById,
   markOrderPaid,
   markOrderRefunded,
+  markOrderRefundPending,
   setFeedback,
   findOrdersForRecipient,
   findOrdersByIds,
@@ -56,6 +59,7 @@ describe('order.repository', () => {
     findOneAndUpdateMock.mockClear();
     aggregateMock.mockClear();
     leanMock.mockClear();
+    sessionMock.mockClear();
     leanMock.mockResolvedValue([{ _id: 'o1' }]);
   });
 
@@ -104,7 +108,7 @@ describe('order.repository', () => {
   });
 
   describe('findOrdersByIds', () => {
-    it('loads every requested Order in one query, projecting only the recipient', async () => {
+    it('loads every requested Order in one query, projecting payment and stock fields', async () => {
       leanMock.mockResolvedValue([{ _id: 'o1', recipientId: 'r1' }]);
 
       const result = await findOrdersByIds(['o1', 'o2']);
@@ -118,11 +122,21 @@ describe('order.repository', () => {
           deliveryAddressText: 1,
           deliveryLocation: 1,
           paymentMethod: 1,
+          paymentStatus: 1,
           listingId: 1,
           amount: 1,
         },
       );
+      expect(sessionMock).not.toHaveBeenCalled();
       expect(result).toEqual([{ _id: 'o1', recipientId: 'r1' }]);
+    });
+
+    it('scopes the query to the given session when provided', async () => {
+      const session = { id: 'database-session' };
+
+      await findOrdersByIds(['o1'], session as never);
+
+      expect(sessionMock).toHaveBeenCalledWith(session);
     });
 
     it('skips the database entirely when asked for nothing', async () => {
@@ -255,6 +269,53 @@ describe('order.repository', () => {
       leanMock.mockResolvedValue(null);
 
       const result = await markOrderPaid('o1');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('markOrderRefundPending', () => {
+    it('flips a PAID Order to REFUND_PENDING', async () => {
+      leanMock.mockResolvedValue({
+        _id: 'o1',
+        recipientId: 'r1',
+        paymentStatus: 'REFUND_PENDING',
+      });
+
+      const result = await markOrderRefundPending('o1');
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        {
+          _id: 'o1',
+          paymentStatus: 'PAID',
+        },
+        {
+          $set: {
+            paymentStatus: 'REFUND_PENDING',
+          },
+        },
+        { new: true, runValidators: true, session: undefined },
+      );
+      expect(result).toMatchObject({ paymentStatus: 'REFUND_PENDING' });
+    });
+
+    it('passes the session through when provided', async () => {
+      const session = { id: 'database-session' };
+      leanMock.mockResolvedValue({ _id: 'o1', paymentStatus: 'REFUND_PENDING' });
+
+      await markOrderRefundPending('o1', session as never);
+
+      expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { new: true, runValidators: true, session },
+      );
+    });
+
+    it('returns null when the Order was not PAID', async () => {
+      leanMock.mockResolvedValue(null);
+
+      const result = await markOrderRefundPending('o1');
 
       expect(result).toBeNull();
     });

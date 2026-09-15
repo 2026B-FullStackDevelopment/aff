@@ -7,12 +7,15 @@ const {
   withTransactionMock,
   cancelOrderByIdMock,
   markOrderRefundedMock,
+  markOrderRefundPendingMock,
   setFeedbackMock,
   findByOrderIdMock,
   cancelAwaitingDeliveryForOrderMock,
   restoreStockMock,
   refundOrderPaymentMock,
   cancelPendingOrderPaymentMock,
+  findOrdersByIdsMock,
+  cancelOrdersByIdsMock,
 } = vi.hoisted(() => ({
   findOrdersForRecipientMock: vi.fn(),
   findOrderByIdAndRecipientMock: vi.fn(),
@@ -20,12 +23,15 @@ const {
   withTransactionMock: vi.fn(),
   cancelOrderByIdMock: vi.fn(),
   markOrderRefundedMock: vi.fn(),
+  markOrderRefundPendingMock: vi.fn(),
   setFeedbackMock: vi.fn(),
   findByOrderIdMock: vi.fn(),
   cancelAwaitingDeliveryForOrderMock: vi.fn(),
   restoreStockMock: vi.fn(),
   refundOrderPaymentMock: vi.fn(),
   cancelPendingOrderPaymentMock: vi.fn(),
+  findOrdersByIdsMock: vi.fn(),
+  cancelOrdersByIdsMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/orders/order.repository.js', () => ({
@@ -35,7 +41,10 @@ vi.mock('../../../src/modules/orders/order.repository.js', () => ({
   withTransaction: withTransactionMock,
   cancelOrderById: cancelOrderByIdMock,
   markOrderRefunded: markOrderRefundedMock,
+  markOrderRefundPending: markOrderRefundPendingMock,
   setFeedback: setFeedbackMock,
+  findOrdersByIds: findOrdersByIdsMock,
+  cancelOrdersByIds: cancelOrdersByIdsMock,
 }));
 
 vi.mock('../../../src/modules/delivery/delivery.interface.js', () => ({
@@ -65,6 +74,8 @@ import {
   submitFeedback,
   verifyOrderOwnership,
   hasNonCancelledOrderForListing,
+  cancelOrdersForListingCancellation,
+  refundCancelledOrders,
 } from '../../../src/modules/orders/order.service.js';
 
 // Group all tests related to order.service
@@ -86,6 +97,9 @@ describe('order.service', () => {
     restoreStockMock.mockClear();
     refundOrderPaymentMock.mockClear();
     cancelPendingOrderPaymentMock.mockClear();
+    findOrdersByIdsMock.mockClear();
+    cancelOrdersByIdsMock.mockClear();
+    markOrderRefundPendingMock.mockClear();
 
     withTransactionMock.mockImplementation(
       async (operation: (session: unknown) => unknown) => operation(databaseSession),
@@ -336,13 +350,14 @@ describe('order.service', () => {
       expect(restoreStockMock).not.toHaveBeenCalled();
     });
 
-    it('starts a synchronous refund for a Stripe-paid order and reports REFUND_PENDING', async () => {
+    it('starts a synchronous refund for a Stripe-paid order, marks it REFUND_PENDING, and reports REFUND_PENDING', async () => {
       prepareOrder({ paymentMethod: 'STRIPE', paymentStatus: 'PAID' });
       refundOrderPaymentMock.mockResolvedValue({ status: 'REFUND_PENDING', refundId: 're_1' });
 
       const result = await cancelOrder(orderId, recipientId);
 
       expect(refundOrderPaymentMock).toHaveBeenCalledWith(orderId);
+      expect(markOrderRefundPendingMock).toHaveBeenCalledWith(orderId);
       expect(result.refundStatus).toBe('REFUND_PENDING');
     });
 
@@ -354,6 +369,7 @@ describe('order.service', () => {
 
       expect(result.order).toMatchObject({ orderStatus: 'CANCELLED' });
       expect(result.refundStatus).toBe('FAILED');
+      expect(markOrderRefundPendingMock).not.toHaveBeenCalled();
     });
 
     it('does not call Stripe for a Stripe order that never completed checkout (still PAYMENT_PENDING)', async () => {
@@ -396,6 +412,117 @@ describe('order.service', () => {
       await cancelOrder(orderId, recipientId);
 
       expect(cancelPendingOrderPaymentMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancelOrdersForListingCancellation', () => {
+    it('is a no-op on an empty id list', async () => {
+      const result = await cancelOrdersForListingCancellation(
+        [],
+        'd1',
+        new Date(),
+        databaseSession,
+      );
+
+      expect(result).toEqual({ cancelledCount: 0, refundableOrderIds: [] });
+      expect(findOrdersByIdsMock).not.toHaveBeenCalled();
+      expect(cancelOrdersByIdsMock).not.toHaveBeenCalled();
+    });
+
+    it('restores stock per order with the right quantity', async () => {
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', listingId: 'l1', quantity: 2, paymentMethod: 'CASH', paymentStatus: 'PAID' },
+        { _id: 'o2', listingId: 'l2', quantity: 5, paymentMethod: undefined, paymentStatus: 'FREE' },
+      ]);
+      cancelOrdersByIdsMock.mockResolvedValue(2);
+
+      await cancelOrdersForListingCancellation(['o1', 'o2'], 'd1', new Date(), databaseSession);
+
+      expect(restoreStockMock).toHaveBeenCalledWith('l1', 2, databaseSession);
+      expect(restoreStockMock).toHaveBeenCalledWith('l2', 5, databaseSession);
+    });
+
+    it('cancels pending payments only for STRIPE + PAYMENT_PENDING orders', async () => {
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', listingId: 'l1', quantity: 1, paymentMethod: 'STRIPE', paymentStatus: 'PAYMENT_PENDING' },
+        { _id: 'o2', listingId: 'l2', quantity: 1, paymentMethod: 'STRIPE', paymentStatus: 'PAID' },
+        { _id: 'o3', listingId: 'l3', quantity: 1, paymentMethod: 'CASH', paymentStatus: 'PAYMENT_PENDING' },
+      ]);
+      cancelOrdersByIdsMock.mockResolvedValue(3);
+
+      await cancelOrdersForListingCancellation(['o1', 'o2', 'o3'], 'd1', new Date(), databaseSession);
+
+      expect(cancelPendingOrderPaymentMock).toHaveBeenCalledTimes(1);
+      expect(cancelPendingOrderPaymentMock).toHaveBeenCalledWith('o1', databaseSession);
+    });
+
+    it('returns exactly the STRIPE + PAID ids as refundable, skipping CASH and FREE orders', async () => {
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', listingId: 'l1', quantity: 1, paymentMethod: 'STRIPE', paymentStatus: 'PAID' },
+        { _id: 'o2', listingId: 'l2', quantity: 1, paymentMethod: 'CASH', paymentStatus: 'PAID' },
+        { _id: 'o3', listingId: 'l3', quantity: 1, paymentMethod: undefined, paymentStatus: 'FREE' },
+        { _id: 'o4', listingId: 'l4', quantity: 1, paymentMethod: 'STRIPE', paymentStatus: 'PAYMENT_PENDING' },
+      ]);
+      cancelOrdersByIdsMock.mockResolvedValue(4);
+
+      const result = await cancelOrdersForListingCancellation(
+        ['o1', 'o2', 'o3', 'o4'],
+        'd1',
+        new Date(),
+        databaseSession,
+      );
+
+      expect(result.refundableOrderIds).toEqual(['o1']);
+      expect(result.cancelledCount).toBe(4);
+      expect(refundOrderPaymentMock).not.toHaveBeenCalled();
+    });
+
+    it('makes no Stripe call for a CASH order', async () => {
+      findOrdersByIdsMock.mockResolvedValue([
+        { _id: 'o1', listingId: 'l1', quantity: 1, paymentMethod: 'CASH', paymentStatus: 'PAID' },
+      ]);
+      cancelOrdersByIdsMock.mockResolvedValue(1);
+
+      await cancelOrdersForListingCancellation(['o1'], 'd1', new Date(), databaseSession);
+
+      expect(cancelPendingOrderPaymentMock).not.toHaveBeenCalled();
+      expect(refundOrderPaymentMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refundCancelledOrders', () => {
+    it('returns an empty array for no orders and calls Stripe for none', async () => {
+      const result = await refundCancelledOrders([]);
+
+      expect(result).toEqual([]);
+      expect(refundOrderPaymentMock).not.toHaveBeenCalled();
+    });
+
+    it('reports REFUND_PENDING per order and does not let one failure block the others', async () => {
+      refundOrderPaymentMock
+        .mockResolvedValueOnce({ status: 'REFUND_PENDING', refundId: 're_1' })
+        .mockRejectedValueOnce(new Error('Stripe is down'))
+        .mockResolvedValueOnce({ status: 'REFUND_PENDING', refundId: 're_3' });
+
+      const result = await refundCancelledOrders(['o1', 'o2', 'o3']);
+
+      expect(result).toEqual([
+        { orderId: 'o1', refundStatus: 'REFUND_PENDING' },
+        { orderId: 'o2', refundStatus: 'FAILED' },
+        { orderId: 'o3', refundStatus: 'REFUND_PENDING' },
+      ]);
+      expect(refundOrderPaymentMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('marks each successfully-refunded order REFUND_PENDING, skipping the one that failed', async () => {
+      refundOrderPaymentMock
+        .mockResolvedValueOnce({ status: 'REFUND_PENDING', refundId: 're_1' })
+        .mockRejectedValueOnce(new Error('Stripe is down'));
+
+      await refundCancelledOrders(['o1', 'o2']);
+
+      expect(markOrderRefundPendingMock).toHaveBeenCalledTimes(1);
+      expect(markOrderRefundPendingMock).toHaveBeenCalledWith('o1');
     });
   });
 

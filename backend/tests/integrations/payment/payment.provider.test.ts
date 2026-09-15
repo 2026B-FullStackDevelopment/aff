@@ -5,18 +5,21 @@ const {
   checkoutSessionsCreateMock,
   webhooksConstructEventMock,
   refundsCreateMock,
+  subscriptionsUpdateMock,
   StripeCtorMock,
 } = vi.hoisted(() => {
   const customersCreateMock = vi.fn();
   const checkoutSessionsCreateMock = vi.fn();
   const webhooksConstructEventMock = vi.fn();
   const refundsCreateMock = vi.fn();
+  const subscriptionsUpdateMock = vi.fn();
   const StripeCtorMock = vi.fn(function StripeMock() {
     return {
       customers: { create: customersCreateMock },
       checkout: { sessions: { create: checkoutSessionsCreateMock } },
       webhooks: { constructEvent: webhooksConstructEventMock },
       refunds: { create: refundsCreateMock },
+      subscriptions: { update: subscriptionsUpdateMock },
     };
   });
   return {
@@ -24,6 +27,7 @@ const {
     checkoutSessionsCreateMock,
     webhooksConstructEventMock,
     refundsCreateMock,
+    subscriptionsUpdateMock,
     StripeCtorMock,
   };
 });
@@ -38,6 +42,7 @@ import {
   createStripeCustomer,
   createCheckoutSession,
   createSubscriptionCheckoutSession,
+  updateSubscriptionCancelAtPeriodEnd,
   createRefund,
   verifyWebhookSignature,
 } from '../../../src/integrations/payment/payment.provider.js';
@@ -48,6 +53,7 @@ describe('payment.provider', () => {
     checkoutSessionsCreateMock.mockReset();
     webhooksConstructEventMock.mockReset();
     refundsCreateMock.mockReset();
+    subscriptionsUpdateMock.mockReset();
   });
 
   describe('createStripeCustomer', () => {
@@ -121,6 +127,54 @@ describe('payment.provider', () => {
         }),
       );
       expect(result).toEqual({ provider: 'stripe', sessionId: 'cs_456', checkoutUrl: 'https://checkout.stripe.com/cs_456' });
+    });
+  });
+
+  describe('updateSubscriptionCancelAtPeriodEnd', () => {
+    it('calls subscriptions.update with cancel_at_period_end and maps the response', async () => {
+      subscriptionsUpdateMock.mockResolvedValue({
+        id: 'sub_123',
+        cancel_at_period_end: true,
+        status: 'active',
+        items: { data: [{ current_period_end: 1780000000 }] },
+      });
+
+      const result = await updateSubscriptionCancelAtPeriodEnd('sub_123', true);
+
+      expect(subscriptionsUpdateMock).toHaveBeenCalledWith('sub_123', { cancel_at_period_end: true });
+      expect(result).toEqual({
+        provider: 'stripe',
+        subscriptionId: 'sub_123',
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: new Date(1780000000 * 1000),
+        status: 'active',
+      });
+    });
+
+    it('passes cancel_at_period_end: false for the resume direction', async () => {
+      subscriptionsUpdateMock.mockResolvedValue({
+        id: 'sub_123',
+        cancel_at_period_end: false,
+        status: 'active',
+        items: { data: [{ current_period_end: 1780000000 }] },
+      });
+
+      await updateSubscriptionCancelAtPeriodEnd('sub_123', false);
+
+      expect(subscriptionsUpdateMock).toHaveBeenCalledWith('sub_123', { cancel_at_period_end: false });
+    });
+
+    it('falls back to a null currentPeriodEnd when the subscription has no items', async () => {
+      subscriptionsUpdateMock.mockResolvedValue({
+        id: 'sub_123',
+        cancel_at_period_end: true,
+        status: 'active',
+        items: { data: [] },
+      });
+
+      const result = await updateSubscriptionCancelAtPeriodEnd('sub_123', true);
+
+      expect(result.currentPeriodEnd).toBeNull();
     });
   });
 
