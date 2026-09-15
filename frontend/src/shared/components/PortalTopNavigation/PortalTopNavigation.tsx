@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Bell, UserRound, Menu, X } from 'lucide-react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { PortalMobileMenu } from './PortalMobileMenu';
+import { PortalNavigationLinks } from './PortalNavigationLinks';
 
 type PortalVariant = 'donor' | 'recipient' | 'admin' | 'courier';
 
@@ -144,42 +145,26 @@ export function PortalTopNavigation({
           {brandLabel}
         </div>
 
-        {/* Desktop Navigation */}
-        <nav
-          aria-label={`${brandLabel} desktop navigation`}
-          className="hidden md:flex min-w-0 flex-1 items-center justify-center overflow-x-auto mx-4"
-        >
-          <ul className="flex min-w-max items-center justify-center gap-1">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    [
-                      'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
-                      isActive ? styles.activeLink : styles.inactiveLink,
-                    ].join(' ')
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <PortalNavigationLinks
+          ariaLabel={`${brandLabel} desktop navigation`}
+          items={navItems}
+          activeLinkClassName={styles.activeLink}
+          inactiveLinkClassName={styles.inactiveLink}
+        />
 
-        {/* Right Actions & Mobile Hamburger */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="hidden md:flex shrink-0 items-center gap-2">
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
+        </div>
 
+        <div className="flex md:hidden shrink-0 items-center gap-1">
+          {(variant === 'recipient' || variant === 'donor') && renderBell()}
+          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`md:hidden p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
+            className={`p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
             aria-expanded={isMobileMenuOpen}
           >
             <span className="sr-only">{isMobileMenuOpen ? 'Close menu' : 'Open menu'}</span>
