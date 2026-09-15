@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
 
-const { isTokenRevokedMock } = vi.hoisted(() => ({ isTokenRevokedMock: vi.fn() }));
+const { isTokenRevokedMock, revokeTokenMock, recordIssuedTokenMock, listActiveTokensForUserMock } =
+  vi.hoisted(() => ({
+    isTokenRevokedMock: vi.fn(),
+    revokeTokenMock: vi.fn(),
+    recordIssuedTokenMock: vi.fn(),
+    listActiveTokensForUserMock: vi.fn(),
+  }));
 
 vi.mock('../../../src/modules/security/revoked-token.repository.js', () => ({
   isTokenRevoked: isTokenRevokedMock,
+  revokeToken: revokeTokenMock,
+}));
+
+vi.mock('../../../src/modules/security/active-token.repository.js', () => ({
+  recordIssuedToken: recordIssuedTokenMock,
+  listActiveTokensForUser: listActiveTokensForUserMock,
 }));
 
 import {
@@ -12,12 +24,19 @@ import {
   decodeAccessToken,
   verifyAccessToken,
   issueSession,
+  revokeAllTokensForUser,
 } from '../../../src/modules/security/token.service.js';
 
 describe('security/token.service', () => {
   beforeEach(() => {
     isTokenRevokedMock.mockReset();
     isTokenRevokedMock.mockResolvedValue(false);
+    revokeTokenMock.mockReset();
+    revokeTokenMock.mockResolvedValue(undefined);
+    recordIssuedTokenMock.mockReset();
+    recordIssuedTokenMock.mockResolvedValue(undefined);
+    listActiveTokensForUserMock.mockReset();
+    listActiveTokensForUserMock.mockResolvedValue([]);
   });
 
   describe('signAccessToken / decodeAccessToken', () => {
@@ -119,10 +138,10 @@ describe('security/token.service', () => {
   });
 
   describe('issueSession', () => {
-    it('signs a token carrying the user id and role and bundles the user', () => {
+    it('signs a token carrying the user id and role and bundles the user', async () => {
       const user = { _id: 'u1', role: 'DONOR' };
 
-      const session = issueSession(user);
+      const session = await issueSession(user);
 
       expect(session.user).toBe(user);
       expect(typeof session.accessToken).toBe('string');
@@ -132,6 +151,67 @@ describe('security/token.service', () => {
         role: 'DONOR',
         jti: session.jti,
       });
+    });
+
+    it('records the issued token as live', async () => {
+      const user = { _id: 'u1', role: 'DONOR' };
+
+      const session = await issueSession(user);
+
+      expect(recordIssuedTokenMock).toHaveBeenCalledWith({
+        jti: session.jti,
+        userId: 'u1',
+        expiresAt: session.expiresAt,
+      });
+    });
+  });
+
+  describe('revokeAllTokensForUser', () => {
+    it('revokes every live token for the user with the given reason', async () => {
+      const expiresAt1 = new Date('2026-08-11T12:00:00.000Z');
+      const expiresAt2 = new Date('2026-08-11T13:00:00.000Z');
+      listActiveTokensForUserMock.mockResolvedValue([
+        { jti: 'j1', expiresAt: expiresAt1 },
+        { jti: 'j2', expiresAt: expiresAt2 },
+      ]);
+
+      await revokeAllTokensForUser('u1', 'ADMIN_DEACTIVATE');
+
+      expect(listActiveTokensForUserMock).toHaveBeenCalledWith('u1');
+      expect(revokeTokenMock).toHaveBeenCalledWith({
+        jti: 'j1',
+        userId: 'u1',
+        expiresAt: expiresAt1,
+        reason: 'ADMIN_DEACTIVATE',
+      });
+      expect(revokeTokenMock).toHaveBeenCalledWith({
+        jti: 'j2',
+        userId: 'u1',
+        expiresAt: expiresAt2,
+        reason: 'ADMIN_DEACTIVATE',
+      });
+    });
+
+    it('does nothing when the user has no live tokens', async () => {
+      listActiveTokensForUserMock.mockResolvedValue([]);
+
+      await revokeAllTokensForUser('u1', 'ADMIN_DEACTIVATE');
+
+      expect(revokeTokenMock).not.toHaveBeenCalled();
+    });
+
+    it('propagates a failure from any single revoke', async () => {
+      listActiveTokensForUserMock.mockResolvedValue([
+        { jti: 'j1', expiresAt: new Date() },
+        { jti: 'j2', expiresAt: new Date() },
+      ]);
+      revokeTokenMock.mockImplementation(({ jti }) =>
+        jti === 'j2' ? Promise.reject(new Error('connection lost')) : Promise.resolve()
+      );
+
+      await expect(revokeAllTokensForUser('u1', 'ADMIN_DEACTIVATE')).rejects.toThrow(
+        'connection lost'
+      );
     });
   });
 });
