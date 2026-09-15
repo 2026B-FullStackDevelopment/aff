@@ -15,6 +15,9 @@ export interface NotificationRegistryEntry<P = Record<string, unknown>> {
     description?: string;
     duration?: number;
   };
+  // Optional: resolves a payload into an in-app path. When present, the toast
+  // gets a clickable action that navigates there (F3).
+  getLink?: (payload: P) => string;
 }
 
 export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
@@ -69,5 +72,15 @@ export const NOTIFICATION_REGISTRY: NotificationRegistryEntry[] = [
             title: 'Order update',
             description: String(payload.message),
           },
+  },
+  {
+    event: 'notification:premium_match',
+    roles: ['RECIPIENT'],
+    toast: (payload) => ({
+      variant: 'info',
+      title: 'New match found',
+      description: String(payload.message),
+    }),
+    getLink: (payload) => `/marketplace/${String(payload.listingId)}`,
   },
 ];

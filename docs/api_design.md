@@ -665,7 +665,7 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 | Event | Room | Emitted when | Payload | SRS |
 |---|---|---|---|---|
 | `listing:sold_out` | `user:<donorId>` | `LISTING.quantityRemaining` hits 0 | `{ listingId, name, message }` | `4.3.1` |
-| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId, message }` | `5.3.2` |
+| `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, preferenceTitle, message }` | `5.3.2` |
 | `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName, message }` | `7.3.3` |
 | `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId, message }` | `6.1.2` |
 | `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `refund.updated` (`status=succeeded`) for a cancelled order (D4) | `{ orderId, message }` | new |

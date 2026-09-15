@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { notificationPreferenceService } from '../services/notificationPreference.service';
 import type { NotificationPreference } from '@/types/api';
 
@@ -53,31 +54,39 @@ export function useNotificationPreferences(): UseNotificationPreferencesResult {
   // Optimistic flip with rollback on failure. Only reachable for PREMIUM
   // recipients — the card hides/disables its switch for STANDARD tier
   // before this can be called, so a 403 here would indicate a stale UI
-  // state rather than an expected path.
   const toggleActive = useCallback(async (id: string) => {
-    let previous: NotificationPreference | undefined;
+    const target = preferences.find((p) => p.id === id);
+    if (!target) return;
 
+    const nextIsActive = !target.isActive;
+
+    // Optimistic update
     setPreferences((current) =>
-      current.map((pref) => {
-        if (pref.id !== id) return pref;
-        previous = pref;
-        return { ...pref, isActive: !pref.isActive };
-      }),
+      current.map((pref) =>
+        pref.id === id ? { ...pref, isActive: nextIsActive } : pref,
+      ),
     );
 
-    if (!previous) return;
+    try {
+      const response = await notificationPreferenceService.update(id, {
+        isActive: nextIsActive,
+      });
 
-    const response = await notificationPreferenceService.update(id, {
-      isActive: !previous.isActive,
-    });
-
-    if (!response.ok || !response.data) {
-      const rollbackTo = previous;
+      if (!response.ok || !response.data) {
+        // Rollback
+        setPreferences((current) =>
+          current.map((pref) => (pref.id === id ? target : pref)),
+        );
+        toast.error('Could not update preference status. Please try again.');
+      }
+    } catch {
+      // Rollback
       setPreferences((current) =>
-        current.map((pref) => (pref.id === id ? rollbackTo : pref)),
+        current.map((pref) => (pref.id === id ? target : pref)),
       );
+      toast.error('Could not update preference status. Please try again.');
     }
-  }, []);
+  }, [preferences]);
 
   const removePreference = useCallback(async (id: string) => {
     const response = await notificationPreferenceService.remove(id);

@@ -45,7 +45,7 @@ function buildMessage(type: NotificationType, event: string, payload: Record<str
         ? 'Your order has been delivered.'
         : `Your order's delivery status is now ${DELIVERY_STAGE_LABELS[String(payload.stage)] ?? String(payload.stage).toLowerCase()}.`;
     case 'PREMIUM_MATCH':
-      return 'A new listing matches your notification preferences.';
+      return `A new listing "${String(payload.name)}" matches your "${String(payload.preferenceTitle)}" preference.`;
     case 'ADMIN_CANCEL':
       return 'Your order was cancelled by an admin.';
     default:

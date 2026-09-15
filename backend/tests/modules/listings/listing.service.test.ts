@@ -23,6 +23,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock,
   emitToUserMock,
   sendNotificationMock,
+  notifyPremiumMatchesMock,
 } = vi.hoisted(() => ({
   findAvailableListingsMock: vi.fn(),
   createListingMock: vi.fn(),
@@ -46,6 +47,7 @@ const {
   cancelAwaitingDeliveriesByOrderIdsMock: vi.fn(),
   emitToUserMock: vi.fn(),
   sendNotificationMock: vi.fn(),
+  notifyPremiumMatchesMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/listings/listing.query.repository.js', () => ({
@@ -107,6 +109,11 @@ vi.mock('../../../src/modules/notifications/notification.interface.js', () => ({
   },
 }));
 
+vi.mock('../../../src/modules/listings/listing.premium-match.js', () => ({
+  notifyPremiumMatches: notifyPremiumMatchesMock,
+}));
+
+// import real listing service functions to test
 import {
   listMyListings,
   listAvailableListings,
@@ -265,6 +272,8 @@ describe('Listing services', () => {
           location,
         },
       });
+
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith(createdListing);
     });
 
     it('copies optional Listing fields into the repository input', async () => {
@@ -329,6 +338,40 @@ describe('Listing services', () => {
       });
 
       expect(createListingMock).not.toHaveBeenCalled();
+    });
+
+    it('does not fail when notifyPremiumMatches rejects', async () => {
+      const createdListing = {
+        _id: 'l1',
+        donorId: 'd1',
+        name: 'Bread',
+        city: 'Hanoi',
+      };
+
+      prepareDonorMocks();
+      createListingMock.mockResolvedValue(createdListing);
+      notifyPremiumMatchesMock.mockRejectedValueOnce(new Error('boom'));
+
+      const result = await createListing('d1', {
+        name: 'Bread',
+        unit: 'UNIT',
+        category: 'BAKED_GOODS',
+        isVegetarian: true,
+        price: 0,
+        donationLimit: 10,
+      });
+
+      expect(result).toEqual({
+        listing: createdListing,
+        donor: {
+          id: 'd1',
+          companyName: 'Fresh Bakery',
+          city: 'Hanoi',
+          addressText: '123 Example Street, Hanoi',
+          location,
+        },
+      });
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith(createdListing);
     });
   });
 
@@ -455,6 +498,42 @@ describe('Listing services', () => {
       expect(createListingMock).not.toHaveBeenCalledWith(
         expect.objectContaining({ _id: 'source' }),
       );
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith({ _id: 'clone', donorId: 'd1' });
+    });
+
+    it('does not fail when notifyPremiumMatches rejects', async () => {
+      findListingByIdMock.mockResolvedValue({
+        _id: 'source',
+        donorId: 'd1',
+        name: 'Bread',
+        description: 'Fresh bread',
+        imageUrl: 'https://example.com/bread.jpg',
+        unit: 'UNIT',
+        category: 'BAKED_GOODS',
+        isVegetarian: true,
+        price: 3000,
+        status: 'SOLD_OUT',
+        donationLimit: 10,
+        rationLimitPerPerson: 2,
+        quantityRemaining: 0,
+      });
+      prepareDonorMocks();
+      createListingMock.mockResolvedValue({ _id: 'clone', donorId: 'd1' });
+      notifyPremiumMatchesMock.mockRejectedValueOnce(new Error('boom'));
+
+      const result = await cloneListing('source', 'd1');
+
+      expect(result).toEqual({
+        listing: { _id: 'clone', donorId: 'd1' },
+        donor: {
+          id: 'd1',
+          companyName: 'Fresh Bakery',
+          city: 'Hanoi',
+          addressText: '123 Example Street, Hanoi',
+          location,
+        },
+      });
+      expect(notifyPremiumMatchesMock).toHaveBeenCalledWith({ _id: 'clone', donorId: 'd1' });
     });
   });
 
