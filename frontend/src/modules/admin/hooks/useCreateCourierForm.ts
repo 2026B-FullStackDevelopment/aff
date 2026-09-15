@@ -123,7 +123,7 @@ export function useCreateCourierForm() {
       }
 
       toast.success('Courier account created', {
-        description: `${response.data.fullName} can now sign in with the temporary password.`,
+        description: `${response.data.fullName} can now sign in with the password you set.`,
       });
       navigate('/admin/user-directory', { replace: true });
     } catch {

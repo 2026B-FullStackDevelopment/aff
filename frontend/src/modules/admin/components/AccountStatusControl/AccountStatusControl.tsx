@@ -29,29 +29,32 @@ export function AccountStatusControl({
         type="button"
         role="switch"
         aria-checked={isActive}
+        aria-busy={isPending}
         aria-label={`${isActive ? 'Deactivate' : 'Reactivate'} ${user.username}`}
         disabled={isPending}
         onClick={() => {
           if (isActive) setIsConfirming(true);
           else void applyStatus('ACTIVE');
         }}
-        className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#eff4ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-admin-primary/20 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[#eff4ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-admin-primary/20 disabled:cursor-wait disabled:opacity-60"
       >
         <span
           aria-hidden="true"
           className={cn(
-            'relative h-6 w-11 rounded-full transition-colors',
+            'relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors',
             isActive ? 'bg-emerald-600' : 'bg-slate-400',
           )}
         >
           <span
             className={cn(
-              'absolute top-1 size-4 rounded-full bg-white shadow-sm transition-transform',
-              isActive ? 'translate-x-6' : 'translate-x-1',
+              'absolute left-1 top-1 size-4 rounded-full bg-white shadow-sm transition-transform',
+              isActive ? 'translate-x-5' : 'translate-x-0',
             )}
           />
         </span>
-        <span>{isPending ? 'Updating…' : isActive ? 'Active' : 'Deactivated'}</span>
+        <span className="sr-only">
+          {isPending ? 'Updating account status' : isActive ? 'Active account' : 'Deactivated account'}
+        </span>
       </button>
 
       <ConfirmationDialog

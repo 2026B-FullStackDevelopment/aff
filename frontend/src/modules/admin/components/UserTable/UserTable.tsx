@@ -43,20 +43,35 @@ function RoleBadge({ role }: { role: UserRole }) {
   );
 }
 
+function AccountStatus({ status }: { status: AnyUserDTO['status'] }) {
+  const isActive = status === 'ACTIVE';
+
+  return (
+    <span className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-slate-700">
+      <span
+        aria-hidden="true"
+        className={cn('size-2 shrink-0 rounded-full', isActive ? 'bg-emerald-500' : 'bg-slate-400')}
+      />
+      {isActive ? 'Active' : 'Deactivated'}
+    </span>
+  );
+}
+
 /** Displays Admin account data as a desktop table and mobile cards. */
 export function UserTable({ users, pendingUserIds, onStatusChange }: UserTableProps) {
   return (
     <div className="overflow-hidden rounded-t-xl border border-admin-border/40 bg-admin-surface shadow-[0_2px_8px_rgba(0,35,111,0.08)]">
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[920px] table-fixed border-collapse text-left text-sm">
           <caption className="sr-only">All AFF user accounts</caption>
           <thead className="bg-[#eff4ff] text-xs font-extrabold uppercase tracking-wider text-admin-title">
             <tr>
-              <th scope="col" className="px-6 py-4">Account ID</th>
-              <th scope="col" className="px-6 py-4">Username / Name</th>
+              <th scope="col" className="w-40 px-6 py-4">Account ID</th>
+              <th scope="col" className="w-64 px-6 py-4">Username / Name</th>
               <th scope="col" className="px-6 py-4">Email</th>
-              <th scope="col" className="px-6 py-4">Role</th>
-              <th scope="col" className="px-6 py-4">Status</th>
+              <th scope="col" className="w-32 px-6 py-4">Role</th>
+              <th scope="col" className="w-36 px-6 py-4">Status</th>
+              <th scope="col" className="w-28 px-6 py-4 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-admin-border/30 text-admin-text">
@@ -74,9 +89,10 @@ export function UserTable({ users, pendingUserIds, onStatusChange }: UserTablePr
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-5 text-slate-600">{user.email}</td>
+                <td className="truncate px-6 py-5 text-slate-600" title={user.email}>{user.email}</td>
                 <td className="px-6 py-5"><RoleBadge role={user.role} /></td>
-                <td className="px-6 py-5">
+                <td className="px-6 py-5"><AccountStatus status={user.status} /></td>
+                <td className="px-6 py-5 text-center">
                   <AccountStatusControl
                     user={user}
                     isPending={pendingUserIds.has(user.id)}
@@ -107,19 +123,25 @@ export function UserTable({ users, pendingUserIds, onStatusChange }: UserTablePr
                 <dt className="text-[0.65rem] font-extrabold uppercase tracking-wider text-admin-text-muted">Account ID</dt>
                 <dd className="mt-1 text-sm font-semibold" title={user.id}>{getDisplayId(user.id)}</dd>
               </div>
-              <div>
+              <div className="text-right">
                 <dt className="text-[0.65rem] font-extrabold uppercase tracking-wider text-admin-text-muted">Role</dt>
-                <dd className="mt-1"><RoleBadge role={user.role} /></dd>
+                <dd className="mt-1 flex justify-end"><RoleBadge role={user.role} /></dd>
               </div>
             </dl>
 
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-admin-text-muted">Status</span>
-              <AccountStatusControl
-                user={user}
-                isPending={pendingUserIds.has(user.id)}
-                onStatusChange={onStatusChange}
-              />
+            <div className="mt-4 grid grid-cols-2 items-end gap-4 border-t border-admin-border/30 pt-4">
+              <div>
+                <p className="text-[0.65rem] font-extrabold uppercase tracking-wider text-admin-text-muted">Status</p>
+                <div className="mt-1"><AccountStatus status={user.status} /></div>
+              </div>
+              <div className="flex flex-col items-end">
+                <p className="text-[0.65rem] font-extrabold uppercase tracking-wider text-admin-text-muted">Action</p>
+                <AccountStatusControl
+                  user={user}
+                  isPending={pendingUserIds.has(user.id)}
+                  onStatusChange={onStatusChange}
+                />
+              </div>
             </div>
           </article>
         ))}

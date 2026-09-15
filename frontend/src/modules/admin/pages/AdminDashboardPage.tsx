@@ -1,14 +1,12 @@
 // Dashboard page component
 
-import { Link } from 'react-router-dom';
-import { Plus, Users } from 'lucide-react';
-import { Button, buttonVariants } from '@/shared/components/Button/Button';
+import { Users } from 'lucide-react';
+import { Button } from '@/shared/components/Button/Button';
 import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { cn } from '@/shared/utils';
 import { UserTable } from '../components/UserTable/UserTable';
 import { UserDirectoryFilters } from '../components/UserDirectoryFilters/UserDirectoryFilters';
 import { useAdminUsers } from '../hooks/useAdminUsers';
@@ -36,26 +34,12 @@ export function AdminDashboardPage() {
     retry,
   } = useAdminUsers();
 
-  const createCourierButton = (
-    <Link
-      to="/admin/couriers/new"
-      className={cn(
-        buttonVariants({ size: 'lg' }),
-        'h-10 bg-admin-primary px-4 text-white hover:bg-admin-primary-hover',
-      )}
-    >
-      <Plus aria-hidden="true" />
-      Create Courier
-    </Link>
-  );
-
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         theme="admin"
         title="User Directory"
         description="View all Recipient, Donor, Courier, and Admin accounts."
-        actions={createCourierButton}
       />
 
       <UserDirectoryFilters
@@ -85,7 +69,7 @@ export function AdminDashboardPage() {
           action={
             hasActiveFilters
               ? <Button type="button" onClick={clearFilters}>Clear filters</Button>
-              : createCourierButton
+              : undefined
           }
         />
       )}

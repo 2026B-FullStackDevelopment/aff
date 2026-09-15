@@ -5,6 +5,7 @@ import { PortalTopNavigation } from '@/shared/components/PortalTopNavigation/Por
 
 const ADMIN_NAV_ITEMS = [
   { label: 'Users', to: '/admin/user-directory', end: true },
+  { label: 'Create Courier', to: '/admin/couriers/new', end: true },
 ] as const;
 
 /** Provides the persistent, responsive shell shared by Admin pages. */

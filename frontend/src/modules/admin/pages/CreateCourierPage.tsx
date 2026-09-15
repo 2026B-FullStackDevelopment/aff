@@ -13,7 +13,7 @@ export function CreateCourierPage() {
       <PageHeader
         theme="admin"
         title="Create Courier account"
-        description="Add a Courier and set their temporary sign-in credentials."
+        description="Add a Courier and set their sign-in credentials."
         actions={
           <Link
             to="/admin/user-directory"

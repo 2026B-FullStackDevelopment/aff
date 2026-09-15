@@ -81,11 +81,11 @@ export function CreateCourierForm() {
         </div>
       </section>
 
-      <section aria-labelledby="temporary-password-heading">
-        <FormSectionHeader title="Temporary password" theme="admin" />
-        <h2 id="temporary-password-heading" className="sr-only">Temporary password</h2>
+      <section aria-labelledby="courier-password-heading">
+        <FormSectionHeader title="Sign-in password" theme="admin" />
+        <h2 id="courier-password-heading" className="sr-only">Sign-in password</h2>
         <p className="-mt-2 mb-4 text-sm leading-6 text-admin-text-muted">
-          Give this password securely to the Courier. They will use it for their first sign-in.
+          Give this password securely to the Courier so they can sign in to their account.
         </p>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -93,7 +93,7 @@ export function CreateCourierForm() {
             <PasswordField
               id="tempPassword"
               name="tempPassword"
-              label="Temporary password"
+              label="Password"
               required
               value={form.tempPassword}
               onChange={updateField('tempPassword')}
@@ -108,7 +108,7 @@ export function CreateCourierForm() {
           <PasswordField
             id="confirmPassword"
             name="confirmPassword"
-            label="Confirm temporary password"
+            label="Confirm password"
             required
             value={form.confirmPassword}
             onChange={updateField('confirmPassword')}
