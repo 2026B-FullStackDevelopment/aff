@@ -12,6 +12,7 @@ interface AdminProfileEditFormProps {
   profile: AdminUserDTO;
   state: ReturnType<typeof useAdminProfileForm>;
 }
+
 /** Renders the Admin-specific profile form with live field validation. */
 export function AdminProfileEditForm({ profile, state }: AdminProfileEditFormProps) {
   const errorAlertRef = useRef<HTMLDivElement>(null);
@@ -127,3 +128,4 @@ export function AdminProfileEditForm({ profile, state }: AdminProfileEditFormPro
     </>
   );
 }
+

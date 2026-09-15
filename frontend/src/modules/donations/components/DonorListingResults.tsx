@@ -16,6 +16,7 @@ import type { ManagedListingDTO } from '../types';
 interface DonorListingResultsProps {
   onViewOrders: (listing: ManagedListingDTO) => void;
 }
+
 /** Owns the searchable listing directory shown by Donation Management. */
 export function DonorListingResults({ onViewOrders }: DonorListingResultsProps) {
   const navigate = useNavigate();
@@ -136,3 +137,4 @@ export function DonorListingResults({ onViewOrders }: DonorListingResultsProps) 
     </>
   );
 }
+

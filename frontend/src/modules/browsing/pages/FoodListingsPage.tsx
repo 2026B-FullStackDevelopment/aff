@@ -13,11 +13,11 @@ import { DEFAULT_FILTERS, type ListingFilters } from '../hooks/useFoodFilter';
 import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
 import { getStoredUser } from '@/services/authStorage';
 
-// TO-DO: (SRS 5.3.2) implement the notification bell panel
-// and premium upsell panel in the top nav once
-// the notification:premium_match and subscription:premium endpoints
-// are implemented, respectively.
-// Until then, the bell will be a no-op and the upsell panel
+// TO-DO: (SRS 5.3.2) implement the notification bell panel 
+// and premium upsell panel in the top nav once 
+// the notification:premium_match and subscription:premium endpoints 
+// are implemented, respectively. 
+// Until then, the bell will be a no-op and the upsell panel 
 // will not be rendered.
 const RECIPIENT_HAS_UNREAD_NOTIFICATIONS = false;
 const CITY_OPTIONS = VIETNAM_PROVINCES;

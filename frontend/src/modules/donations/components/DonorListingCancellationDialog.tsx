@@ -7,6 +7,7 @@ interface DonorListingCancellationDialogProps {
   onConfirm: () => void;
   onClose: () => void;
 }
+
 /** Presents the C5 cancellation impact before the Donor confirms. */
 export function DonorListingCancellationDialog({
   cancellation,
@@ -43,3 +44,4 @@ export function DonorListingCancellationDialog({
     />
   );
 }
+

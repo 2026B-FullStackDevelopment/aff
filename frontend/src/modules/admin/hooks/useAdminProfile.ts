@@ -42,3 +42,4 @@ export function useAdminProfile() {
 
   return { profile, isLoading, error, refetch, setProfile };
 }
+

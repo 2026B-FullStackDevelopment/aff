@@ -14,6 +14,7 @@ interface DonorListingOrdersPanelProps {
   listingId: string;
   onBack: () => void;
 }
+
 /** Embeds one listing's C8 order history inside Donation Management. */
 export function DonorListingOrdersPanel({ listingId, onBack }: DonorListingOrdersPanelProps) {
   const state = useListingOrders(listingId);
@@ -91,3 +92,4 @@ export function DonorListingOrdersPanel({ listingId, onBack }: DonorListingOrder
     </section>
   );
 }
+

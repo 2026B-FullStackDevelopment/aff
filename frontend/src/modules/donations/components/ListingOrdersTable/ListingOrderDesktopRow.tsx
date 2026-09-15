@@ -39,3 +39,4 @@ export function ListingOrderDesktopRow({ order, unit }: ListingOrderItemProps) {
     </tr>
   );
 }
+

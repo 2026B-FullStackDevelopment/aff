@@ -62,3 +62,4 @@ export function ListingOrderMobileCard({ order, unit }: ListingOrderItemProps) {
     </article>
   );
 }
+

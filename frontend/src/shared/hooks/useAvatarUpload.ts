@@ -73,3 +73,4 @@ export function useAvatarUpload() {
     reset: () => clear(false),
   };
 }
+

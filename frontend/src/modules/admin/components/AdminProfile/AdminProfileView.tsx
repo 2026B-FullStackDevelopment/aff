@@ -6,6 +6,7 @@ import type { AdminUserDTO } from '@/types/api';
 interface AdminProfileViewProps {
   profile: AdminUserDTO;
 }
+
 /** Displays an Admin profile without Recipient subscription affordances. */
 export function AdminProfileView({ profile }: AdminProfileViewProps) {
   const avatarUrl = getAvatarDisplayUrl(profile.avatarUrl);
@@ -42,3 +43,4 @@ export function AdminProfileView({ profile }: AdminProfileViewProps) {
     </>
   );
 }
+

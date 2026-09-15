@@ -7,6 +7,7 @@ interface PortalNavigationLinksProps {
   activeLinkClassName: string;
   inactiveLinkClassName: string;
 }
+
 /** Renders the desktop portal links, including visibly disabled future areas. */
 export function PortalNavigationLinks({
   ariaLabel,
@@ -51,3 +52,4 @@ export function PortalNavigationLinks({
     </nav>
   );
 }
+

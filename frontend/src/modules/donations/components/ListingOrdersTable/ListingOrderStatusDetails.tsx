@@ -12,6 +12,7 @@ export interface ListingOrderItemProps {
   order: ListingOrderDTO;
   unit: ListingUnit;
 }
+
 export function PaymentSummary({ order }: Pick<ListingOrderItemProps, 'order'>) {
   const paymentMethod = formatPaymentMethod(order);
 
@@ -36,3 +37,4 @@ export function OrderTypeBadge({ order }: Pick<ListingOrderItemProps, 'order'>) 
     />
   );
 }
+

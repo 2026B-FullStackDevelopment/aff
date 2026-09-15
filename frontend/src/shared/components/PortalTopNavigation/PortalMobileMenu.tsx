@@ -12,6 +12,7 @@ interface PortalMobileMenuProps {
   extraRightActions?: React.ReactNode;
   onNavigate: () => void;
 }
+
 /** Renders the expanded mobile navigation and profile row. */
 export function PortalMobileMenu({
   brandLabel,
@@ -70,3 +71,4 @@ export function PortalMobileMenu({
     </div>
   );
 }
+
