@@ -41,7 +41,7 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
 
   return (
     <tr className="border-b border-[#e9f5ee] last:border-b-0 hover:bg-[#f5faf7]/60 transition-colors duration-150">
-      <td className="px-4 py-3 align-middle">
+      <td className="px-4 py-2 align-middle">
         <Link
           to={`/orders/${item.id}`}
           className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6852]/40"
@@ -65,31 +65,31 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
         </Link>
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.donor.companyName}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {formatCategory(item.listing.category)}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.quantity}
         {item.listing.unit ? ` ${UNIT_LABELS[item.listing.unit] ?? ''}` : ''}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm font-semibold text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm font-semibold text-[#1E293B]">
         {formatPrice(item.amount)}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         <div className="flex flex-col">
           <span>{date}</span>
           <span className="text-xs text-[#6B7280]">{time}</span>
         </div>
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.paymentMethod ? (
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden="true">
@@ -102,7 +102,7 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
         )}
       </td>
 
-      <td className="px-4 py-3 align-middle">
+      <td className="px-4 py-2 align-middle">
         <div className="flex flex-col items-start gap-1 w-max">
           <StatusBadge status={statusKey} />
 
