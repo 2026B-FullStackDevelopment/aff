@@ -4,6 +4,7 @@ const {
   createCourierAccountMock,
   listCouriersMock,
   listUsersForAdminMock,
+  updateAccountStatusForAdminMock,
   findCourierProfilesByUserIdsMock,
   listForAdminMock,
   findOrdersByIdsMock,
@@ -11,6 +12,7 @@ const {
   createCourierAccountMock: vi.fn(),
   listCouriersMock: vi.fn(),
   listUsersForAdminMock: vi.fn(),
+  updateAccountStatusForAdminMock: vi.fn(),
   findCourierProfilesByUserIdsMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findOrdersByIdsMock: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
     createCourierAccount: createCourierAccountMock,
     listCouriers: listCouriersMock,
     listUsersForAdmin: listUsersForAdminMock,
+    updateAccountStatusForAdmin: updateAccountStatusForAdminMock,
     findCourierProfilesByUserIds: findCourierProfilesByUserIdsMock,
   },
 }));
@@ -41,6 +44,7 @@ import {
   createCourier,
   listCouriers,
   listUsers,
+  updateUserStatus,
   listDeliveries,
 } from '../../../src/modules/admin/admin.service.js';
 
@@ -146,6 +150,21 @@ describe('admin.service', () => {
 
       await expect(listUsers(query)).resolves.toBe(page);
       expect(listUsersForAdminMock).toHaveBeenCalledWith(query);
+    });
+  });
+
+  describe('updateUserStatus', () => {
+    it('delegates the status change through the users module interface', async () => {
+      const updated = { ...courierUser, status: 'DEACTIVATED' };
+      updateAccountStatusForAdminMock.mockResolvedValue(updated);
+
+      await expect(
+        updateUserStatus('507f1f77bcf86cd799439011', { status: 'DEACTIVATED' }),
+      ).resolves.toBe(updated);
+      expect(updateAccountStatusForAdminMock).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439011',
+        'DEACTIVATED',
+      );
     });
   });
 
@@ -257,6 +276,7 @@ describe('admin.service', () => {
         'listCouriers',
         'listDeliveries',
         'listUsers',
+        'updateUserStatus',
       ]);
     });
   });

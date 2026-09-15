@@ -68,6 +68,7 @@ export const API_ROUTES = {
   },
   admin: {
     users: '/admin/users',
+    userStatus: (userId: string) => `/admin/users/${userId}/status`,
     couriers: '/admin/couriers',
   },
 };

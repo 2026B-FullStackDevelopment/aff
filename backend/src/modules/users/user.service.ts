@@ -12,7 +12,7 @@ import type {
   RolePageQuery,
 } from './user.repository.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
-import type { Role, UserDocument } from './user.model.js';
+import type { AccountStatus, Role, UserDocument } from './user.model.js';
 import type { CourierDocument } from './courier.model.js';
 import type { Types } from 'mongoose';
 
@@ -284,6 +284,28 @@ async function listUsersForAdmin(query: AdminUsersQuery) {
   };
 }
 
+/**
+ * Changes an account's persisted status for the Admin module.
+ *
+ * A deactivated account is rejected by the login service on its next sign-in.
+ * Revoking every already-issued session is intentionally left to the Security
+ * module's future user-session registry; this function does not reach across
+ * that module boundary.
+ *
+ * @throws {Error} `404` when the target account does not exist.
+ */
+async function updateAccountStatusForAdmin(userId: string, status: AccountStatus) {
+  const user = await userRepository.updateAccountStatus(userId, status);
+
+  if (!user) {
+    const error: Error = new Error('User not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return toUserResponseDto(user)!;
+}
+
 function donorFieldsRejectedError(): Error {
   const error: Error = new Error('Only Donors can edit company profile fields.');
   error.statusCode = 400;
@@ -402,6 +424,7 @@ export {
   createCourierAccount,
   listCouriers,
   listUsersForAdmin,
+  updateAccountStatusForAdmin,
   findCourierProfilesByUserIds,
   findDonorsByUserIds,
   getDonorByUserId,

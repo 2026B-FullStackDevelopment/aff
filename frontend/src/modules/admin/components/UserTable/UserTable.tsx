@@ -1,8 +1,11 @@
-import type { AnyUserDTO, UserRole } from '@/types/api';
+import type { AnyUserDTO, UserDTO, UserRole } from '@/types/api';
 import { cn } from '@/shared/utils';
+import { AccountStatusControl } from '../AccountStatusControl/AccountStatusControl';
 
 interface UserTableProps {
   users: AnyUserDTO[];
+  pendingUserIds: Set<string>;
+  onStatusChange: (userId: string, status: UserDTO['status']) => Promise<void>;
 }
 
 const ROLE_STYLES: Record<UserRole, string> = {
@@ -40,19 +43,8 @@ function RoleBadge({ role }: { role: UserRole }) {
   );
 }
 
-function AccountStatus({ status }: { status: AnyUserDTO['status'] }) {
-  const isActive = status === 'ACTIVE';
-
-  return (
-    <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-      <span aria-hidden="true" className={cn('size-2 rounded-full', isActive ? 'bg-emerald-500' : 'bg-slate-400')} />
-      {isActive ? 'Active' : 'Deactivated'}
-    </span>
-  );
-}
-
 /** Displays Admin account data as a desktop table and mobile cards. */
-export function UserTable({ users }: UserTableProps) {
+export function UserTable({ users, pendingUserIds, onStatusChange }: UserTableProps) {
   return (
     <div className="overflow-hidden rounded-t-xl border border-admin-border/40 bg-admin-surface shadow-[0_2px_8px_rgba(0,35,111,0.08)]">
       <div className="hidden overflow-x-auto md:block">
@@ -84,7 +76,13 @@ export function UserTable({ users }: UserTableProps) {
                 </td>
                 <td className="px-6 py-5 text-slate-600">{user.email}</td>
                 <td className="px-6 py-5"><RoleBadge role={user.role} /></td>
-                <td className="px-6 py-5"><AccountStatus status={user.status} /></td>
+                <td className="px-6 py-5">
+                  <AccountStatusControl
+                    user={user}
+                    isPending={pendingUserIds.has(user.id)}
+                    onStatusChange={onStatusChange}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -117,7 +115,11 @@ export function UserTable({ users }: UserTableProps) {
 
             <div className="mt-4 flex items-center justify-between">
               <span className="text-xs font-extrabold uppercase tracking-wider text-admin-text-muted">Status</span>
-              <AccountStatus status={user.status} />
+              <AccountStatusControl
+                user={user}
+                isPending={pendingUserIds.has(user.id)}
+                onStatusChange={onStatusChange}
+              />
             </div>
           </article>
         ))}

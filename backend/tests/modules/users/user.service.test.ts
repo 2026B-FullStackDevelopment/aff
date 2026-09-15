@@ -6,6 +6,7 @@ const {
   findUserByIdMock,
   searchActiveRecipientsByEmailMock,
   updateUserMock,
+  updateAccountStatusMock,
   updateLoginStateMock,
   incrementFailedLoginInWindowMock,
   startFailedLoginWindowMock,
@@ -25,6 +26,7 @@ const {
   findUserByIdMock: vi.fn(),
   searchActiveRecipientsByEmailMock: vi.fn(),
   updateUserMock: vi.fn(),
+  updateAccountStatusMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
   incrementFailedLoginInWindowMock: vi.fn(),
   startFailedLoginWindowMock: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   findUserById: findUserByIdMock,
   searchActiveRecipientsByEmail: searchActiveRecipientsByEmailMock,
   updateUser: updateUserMock,
+  updateAccountStatus: updateAccountStatusMock,
   updateLoginState: updateLoginStateMock,
   incrementFailedLoginInWindow: incrementFailedLoginInWindowMock,
   startFailedLoginWindow: startFailedLoginWindowMock,
@@ -87,6 +90,7 @@ import {
   changeEmail,
   searchRecipientsByEmail,
   listUsersForAdmin,
+  updateAccountStatusForAdmin,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -167,6 +171,34 @@ describe('user.service', () => {
           { id: 'admin-1', role: 'ADMIN', username: 'admin' },
           { id: 'courier-1', role: 'COURIER', fullName: 'Nguyen Van A' },
         ],
+      });
+    });
+  });
+
+  describe('updateAccountStatusForAdmin', () => {
+    it('returns the updated account DTO', async () => {
+      updateAccountStatusMock.mockResolvedValue({
+        _id: 'u1',
+        username: 'alice',
+        email: 'alice@example.com',
+        role: 'RECIPIENT',
+        status: 'DEACTIVATED',
+        avatarUrl: null,
+        createdAt: new Date('2026-09-15T00:00:00.000Z'),
+      });
+
+      const result = await updateAccountStatusForAdmin('u1', 'DEACTIVATED');
+
+      expect(updateAccountStatusMock).toHaveBeenCalledWith('u1', 'DEACTIVATED');
+      expect(result).toMatchObject({ id: 'u1', status: 'DEACTIVATED' });
+    });
+
+    it('throws 404 when the account no longer exists', async () => {
+      updateAccountStatusMock.mockResolvedValue(null);
+
+      await expect(updateAccountStatusForAdmin('missing', 'ACTIVE')).rejects.toMatchObject({
+        message: 'User not found.',
+        statusCode: 404,
       });
     });
   });

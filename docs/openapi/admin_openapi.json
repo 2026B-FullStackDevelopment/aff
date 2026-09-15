@@ -3,7 +3,7 @@
   "info": {
     "title": "AFF Admin API",
     "version": "0.1.0",
-    "description": "Admin account management and read-only Delivery oversight (stories E1, E11, and G1). Design intent lives in docs/api_design.md §11; this document reflects the routes as implemented in backend/src/modules/admin. PATCH /admin/users/{id}/status (G2), GET /admin/listings (G4), and PATCH /admin/listings/{id}/cancel (G3) are registered but still return 501, and are deliberately not documented here until they are wired."
+    "description": "Admin account management and read-only Delivery oversight (stories E1, E11, G1, and the persistence portion of G2). Design intent lives in docs/api_design.md §11; this document reflects the routes as implemented in backend/src/modules/admin. GET /admin/listings (G4) and PATCH /admin/listings/{id}/cancel (G3) are registered but still return 501, and are deliberately not documented here until they are wired. Account deactivation prevents future login, but revocation of every already-issued session remains pending the Security module's user-session registry."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
@@ -156,6 +156,49 @@
         }
       }
     },
+    "/admin/users/{id}/status": {
+      "patch": {
+        "tags": ["Admin Users"],
+        "summary": "Deactivate or reactivate an account",
+        "description": "Updates USER.status uniformly for every role and returns the updated base User DTO. DEACTIVATED accounts are rejected by subsequent login attempts. Revoking every token that was issued before deactivation remains pending the Security module's user-session registry; this endpoint does not yet terminate those existing sessions.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserStatusRequest" },
+              "example": { "status": "DEACTIVATED" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account with its persisted status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "data": { "$ref": "#/components/schemas/AdminAccount" } },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/admin/deliveries": {
       "get": {
         "tags": ["Admin Deliveries"],
@@ -279,6 +322,14 @@
           "fullName": { "type": "string", "minLength": 1 }
         },
         "required": ["username", "email", "tempPassword", "fullName"]
+      },
+      "UpdateUserStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": { "type": "string", "enum": ["ACTIVE", "DEACTIVATED"] }
+        },
+        "required": ["status"]
       },
       "Courier": {
         "type": "object",
@@ -426,6 +477,15 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
             "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The requested user account does not exist",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "User not found." }
           }
         }
       },

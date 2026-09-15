@@ -47,8 +47,8 @@ Living status tracker based on `docs/PRD.md` (all 47 stories across Epics A–H)
 | F — Premium Subscription | F3. Real-Time Match Alerts | Depends on F2, C1 rebuild (listing creation trigger), Socket.IO layer | 🔴 Blocked |
 | F — Premium Subscription | ~~F4. Location-Aware Ranking~~ | **Dropped from scope** — SRS `5.3.3` is now a PRD §10 deviation. Not implemented | — |
 | F — Premium Subscription | F5. Cancel Premium Subscription | Same Stripe-credential gap as F1 (`cancel_at_period_end` call needs test-mode keys); reuses the existing `customer.subscription.deleted` webhook, so otherwise self-contained | 🟡 Partial |
-| G — Admin Functionality | G1. View All Accounts | Paginated backend query and responsive all-role directory are implemented; frontend search/role/status controls remain | 🟡 Partial |
-| G — Admin Functionality | G2. Deactivate/Reactivate Account | Depends on G1 + A4 (`REVOKED_TOKEN` revocation on deactivate) | 🟡 Partial |
+| G — Admin Functionality | G1. View All Accounts | Paginated all-role directory, responsive laptop/mobile views, and URL-backed search/role/status filters are implemented | 🟢 Complete |
+| G — Admin Functionality | G2. Deactivate/Reactivate Account | Status persistence, validation, confirmation, and optimistic UI are implemented. Immediate revocation of every existing session still depends on the Security module's future per-user session registry | 🟡 Partial |
 | G — Admin Functionality | G3. Cancel Any Active Listing | Depends on C1 rebuild, C5, Delivery module (cascade needs `DELIVERY.stage`) | 🔴 Blocked |
 | G — Admin Functionality | G4. Searchable Listing Directory | Depends on C1 rebuild | 🔴 Blocked |
 | G — Admin Functionality | G5. Real-Time Cancellation Notice | Depends on G3 + Socket.IO layer | 🔴 Blocked |

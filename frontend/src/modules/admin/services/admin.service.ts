@@ -7,6 +7,8 @@ import type {
   CourierDTO,
   CreateCourierPayload,
   PaginatedData,
+  UpdateUserStatusPayload,
+  UserDTO,
 } from '../../../types/api';
 
 function buildQueryString(query: AdminUsersQuery): string {
@@ -28,6 +30,10 @@ export const adminService = {
     httpClient.get<PaginatedData<AnyUserDTO>>(
       `${API_ROUTES.admin.users}${buildQueryString(query)}`,
     ),
+
+  /** Deactivates or reactivates one account. */
+  updateUserStatus: (userId: string, payload: UpdateUserStatusPayload) =>
+    httpClient.patch<UserDTO>(API_ROUTES.admin.userStatus(userId), payload),
 
   /** Creates the USER and COURIER records through the Admin-only endpoint. */
   createCourier: (payload: CreateCourierPayload) =>

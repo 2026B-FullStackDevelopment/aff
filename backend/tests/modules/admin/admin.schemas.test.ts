@@ -4,6 +4,8 @@ import {
   createCourierSchema,
   adminCouriersQuerySchema,
   adminUsersQuerySchema,
+  adminUserIdParamsSchema,
+  updateUserStatusSchema,
   adminDeliveriesQuerySchema,
 } from '../../../src/modules/admin/admin.schemas.js';
 
@@ -90,6 +92,28 @@ describe('admin.schemas', () => {
     it('rejects unsupported role and status filters', () => {
       expect(adminUsersQuerySchema.safeParse({ role: 'SUPER_ADMIN' }).success).toBe(false);
       expect(adminUsersQuerySchema.safeParse({ status: 'LOCKED' }).success).toBe(false);
+    });
+  });
+
+  describe('account status schemas', () => {
+    it('accepts a MongoDB user id and either supported status', () => {
+      expect(
+        adminUserIdParamsSchema.parse({ id: '507f1f77bcf86cd799439011' }),
+      ).toEqual({ id: '507f1f77bcf86cd799439011' });
+      expect(updateUserStatusSchema.parse({ status: 'ACTIVE' })).toEqual({
+        status: 'ACTIVE',
+      });
+      expect(updateUserStatusSchema.parse({ status: 'DEACTIVATED' })).toEqual({
+        status: 'DEACTIVATED',
+      });
+    });
+
+    it('rejects malformed ids, unsupported statuses, and extra fields', () => {
+      expect(adminUserIdParamsSchema.safeParse({ id: 'not-an-id' }).success).toBe(false);
+      expect(updateUserStatusSchema.safeParse({ status: 'LOCKED' }).success).toBe(false);
+      expect(
+        updateUserStatusSchema.safeParse({ status: 'ACTIVE', role: 'ADMIN' }).success,
+      ).toBe(false);
     });
   });
 

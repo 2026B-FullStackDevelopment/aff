@@ -103,6 +103,18 @@ function updateUser(
   return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
 }
 
+/** Updates only the account lifecycle state and returns the persisted row. */
+function updateAccountStatus(
+  id: string | Types.ObjectId,
+  status: AccountStatus,
+) {
+  return User.findByIdAndUpdate(
+    id,
+    { $set: { status } },
+    { new: true, runValidators: true },
+  ).lean<UserDocument>();
+}
+
 interface LoginStateUpdate {
   failedLoginCount: number;
   windowStartedAt: Date | null;
@@ -279,6 +291,7 @@ export {
   searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
+  updateAccountStatus,
   updateLoginState,
   incrementFailedLoginInWindow,
   startFailedLoginWindow,

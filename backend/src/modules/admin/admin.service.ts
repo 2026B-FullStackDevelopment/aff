@@ -8,6 +8,7 @@ import type {
   AdminCouriersResponseDto,
   AdminDeliveriesResponseDto,
   AdminUsersResponseDto,
+  UpdateUserStatusRequestDto,
 } from './admin.dto.js';
 import type {
   CreateCourierPayload,
@@ -71,6 +72,15 @@ async function listUsers(query: AdminUsersQuery): Promise<AdminUsersResponseDto>
 }
 
 /**
+ * Applies the Admin's account-state decision through the users module, which
+ * owns USER persistence. Deactivated accounts cannot sign in again; revoking
+ * tokens that were already issued remains a separate Security-module task.
+ */
+async function updateUserStatus(userId: string, payload: UpdateUserStatusRequestDto) {
+  return userInterface.updateAccountStatusForAdmin(userId, payload.status);
+}
+
+/**
  * Reads one page of the Admin's read-only Delivery table (E11).
  *
  * The Courier name and the Order's recipient live in other modules, so they
@@ -116,4 +126,4 @@ async function listDeliveries(
   };
 }
 
-export { createCourier, listCouriers, listUsers, listDeliveries };
+export { createCourier, listCouriers, listUsers, updateUserStatus, listDeliveries };

@@ -56,6 +56,7 @@ import {
   searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
+  updateAccountStatus,
   updateLoginState,
   incrementFailedLoginInWindow,
   startFailedLoginWindow,
@@ -159,6 +160,17 @@ describe('user.repository', () => {
       { avatarUrl: 'https://cdn.example.com/avatars/u1.png' },
       { new: true }
     );
+  });
+
+  it('updateAccountStatus updates only status and runs model validators', async () => {
+    await updateAccountStatus('u1', 'DEACTIVATED');
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'u1',
+      { $set: { status: 'DEACTIVATED' } },
+      { new: true, runValidators: true },
+    );
+    expect(leanMock).toHaveBeenCalled();
   });
 
   it('updateLoginState writes the three lockout columns', async () => {
