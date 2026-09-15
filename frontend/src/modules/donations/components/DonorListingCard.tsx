@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
-import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice } from '@/shared/utils/listingFormatting';
+import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, formatCurrency } from '@/shared/utils/listingFormatting';
 import { ListingDetailField } from './ListingDetailField';
 import type {
     DonorListingStatusUpdate,
@@ -51,11 +51,6 @@ function getStatusMessage(
         case 'CANCELLED':
             return 'Cancelled listings cannot accept reservations.';
     }
-}
-
-// Distinct from formatPrice: revenue of 0 means "0 VND earned", not "Free".
-function formatRevenue(revenue: number): string {
-    return `${revenue.toLocaleString('en-US')} VND`;
 }
 
 // Displays one owned listing and its available Donor actions.
@@ -160,7 +155,7 @@ export function DonorListingCard({
                     label="Revenue"
                     value={
                         isTracked
-                            ? formatRevenue(listing.revenue)
+                            ? formatCurrency(listing.revenue)
                             : 'Not tracked'
                     }
                     valueClassName="font-medium"

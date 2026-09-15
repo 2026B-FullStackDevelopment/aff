@@ -31,6 +31,21 @@ export function formatPrice(price: number): string {
   return `${price.toLocaleString('en-US')} VND`;
 }
 
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function formatCompactCurrency(amount: number): string {
+  return `${new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(amount)} VND`;
+}
+
 interface FormatDateOptions {
   /** Include the time of day alongside the date (e.g. Donor listing management views). */
   withTime?: boolean;
