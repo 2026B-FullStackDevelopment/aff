@@ -56,7 +56,7 @@ describe('auth.register.service', () => {
     createUserMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT' });
     createRecipientProfileMock.mockResolvedValue({ userId: 'u1', tier: 'STANDARD' });
     createDonorProfileMock.mockResolvedValue({ userId: 'u1', companyName: 'Fresh Foods Ltd' });
-    issueSessionMock.mockReturnValue({ accessToken: 't1', jti: 'j1', user: { _id: 'u1' } });
+    issueSessionMock.mockResolvedValue({ accessToken: 't1', jti: 'j1', user: { _id: 'u1' } });
   });
 
   describe('registerRecipient', () => {

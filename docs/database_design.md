@@ -14,6 +14,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | COURIER | Role-specific profile for a User who delivers orders |
 | NOTIFICATION_PREFERENCE | A Premium Recipient's saved alert criteria for new listings |
 | REVOKED_TOKEN | Denylist of revoked JWTs (TTL-indexed) |
+| ACTIVE_TOKEN | Live-session table of currently-valid JWTs (TTL-indexed), keyed by jti |
 | SUBSCRIPTION | Append-only ledger of a Recipient's Premium billing cycles |
 | LISTING | A food donation/sale posted by a Donor |
 | ORDER | A Recipient's reservation/purchase of a Listing |
@@ -94,6 +95,16 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | reason | RevokeReason (enum) | | LOGOUT, ADMIN_DEACTIVATE, PASSWORD_CHANGE |
 | revokedAt | datetime | | |
 | expiresAt | datetime | | TTL index; document auto-purged after this time |
+
+### ACTIVE_TOKEN
+
+| Field | Type | Key | Description |
+|---|---|---|---|
+| _id | ObjectId | PK | |
+| jti | string | UK | JWT ID currently live |
+| userId | ObjectId | FK → USER._id | |
+| issuedAt | datetime | | |
+| expiresAt | datetime | | TTL index; document auto-purged after this time. Row is also deleted early whenever the token is revoked (`REVOKED_TOKEN` write), so its presence always means the token is still usable |
 
 ### SUBSCRIPTION
 
@@ -219,6 +230,7 @@ MongoDB collections, fields, keys, and relationship cardinality derived from the
 | USER | RECIPIENT | 1 : 1 | RECIPIENT.userId | is a (subtype) |
 | USER | COURIER | 1 : 1 | COURIER.userId | is a (subtype) |
 | USER | REVOKED_TOKEN | 1 : N | REVOKED_TOKEN.userId | revokes access |
+| USER | ACTIVE_TOKEN | 1 : N | ACTIVE_TOKEN.userId | has live session |
 | USER | NOTIFICATION | 1 : N | NOTIFICATION.userId | receives |
 | USER | ORDER | 0..1 : N | ORDER.cancelledByUserId | cancelled by (optional) |
 | DONOR | LISTING | 1 : N | LISTING.donorId | creates |
@@ -275,6 +287,9 @@ read-then-write check, which would reopen the race the index exists to close.
 | NOTIFICATION_PREFERENCE | `{ recipientId }` | Supports "list my preferences" and F3's future per-recipient matching scan |
 | REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
 | REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |
+| ACTIVE_TOKEN | `{ jti }` unique | One live-session row per token |
+| ACTIVE_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Live-session rows are removed once expired, so the collection does not grow without bound |
+| ACTIVE_TOKEN | `{ userId }` | Supports listing a user's live sessions (e.g. to revoke them all on deactivation) |
 
 The partial index on `DELIVERY.courierId` requires **MongoDB 6.1 or newer** —
 `partialFilterExpression` did not accept `$in` before that version.
