@@ -1,21 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createListingSchema,
-  donorInitiatedDonationSchema,
   foodCategorySchema,
   listingIdParamsSchema,
-  listingOrdersQuerySchema,
   listingPriceSchema,
-  listingsQuerySchema,
   measurementUnitSchema,
-  mineListingsQuerySchema,
   paginationQuerySchema,
   paymentMethodSchema,
   donationLimitSchema,
   positiveQuantitySchema,
-  reserveListingSchema,
+} from '../../../src/modules/listings/listing.shared.schemas.js';
+import {
+  createListingSchema,
   updateListingStatusSchema,
-} from '../../../src/modules/listings/listing.schemas.js';
+} from '../../../src/modules/listings/listing.command.schemas.js';
+import {
+  listingOrdersQuerySchema,
+  listingsQuerySchema,
+  mineListingsQuerySchema,
+} from '../../../src/modules/listings/listing.query.schemas.js';
+import { donorInitiatedDonationSchema } from '../../../src/modules/listings/listing.donation.schemas.js';
+import { reserveListingSchema } from '../../../src/modules/listings/listing.reservation.schemas.js';
 
 const validListing = {
   name: 'Fresh bread',
@@ -29,7 +33,7 @@ const validListing = {
   rationLimitPerPerson: 2,
 };
 
-describe('listing.schemas', () => {
+describe('Listing schemas', () => {
   describe('supported enums', () => {
     it.each(['KILOGRAM', 'GRAM', 'LITER', 'MILLILITER', 'UNIT', 'PER_REQUEST'])(
       'accepts measurement unit %s',

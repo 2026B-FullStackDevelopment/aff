@@ -1,7 +1,7 @@
 // Contains read-only Listing queries and pagination aggregations.
 import Listing, { type ListingDocument } from './listing.model.js';
 import { Types, type ClientSession, type PipelineStage } from 'mongoose';
-import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
+import type { MineListingsQuery, ListingsQuery } from './listing.query.schemas.js';
 
 /** A Listing returned by the Donor aggregation with calculated statistics. */
 type ListingWithStatsRecord = ListingDocument & {

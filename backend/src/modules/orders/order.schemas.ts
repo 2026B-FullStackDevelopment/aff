@@ -29,7 +29,7 @@ const submitFeedbackSchema = z
   })
   .strict();
 
-// Shared pagination validation (mirrors listing.schemas.ts#paginationQuerySchema;
+// Shared pagination validation (mirrors listing.shared.schemas.ts#paginationQuerySchema;
 // duplicated locally since it isn't shared cross-module elsewhere either).
 const paginationQuerySchema = z.object({
   page: z.coerce
