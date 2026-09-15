@@ -4,6 +4,7 @@ import * as listingQueryService from './listing.query.service.js';
 import * as listingCommandService from './listing.command.service.js';
 import * as listingDonationService from './listing.donation.service.js';
 import * as listingReservationService from './listing.reservation.service.js';
+import * as listingAnalyticsService from './listing.analytics.service.js';
 import {
   toListingResponseDto,
   toListingDetailResponseDto,
@@ -85,6 +86,15 @@ async function listMyListings(req: Request, res: Response, next: NextFunction) {
       result.limit,
       result.total,
     );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getDonorAnalytics(req: Request, res: Response, next: NextFunction) {
+  try {
+    const analytics = await listingAnalyticsService.getDonorAnalytics(req.user!.id);
+    return ok(res, analytics);
   } catch (error) {
     return next(error);
   }
@@ -194,6 +204,7 @@ export {
   getListingById,
   createListing,
   listMyListings,
+  getDonorAnalytics,
   cloneListing,
   updateListingStatus,
   listListingOrders,

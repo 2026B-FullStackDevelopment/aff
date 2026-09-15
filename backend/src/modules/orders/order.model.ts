@@ -54,5 +54,8 @@ const orderSchema = new Schema<OrderDocument>(
   { timestamps: true }
 );
 
+// Supports Listing analytics and Donor order-history joins without scanning all Orders.
+orderSchema.index({ listingId: 1, paymentStatus: 1, orderStatus: 1 });
+
 export default mongoose.model<OrderDocument>('Order', orderSchema);
 export type { IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback, OrderDocument } from './order.types.js';

@@ -125,6 +125,27 @@ interface ListingOrdersResponseDto {
   total: number;
 }
 
+interface DonorAnalyticsCategoryResponseDto {
+  category: FoodCategory;
+  listingCount: number;
+  revenue: number;
+}
+
+interface DonorAnalyticsTopListingResponseDto {
+  id: string;
+  name: string;
+  revenue: number;
+}
+
+interface DonorAnalyticsResponseDto {
+  totalRevenue: number;
+  totalListings: number;
+  currentListings: number;
+  soldOutListings: number;
+  categories: DonorAnalyticsCategoryResponseDto[];
+  topListings: DonorAnalyticsTopListingResponseDto[];
+}
+
 /** Maps fields shared by standard and detailed Listing responses. */
 function mapListingFields(
   source: ListingDtoSource,
@@ -240,4 +261,7 @@ export type {
   ListingOrderDtoSource,
   ListingOrderResponseDto,
   ListingOrdersResponseDto,
+  DonorAnalyticsCategoryResponseDto,
+  DonorAnalyticsTopListingResponseDto,
+  DonorAnalyticsResponseDto,
 };
