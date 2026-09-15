@@ -4,7 +4,7 @@ import Recipient from './recipient.model.js';
 import Donor from './donor.model.js';
 import Courier from './courier.model.js';
 import type { Role } from './user.types.js';
-import type { PipelineStage } from 'mongoose';
+import type { PipelineStage, Types } from 'mongoose';
 import type {
   AdminUserDocument, AdminUserPage, AdminUsersQuery,
   RecipientSearchResult, RolePageQuery, UserPage,
@@ -32,6 +32,17 @@ function searchActiveRecipientsByEmail(email: string, limit = 10) {
     })
     .limit(limit)
     .lean<RecipientSearchResult[]>();
+}
+
+/** Finds Donor user ids whose username partially matches an Admin search term. */
+function findDonorUserIdsByUsername(search: string) {
+  return User.find(
+    {
+      role: 'DONOR',
+      username: { $regex: escapeRegExp(search), $options: 'i' },
+    },
+    { _id: 1 },
+  ).lean<Array<{ _id: Types.ObjectId }>>();
 }
 
 /**
@@ -164,7 +175,12 @@ async function findUsersForAdmin(query: AdminUsersQuery): Promise<AdminUserPage>
   };
 }
 
-export { searchActiveRecipientsByEmail, findUsersByRole, findUsersForAdmin };
+export {
+  searchActiveRecipientsByEmail,
+  findUsersByRole,
+  findUsersForAdmin,
+  findDonorUserIdsByUsername,
+};
 export type {
   RolePageQuery, UserPage, AdminUsersQuery, AdminUserDocument, AdminUserPage,
   RecipientSearchResult,

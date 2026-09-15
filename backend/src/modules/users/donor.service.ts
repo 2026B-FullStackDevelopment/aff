@@ -1,6 +1,7 @@
 // Contains Donor profile business rules and calls the donor repository for database work.
 import * as donorRepository from './donor.repository.js';
-import type { Types } from 'mongoose';
+import { findDonorUserIdsByUsername } from './user.directory.repository.js';
+import { isValidObjectId, type Types } from 'mongoose';
 import type { CreateDonorProfileInput } from './donor.types.js';
 
 async function createDonorProfile(input: CreateDonorProfileInput) {
@@ -28,5 +29,27 @@ async function getDonorByUserId(userId: string | Types.ObjectId) {
   return donor;
 }
 
-export { createDonorProfile, findDonorsByUserIds, getDonorByUserId };
+/** Resolves Donor ids matching an id, username, or company-name search term. */
+async function findDonorIdsMatchingSearch(search: string): Promise<string[]> {
+  const [users, donors] = await Promise.all([
+    findDonorUserIdsByUsername(search),
+    donorRepository.findDonorUserIdsByCompanyName(search),
+  ]);
+
+  const ids = new Set<string>([
+    ...users.map((user) => String(user._id)),
+    ...donors.map((donor) => String(donor.userId)),
+  ]);
+
+  if (isValidObjectId(search)) ids.add(search);
+
+  return [...ids];
+}
+
+export {
+  createDonorProfile,
+  findDonorsByUserIds,
+  getDonorByUserId,
+  findDonorIdsMatchingSearch,
+};
 export type { CreateDonorProfileInput } from './donor.types.js';

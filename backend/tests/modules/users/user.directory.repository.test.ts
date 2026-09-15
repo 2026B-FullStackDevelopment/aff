@@ -11,7 +11,7 @@ const {
   const limitMock = vi.fn(() => ({ lean: searchLeanMock }));
   const selectMock = vi.fn(() => ({ limit: limitMock }));
   return {
-    findMock: vi.fn(() => ({ select: selectMock })),
+    findMock: vi.fn(() => ({ select: selectMock, lean: searchLeanMock })),
     aggregateMock: vi.fn(),
     searchLeanMock,
     selectMock,
@@ -30,6 +30,7 @@ import {
   searchActiveRecipientsByEmail,
   findUsersByRole,
   findUsersForAdmin,
+  findDonorUserIdsByUsername,
 } from '../../../src/modules/users/user.directory.repository.js';
 
 describe('user.directory.repository', () => {
@@ -67,6 +68,21 @@ describe('user.directory.repository', () => {
     });
     expect(limitMock).toHaveBeenCalledWith(10);
     expect(result).toHaveLength(1);
+  });
+
+  it('finds Donor ids by an escaped, case-insensitive username term', async () => {
+    searchLeanMock.mockResolvedValue([{ _id: 'd1' }]);
+
+    const result = await findDonorUserIdsByUsername('bakery (east)');
+
+    expect(findMock).toHaveBeenCalledWith(
+      {
+        role: 'DONOR',
+        username: { $regex: 'bakery \\(east\\)', $options: 'i' },
+      },
+      { _id: 1 },
+    );
+    expect(result).toEqual([{ _id: 'd1' }]);
   });
 
   describe('findUsersByRole', () => {

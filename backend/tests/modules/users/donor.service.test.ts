@@ -4,22 +4,32 @@ const {
   createDonorMock,
   findDonorsByUserIdsMock,
   findDonorByUserIdMock,
+  findDonorUserIdsByCompanyNameMock,
+  findDonorUserIdsByUsernameMock,
 } = vi.hoisted(() => ({
   createDonorMock: vi.fn(),
   findDonorsByUserIdsMock: vi.fn(),
   findDonorByUserIdMock: vi.fn(),
+  findDonorUserIdsByCompanyNameMock: vi.fn(),
+  findDonorUserIdsByUsernameMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   createDonor: createDonorMock,
   findDonorsByUserIds: findDonorsByUserIdsMock,
   findDonorByUserId: findDonorByUserIdMock,
+  findDonorUserIdsByCompanyName: findDonorUserIdsByCompanyNameMock,
+}));
+
+vi.mock('../../../src/modules/users/user.directory.repository.js', () => ({
+  findDonorUserIdsByUsername: findDonorUserIdsByUsernameMock,
 }));
 
 import {
   createDonorProfile,
   findDonorsByUserIds,
   getDonorByUserId,
+  findDonorIdsMatchingSearch,
 } from '../../../src/modules/users/donor.service.js';
 
 describe('donor.service', () => {
@@ -72,6 +82,26 @@ describe('donor.service', () => {
       findDonorByUserIdMock.mockResolvedValue({ userId: 'u1', companyName: 'Fresh Foods Ltd' });
 
       await expect(getDonorByUserId('u1')).resolves.toEqual({ userId: 'u1', companyName: 'Fresh Foods Ltd' });
+    });
+  });
+
+  describe('findDonorIdsMatchingSearch', () => {
+    it('combines username, company, and exact ObjectId matches without duplicates', async () => {
+      const exactId = '507f1f77bcf86cd799439011';
+      findDonorUserIdsByUsernameMock.mockResolvedValue([
+        { _id: exactId }, { _id: '507f1f77bcf86cd799439012' },
+      ]);
+      findDonorUserIdsByCompanyNameMock.mockResolvedValue([
+        { userId: exactId }, { userId: '507f1f77bcf86cd799439013' },
+      ]);
+
+      await expect(findDonorIdsMatchingSearch(exactId)).resolves.toEqual([
+        exactId,
+        '507f1f77bcf86cd799439012',
+        '507f1f77bcf86cd799439013',
+      ]);
+      expect(findDonorUserIdsByUsernameMock).toHaveBeenCalledWith(exactId);
+      expect(findDonorUserIdsByCompanyNameMock).toHaveBeenCalledWith(exactId);
     });
   });
 });
