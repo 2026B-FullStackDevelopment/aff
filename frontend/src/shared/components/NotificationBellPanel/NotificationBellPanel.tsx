@@ -25,14 +25,6 @@ export function NotificationBellPanel({ open, onClose, children }: NotificationB
     function handleClickOutside(event: MouseEvent) {
       if (!panelRef.current) return;
 
-      // Ignore clicks for panel instances that are hidden in the DOM (e.g. responsive desktop/mobile duplicates)
-      if (
-        panelRef.current.offsetParent === null &&
-        panelRef.current.getClientRects().length === 0
-      ) {
-        return;
-      }
-
       const target = event.target as Node | null;
       if (!target) return;
 

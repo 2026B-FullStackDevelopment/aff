@@ -173,21 +173,16 @@ export function PortalTopNavigation({
           </ul>
         </nav>
 
-        {/* Desktop Right Actions */}
-        <div className="hidden md:flex shrink-0 items-center gap-2">
+        {/* Right Actions & Mobile Hamburger */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
-        </div>
 
-        {/* Mobile Toggle & Actions */}
-        <div className="flex md:hidden shrink-0 items-center gap-1">
-          {(variant === 'recipient' || variant === 'donor') && renderBell()}
-          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
+            className={`md:hidden p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${styles.iconButton}`}
             aria-expanded={isMobileMenuOpen}
           >
             <span className="sr-only">{isMobileMenuOpen ? 'Close menu' : 'Open menu'}</span>

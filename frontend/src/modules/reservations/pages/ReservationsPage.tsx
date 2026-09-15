@@ -7,8 +7,6 @@ import { useOrderHistory } from '../hooks/useOrderHistory';
 import { getStoredUser } from '@/services/authStorage';
 import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
 
-const RECIPIENT_HAS_UNREAD_NOTIFICATIONS = false;
-
 export function ReservationsPage() {
   const user = getStoredUser();
   const { tier } = useSubscription();
@@ -27,8 +25,6 @@ export function ReservationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#f5faf7] to-[#e9f5ee]">
       <RecipientTopNavigation
         avatarUrl={user?.avatarUrl ?? null}
-        onNotificationsClick={() => {}}
-        hasUnreadNotifications={RECIPIENT_HAS_UNREAD_NOTIFICATIONS}
         isPremium={tier === 'PREMIUM'}
       />
 

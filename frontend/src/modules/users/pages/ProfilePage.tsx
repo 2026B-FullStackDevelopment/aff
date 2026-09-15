@@ -83,7 +83,6 @@ export function ProfilePage() {
           <RecipientTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
             isPremium={isPremium}
           />
         )}
@@ -116,7 +115,6 @@ export function ProfilePage() {
           <RecipientTopNavigation
             avatarUrl={cachedAvatarUrl}
             avatarAlt={cachedUsername}
-            onNotificationsClick={() => {}}
             isPremium={isPremium}
           />
         )}
@@ -138,7 +136,6 @@ export function ProfilePage() {
         <RecipientTopNavigation
           avatarUrl={avatarUpload.previewUrl ?? getAvatarDisplayUrl(profile.avatarUrl)}
           avatarAlt={profile.username}
-          onNotificationsClick={() => {}}
           isPremium={isPremium}
         />
       )}
