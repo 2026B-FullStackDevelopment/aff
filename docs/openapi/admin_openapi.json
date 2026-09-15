@@ -638,11 +638,14 @@
         }
       },
       "NotFound": {
-        "description": "The requested user account does not exist",
+        "description": "The requested user account or Listing does not exist",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
-            "example": { "message": "User not found." }
+            "examples": {
+              "userNotFound": { "value": { "message": "User not found." } },
+              "listingNotFound": { "value": { "message": "Listing not found." } }
+            }
           }
         }
       },

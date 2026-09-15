@@ -205,6 +205,10 @@ export interface AdminListingDTO extends ListingDTO {
 export interface CancelAdminListingResponseDto {
   listing: ListingDTO;
   cancelledOrderCount: number;
+  refundOutcomes: Array<{
+    orderId: string;
+    refundStatus: 'REFUND_PENDING' | 'FAILED';
+  }>;
 }
 
 export interface ListingDetailDTO extends Omit<ListingDTO, 'donor'> {

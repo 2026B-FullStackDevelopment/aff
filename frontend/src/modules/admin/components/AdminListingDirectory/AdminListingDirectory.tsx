@@ -35,7 +35,7 @@ export function AdminListingDirectory() {
             Listing directory
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Search every listing and safely cancel listings that have no protected deliveries.
+            Search every listing and cancel eligible orders without disrupting protected deliveries.
           </p>
         </div>
 
