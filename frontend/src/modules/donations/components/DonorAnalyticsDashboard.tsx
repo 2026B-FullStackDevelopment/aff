@@ -9,7 +9,7 @@ import { Panel } from '@/shared/components/Panel/Panel';
 import type {
   DonorAnalyticsCategory,
   DonorAnalyticsSnapshot,
-} from '../hooks/useDonorAnalytics';
+} from '../types';
 
 interface DonorAnalyticsDashboardProps {
   snapshot: DonorAnalyticsSnapshot;
@@ -52,6 +52,14 @@ function formatCompactCurrency(
   value: number,
 ): string {
   return `${compactNumberFormatter.format(value)} VND`;
+}
+
+function formatCategoryLabel(category: DonorAnalyticsCategory['category']): string {
+  return category
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function MetricCard({
@@ -143,7 +151,7 @@ function CategoryChart({
                     }}
                     role="img"
                     aria-label={
-                      `${category.label}: ${valueFormatter(value)}`
+                      `${formatCategoryLabel(category.category)}: ${valueFormatter(value)}`
                     }
                   />
                 </div>
@@ -164,7 +172,7 @@ function CategoryChart({
               key={category.category}
               className="text-center text-xs font-medium text-[#616762]"
             >
-              {category.label}
+              {formatCategoryLabel(category.category)}
             </span>
           ))}
         </div>
@@ -363,7 +371,7 @@ export function DonorAnalyticsDashboard({
                       scope="row"
                       className="px-5 py-4 text-sm font-semibold text-[#414844]"
                     >
-                      {category.label}
+                      {formatCategoryLabel(category.category)}
                     </th>
 
                     <td className="px-5 py-4 text-right text-sm text-[#414844]">

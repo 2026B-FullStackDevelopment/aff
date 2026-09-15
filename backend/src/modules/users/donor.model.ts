@@ -1,16 +1,6 @@
 // Defines the MongoDB shape for Donor profiles (docs/database_design.md § DONOR).
 import mongoose, { Schema } from 'mongoose';
-import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-
-interface DonorAttrs {
-  userId: mongoose.Types.ObjectId;
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: GeoLocation;
-}
-
-interface DonorDocument extends DonorAttrs, mongoose.Document {}
+import type { DonorDocument } from './donor.types.js';
 
 const donorSchema = new Schema<DonorDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
@@ -25,4 +15,4 @@ const donorSchema = new Schema<DonorDocument>({
 });
 
 export default mongoose.model<DonorDocument>('Donor', donorSchema);
-export type { DonorDocument };
+export type { DonorDocument } from './donor.types.js';

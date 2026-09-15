@@ -1,25 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-
-type PayableType = 'ORDER' | 'SUBSCRIPTIONS';
-type TransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED' | 'REFUND_PENDING' | 'REFUNDED';
-
-interface PaymentAttrs {
-  payableType: PayableType;
-  payableId: mongoose.Types.ObjectId;
-  stripeSessionId: string;
-  stripeInvoiceId?: string;
-  stripePaymentIntentId?: string;
-  stripeRefundId?: string;
-  amount: number;
-  currency: string;
-  status: TransactionStatus;
-  paidAt?: Date;
-  refundedAt?: Date;
-  lastProcessedEventId?: string;
-  createdAt: Date;
-}
-
-interface PaymentDocument extends PaymentAttrs, mongoose.Document {}
+import type { PaymentDocument } from './payment.types.js';
 
 const paymentSchema = new Schema<PaymentDocument>(
   {
@@ -44,4 +24,4 @@ const paymentSchema = new Schema<PaymentDocument>(
 );
 
 export default mongoose.model<PaymentDocument>('Payment', paymentSchema);
-export type { PayableType, TransactionStatus, PaymentDocument };
+export type { PayableType, TransactionStatus, PaymentDocument } from './payment.types.js';

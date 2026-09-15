@@ -22,6 +22,7 @@ export const API_ROUTES = {
     create: '/listings',          // POST — donor creates a listing
     available: '/listings',       // GET  — public browse
     mine: '/listings/mine',
+    analytics: '/listings/analytics',
     detail: (listingId: string) =>
       `/listings/${listingId}`,
     clone: (listingId: string) =>
@@ -67,6 +68,8 @@ export const API_ROUTES = {
     deliver: (deliveryId: string) => `/deliveries/${deliveryId}/deliver`,
   },
   admin: {
-    dashboard: '/admin/dashboard',
+    users: '/admin/users',
+    userStatus: (userId: string) => `/admin/users/${userId}/status`,
+    couriers: '/admin/couriers',
   },
 };

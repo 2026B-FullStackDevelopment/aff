@@ -284,6 +284,7 @@ read-then-write check, which would reopen the race the index exists to close.
 | DELIVERY | `{ stage, createdAt }` | Serves the oldest-first Courier queue read (E2) |
 | USER | `{ email }` unique | One account per email; the real guard behind registration's `409` |
 | DONOR / RECIPIENT / COURIER | `{ userId }` unique | One profile row per User |
+| ORDER | `{ listingId, paymentStatus, orderStatus }` | Supports per-Listing paid-revenue aggregation and Donor order-history joins |
 | NOTIFICATION_PREFERENCE | `{ recipientId }` | Supports "list my preferences" and F3's future per-recipient matching scan |
 | REVOKED_TOKEN | `{ jti }` unique | One revocation row per token |
 | REVOKED_TOKEN | `{ expiresAt }` TTL (`expires: 0`) | Revoked tokens are removed once expired, so the collection does not grow without bound |

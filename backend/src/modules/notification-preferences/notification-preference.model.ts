@@ -1,22 +1,6 @@
 // Defines the MongoDB shape for a Recipient's saved notification preference (docs/database_design.md § NOTIFICATION_PREFERENCE).
 import mongoose, { Schema } from 'mongoose';
-import type { FoodCategory } from '../listings/listing.model.js';
-
-interface NotificationPreferenceAttrs {
-  recipientId: mongoose.Types.ObjectId;
-  preferenceTitle: string;
-  categories: FoodCategory[];
-  vegetarian: boolean | null;
-  priceMin: number | null;
-  priceMax: number | null;
-  city: string | null;
-  isActive: boolean;
-}
-
-interface NotificationPreferenceDocument extends NotificationPreferenceAttrs, mongoose.Document {
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { NotificationPreferenceDocument } from './notification-preference.types.js';
 
 const notificationPreferenceSchema = new Schema<NotificationPreferenceDocument>(
   {
@@ -39,4 +23,4 @@ const notificationPreferenceSchema = new Schema<NotificationPreferenceDocument>(
 notificationPreferenceSchema.index({ recipientId: 1 });
 
 export default mongoose.model<NotificationPreferenceDocument>('NotificationPreference', notificationPreferenceSchema);
-export type { NotificationPreferenceAttrs, NotificationPreferenceDocument };
+export type { NotificationPreferenceAttrs, NotificationPreferenceDocument } from './notification-preference.types.js';

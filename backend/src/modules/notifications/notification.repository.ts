@@ -1,26 +1,8 @@
 // Contains Notification database queries so the service does not call Mongoose directly.
-import Notification, { type NotificationDocument, type NotificationType } from './notification.model.js';
+import Notification from './notification.model.js';
+import type { NotificationDocument } from './notification.types.js';
 import { Types, type PipelineStage } from 'mongoose';
-
-interface CreateNotificationInput {
-  userId: string | Types.ObjectId;
-  type: NotificationType;
-  message: string;
-  orderId?: string | Types.ObjectId | null;
-  listingId?: string | Types.ObjectId | null;
-}
-
-interface NotificationPage {
-  items: NotificationDocument[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface NotificationAggregationResult {
-  items: NotificationDocument[];
-  metadata: Array<{ total: number }>;
-}
+import type { CreateNotificationInput, NotificationAggregationResult, NotificationPage } from './notification.types.js';
 
 function create(data: CreateNotificationInput) {
   return Notification.create({
@@ -62,4 +44,4 @@ async function findByUserId(
 }
 
 export { create, findByUserId };
-export type { CreateNotificationInput, NotificationPage };
+export type { CreateNotificationInput, NotificationPage } from './notification.types.js';

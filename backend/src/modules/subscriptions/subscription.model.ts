@@ -3,20 +3,7 @@
 // `status` and `cancelAtPeriodEnd`, which the Stripe webhook and the cancel/resume handler update
 // in place on the latest row (F1/F5, backend/SUBSCRIPTION.md).
 import mongoose, { Schema } from 'mongoose';
-
-type SubscriptionStatus = 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
-
-interface SubscriptionAttrs {
-  recipientId: mongoose.Types.ObjectId;
-  stripeSubscriptionId: string;
-  status: SubscriptionStatus;
-  currentPeriodEnd: Date;
-  cancelAtPeriodEnd: boolean;
-  stripeInvoiceId?: string;
-  createdAt: Date;
-}
-
-interface SubscriptionDocument extends SubscriptionAttrs, mongoose.Document {}
+import type { SubscriptionDocument } from './subscription.types.js';
 
 const subscriptionSchema = new Schema<SubscriptionDocument>(
   {
@@ -31,4 +18,4 @@ const subscriptionSchema = new Schema<SubscriptionDocument>(
 );
 
 export default mongoose.model<SubscriptionDocument>('Subscription', subscriptionSchema);
-export type { SubscriptionStatus, SubscriptionDocument };
+export type { SubscriptionStatus, SubscriptionDocument } from './subscription.types.js';

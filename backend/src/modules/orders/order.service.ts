@@ -1,14 +1,13 @@
 // Check mongoDB object
 import { isValidObjectId } from 'mongoose';
 import type { ClientSession } from 'mongoose';
-import type { CreateOrderInput } from './order.repository.js';
+import type { CreateOrderInput, PaymentMethod } from './order.types.js';
 // Contains order rules and uses other modules through interfaces only.
 import * as orderRepository from './order.repository.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
 import { paymentInterface } from '../payments/payment.interface.js';
 import { env } from '../../config/env.js';
-import type { PaymentMethod } from './order.model.js';
 
 function createHttpError(statusCode: number, message: string): Error {
   const error: Error = new Error(message);

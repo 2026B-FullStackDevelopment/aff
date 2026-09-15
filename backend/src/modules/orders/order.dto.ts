@@ -1,8 +1,8 @@
 // Shapes order data before sending it to the frontend or another module, and the request/response bodies for the module's other endpoints.
-import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.model.js';
+import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { DeliveryStage } from '../delivery/delivery.model.js';
-import { FoodCategory } from '../listings/listing.model.js';
+import type { DeliveryStage } from '../delivery/delivery.types.js';
+import type { FoodCategory } from '../listings/listing.types.js';
 
 interface OrderListingSummary {
   id: string;
@@ -130,7 +130,7 @@ interface RecipientOrderResponseDto extends OrderResponseDto {
 
 /**
  * Maps a joined Order row into the shape returned by `GET /orders/mine` — same
- * "build the base DTO, then override/extend" shape as `listing.dto.ts#toListingOrderResponseDto`.
+ * "build the base DTO, then override/extend" shape as `listing.response.dto.ts#toListingOrderResponseDto`.
  */
 function toRecipientOrderResponseDto(
   source: RecipientOrderDtoSource,

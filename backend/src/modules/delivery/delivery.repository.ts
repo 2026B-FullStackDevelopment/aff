@@ -1,36 +1,12 @@
 // Contains Delivery database operations so services do not call Mongoose directly.
-import Delivery, { type DeliveryDocument, type DeliveryStage } from './delivery.model.js';
+import Delivery from './delivery.model.js';
+import type { DeliveryDocument, DeliveryStage } from './delivery.types.js';
 import mongoose, {
   type ClientSession,
   type PipelineStage,
   type Types,
 } from 'mongoose';
-
-/** Filter and pagination for the Admin's read-only Delivery table (E11). */
-interface AdminDeliveryFilter {
-  page: number;
-  limit: number;
-  stage?: DeliveryStage;
-}
-
-/** One page of Deliveries plus the total matching the same filter. */
-interface DeliveryPage {
-  items: DeliveryDocument[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface DeliveryAggregationResult {
-  items: DeliveryDocument[];
-  metadata: Array<{ total: number }>;
-}
-
-/** Pagination for the shared Courier queue (E2). */
-interface QueueFilter {
-  page: number;
-  limit: number;
-}
+import type { AdminDeliveryFilter, DeliveryAggregationResult, DeliveryPage, QueueFilter } from './delivery.types.js';
 
 function findDeliveryById(
   deliveryId: string | Types.ObjectId,
@@ -370,4 +346,4 @@ export {
   findActiveByCourier,
   withTransaction,
 };
-export type { AdminDeliveryFilter, DeliveryPage, QueueFilter };
+export type { AdminDeliveryFilter, DeliveryPage, QueueFilter } from './delivery.types.js';

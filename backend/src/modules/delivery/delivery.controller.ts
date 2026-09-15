@@ -9,7 +9,7 @@ import {
 } from './delivery.schemas.js';
 import { toDeliveryResponseDto } from './delivery.dto.js';
 import * as deliveryService from './delivery.service.js';
-import type { DeliveryViewerRole } from './delivery.service.js';
+import type { DeliveryViewerRole } from './delivery.types.js';
 
 
 /** `GET /deliveries/queue` — the shared, oldest-first Courier queue (E2). */

@@ -56,12 +56,14 @@ import {
   searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
+  updateAccountStatus,
   updateLoginState,
   incrementFailedLoginInWindow,
   startFailedLoginWindow,
   lockAccount,
   deleteUser,
   findUsersByRole,
+  findUsersForAdmin,
 } from '../../../src/modules/users/user.repository.js';
 
 describe('user.repository', () => {
@@ -79,6 +81,7 @@ describe('user.repository', () => {
     searchLeanMock.mockReset();
     selectMock.mockClear();
     limitMock.mockClear();
+    aggregateMock.mockReset();
   });
 
   it('createUser calls User.create with the given data', async () => {
@@ -157,6 +160,17 @@ describe('user.repository', () => {
       { avatarUrl: 'https://cdn.example.com/avatars/u1.png' },
       { new: true }
     );
+  });
+
+  it('updateAccountStatus updates only status and runs model validators', async () => {
+    await updateAccountStatus('u1', 'DEACTIVATED');
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'u1',
+      { $set: { status: 'DEACTIVATED' } },
+      { new: true, runValidators: true },
+    );
+    expect(leanMock).toHaveBeenCalled();
   });
 
   it('updateLoginState writes the three lockout columns', async () => {
@@ -240,6 +254,52 @@ describe('user.repository', () => {
 
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('findUsersForAdmin', () => {
+    it('joins role profiles before searching and paginating accounts', async () => {
+      const account = { _id: 'u1', role: 'DONOR' };
+      aggregateMock.mockResolvedValue([{ items: [account], metadata: [{ total: 1 }] }]);
+
+      const result = await findUsersForAdmin({
+        page: 1,
+        limit: 10,
+        role: 'DONOR',
+        status: 'ACTIVE',
+        search: 'Fresh Foods',
+      });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(pipeline[0]).toEqual({ $match: { role: 'DONOR', status: 'ACTIVE' } });
+      expect(pipeline.filter((stage) => '$lookup' in stage)).toHaveLength(3);
+      expect(pipeline).toContainEqual({
+        $match: {
+          $or: [
+            { username: { $regex: 'Fresh Foods', $options: 'i' } },
+            { email: { $regex: 'Fresh Foods', $options: 'i' } },
+            { profileName: { $regex: 'Fresh Foods', $options: 'i' } },
+          ],
+        },
+      });
+      expect(result).toEqual({ items: [account], page: 1, limit: 10, total: 1 });
+    });
+
+    it('escapes regular-expression characters in account searches', async () => {
+      aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
+
+      await findUsersForAdmin({ page: 1, limit: 20, search: 'a+b@example.com' });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(pipeline).toContainEqual({
+        $match: {
+          $or: [
+            { username: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+            { email: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+            { profileName: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+          ],
+        },
+      });
     });
   });
 });

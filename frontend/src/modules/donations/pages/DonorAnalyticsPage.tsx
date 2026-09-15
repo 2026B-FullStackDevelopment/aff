@@ -46,7 +46,7 @@ export function DonorAnalyticsPage() {
       <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
         <PageHeader
           title="Donor Visual Analytics"
-          description="A simple impact snapshot calculated from your current and past food listings."
+          description="A concise impact snapshot calculated securely from your listings and paid orders."
           actions={
             <Button
               type="button"

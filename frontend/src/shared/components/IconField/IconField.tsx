@@ -19,8 +19,8 @@ interface IconFieldProps extends Omit<ComponentProps<typeof Input>, 'id' | 'name
 
 const themeFocusStyles: Record<ThemeRole, { input: string; icon: string }> = {
   admin: {
-    input: 'focus-visible:border-[#5b7bc0] focus-visible:ring-[#5b7bc0]/15',
-    icon: 'group-focus-within/field:text-[#5b7bc0]',
+    input: 'focus-visible:border-admin-primary focus-visible:ring-admin-primary/15',
+    icon: 'group-focus-within/field:text-admin-primary',
   },
   recipient: {
     input: 'focus-visible:border-[#3D6852] focus-visible:ring-[#3D6852]/15',

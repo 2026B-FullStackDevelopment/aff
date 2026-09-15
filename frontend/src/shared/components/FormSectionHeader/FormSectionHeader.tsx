@@ -9,7 +9,7 @@ interface FormSectionHeaderProps {
 }
 
 const themeTitleStyles: Record<ThemeRole, string> = {
-  admin: 'text-[#1e3a5f]',
+  admin: 'text-admin-title',
   recipient: 'text-[#2E5A47]',
   donor: 'text-[#805300]',
 };
