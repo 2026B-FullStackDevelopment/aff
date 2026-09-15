@@ -80,6 +80,10 @@ export interface UpdateListingStatusPayload {
 export interface UpdateListingStatusResponse {
   listing: ListingDTO;
   cancelledOrderCount: number;
+  refundOutcomes: Array<{
+    orderId: string;
+    refundStatus: 'REFUND_PENDING' | 'FAILED';
+  }>;
 }
 
 export type ListingOrderDTO =

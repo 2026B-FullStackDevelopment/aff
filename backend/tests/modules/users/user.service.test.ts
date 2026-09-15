@@ -20,6 +20,7 @@ const {
   updateDonorMock,
   hashPasswordMock,
   revokeTokenMock,
+  revokeAllTokensForUserMock,
   getMySubscriptionStatusMock,
   findRecipientByStripeCustomerIdMock,
   setRecipientTierIfChangedMock,
@@ -43,6 +44,7 @@ const {
   updateDonorMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   revokeTokenMock: vi.fn(),
+  revokeAllTokensForUserMock: vi.fn(),
   getMySubscriptionStatusMock: vi.fn(),
   findRecipientByStripeCustomerIdMock: vi.fn(),
   setRecipientTierIfChangedMock: vi.fn(),
@@ -86,6 +88,7 @@ vi.mock('../../../src/modules/security/security.interface.js', () => ({
   securityInterface: {
     hashPassword: hashPasswordMock,
     revokeToken: revokeTokenMock,
+    revokeAllTokensForUser: revokeAllTokensForUserMock,
   },
 }));
 
@@ -193,7 +196,7 @@ describe('user.service', () => {
   });
 
   describe('updateAccountStatusForAdmin', () => {
-    it('returns the updated account DTO', async () => {
+    it('revokes every recorded session when an account is deactivated', async () => {
       updateAccountStatusMock.mockResolvedValue({
         _id: 'u1',
         username: 'alice',
@@ -207,7 +210,27 @@ describe('user.service', () => {
       const result = await updateAccountStatusForAdmin('u1', 'DEACTIVATED');
 
       expect(updateAccountStatusMock).toHaveBeenCalledWith('u1', 'DEACTIVATED');
+      expect(revokeAllTokensForUserMock).toHaveBeenCalledWith(
+        'u1',
+        'ADMIN_DEACTIVATE',
+      );
       expect(result).toMatchObject({ id: 'u1', status: 'DEACTIVATED' });
+    });
+
+    it('does not restore or revoke old sessions when an account is reactivated', async () => {
+      updateAccountStatusMock.mockResolvedValue({
+        _id: 'u1',
+        username: 'alice',
+        email: 'alice@example.com',
+        role: 'RECIPIENT',
+        status: 'ACTIVE',
+        avatarUrl: null,
+        createdAt: new Date('2026-09-15T00:00:00.000Z'),
+      });
+
+      await updateAccountStatusForAdmin('u1', 'ACTIVE');
+
+      expect(revokeAllTokensForUserMock).not.toHaveBeenCalled();
     });
 
     it('throws 404 when the account no longer exists', async () => {
@@ -217,6 +240,7 @@ describe('user.service', () => {
         message: 'User not found.',
         statusCode: 404,
       });
+      expect(revokeAllTokensForUserMock).not.toHaveBeenCalled();
     });
   });
 

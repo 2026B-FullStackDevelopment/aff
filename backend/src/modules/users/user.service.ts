@@ -281,7 +281,10 @@ async function listUsersForAdmin(query: AdminUsersQuery) {
     ...page,
     items: page.items.map((user) => {
       if (user.role === 'RECIPIENT') {
-        return toRecipientResponseDto(user, user.recipientProfile ?? {});
+        // G1 only needs shared account fields for Recipient rows. Premium tier
+        // remains subscription-owned and is resolved only for Recipient profile
+        // responses, rather than adding one subscription lookup per table row.
+        return toUserResponseDto(user)!;
       }
 
       if (user.role === 'DONOR') {
@@ -303,10 +306,10 @@ async function listUsersForAdmin(query: AdminUsersQuery) {
 /**
  * Changes an account's persisted status for the Admin module.
  *
- * A deactivated account is rejected by the login service on its next sign-in.
- * Revoking every already-issued session is intentionally left to the Security
- * module's future user-session registry; this function does not reach across
- * that module boundary.
+ * A deactivated account is rejected by the login service on its next sign-in,
+ * and every currently recorded session is revoked immediately through the
+ * Security module's public interface. Reactivation never restores old tokens;
+ * the user must sign in again to receive a fresh session.
  *
  * @throws {Error} `404` when the target account does not exist.
  */
@@ -317,6 +320,10 @@ async function updateAccountStatusForAdmin(userId: string, status: AccountStatus
     const error: Error = new Error('User not found.');
     error.statusCode = 404;
     throw error;
+  }
+
+  if (status === 'DEACTIVATED') {
+    await securityInterface.revokeAllTokensForUser(userId, 'ADMIN_DEACTIVATE');
   }
 
   return toUserResponseDto(user)!;

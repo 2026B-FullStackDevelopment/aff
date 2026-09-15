@@ -6,12 +6,17 @@ import * as listingTransactionRepository from './listing.transaction.repository.
 import { getListingDonorData, requireOwnedListing } from './listing.access.service.js';
 import { createHttpError } from './listing.service.errors.js';
 import type { ListingDocument, ListingStatus } from './listing.model.js';
-import type { ListingDtoSource, UpdateListingStatusRequestDto } from './listing.dto.js';
+import type {
+  ListingDtoSource,
+  UpdateListingStatusRequestDto,
+  UpdateListingStatusResponseDto,
+} from './listing.dto.js';
 import type { CreateListingPayload } from './listing.command.schemas.js';
 
 interface UpdateListingStatusServiceResult {
   listing: ListingDtoSource;
   cancelledOrderCount: number;
+  refundOutcomes: UpdateListingStatusResponseDto['refundOutcomes'];
 }
 
 type RequestedListingStatus = UpdateListingStatusRequestDto['status'];
@@ -98,6 +103,7 @@ async function updateListingStatus(
 ): Promise<UpdateListingStatusServiceResult> {
   let updatedListing: ListingDocument;
   let cancelledOrderCount = 0;
+  let refundableOrderIds: string[] = [];
 
   if (nextStatus === 'CANCELLED') {
     const transactionResult = await listingTransactionRepository.withTransaction(
@@ -124,7 +130,7 @@ async function updateListingStatus(
           cancelledAt,
           session,
         );
-        const cancelledCount = await orderInterface.cancelOrdersByIds(
+        const cancellation = await orderInterface.cancelOrdersForListingCancellation(
           cancellableOrderIds,
           donorId,
           cancelledAt,
@@ -140,12 +146,17 @@ async function updateListingStatus(
           ),
         );
 
-        return { listing, cancelledOrderCount: cancelledCount };
+        return {
+          listing,
+          cancelledOrderCount: cancellation.cancelledCount,
+          refundableOrderIds: cancellation.refundableOrderIds,
+        };
       },
     );
 
     updatedListing = transactionResult.listing;
     cancelledOrderCount = transactionResult.cancelledOrderCount;
+    refundableOrderIds = transactionResult.refundableOrderIds;
   } else {
     const current = await requireOwnedListing(listingId, donorId);
     assertValidStatusTransition(current.status, nextStatus);
@@ -159,9 +170,16 @@ async function updateListingStatus(
     );
   }
 
+  // Stripe is an external network dependency, so refunds must run only after
+  // the MongoDB cancellation transaction has committed successfully.
+  const refundOutcomes = refundableOrderIds.length
+    ? await orderInterface.refundCancelledOrders(refundableOrderIds)
+    : [];
+
   return {
     listing: { listing: updatedListing, donor: await getListingDonorData(donorId) },
     cancelledOrderCount,
+    refundOutcomes,
   };
 }
 

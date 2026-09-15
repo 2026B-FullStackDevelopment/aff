@@ -178,7 +178,6 @@ export function PortalTopNavigation({
       </div>
 
       {isMobileMenuOpen && (
-<<<<<<< HEAD
         <PortalMobileMenu
           brandLabel={brandLabel}
           items={navItems}
@@ -190,28 +189,6 @@ export function PortalTopNavigation({
           extraRightActions={extraRightActions}
           onNavigate={() => setIsMobileMenuOpen(false)}
         />
-=======
-        <div className="md:hidden border-t border-black/5">
-          <nav className="flex flex-col px-2 pt-2 pb-3 space-y-1" aria-label={`${brandLabel} mobile navigation`}>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  [
-                    'block rounded-md px-3 py-2 text-base font-medium transition-colors',
-                    isActive ? styles.activeLink : styles.inactiveLink,
-                  ].join(' ')
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
->>>>>>> main
       )}
     </header>
   );
