@@ -5,6 +5,8 @@ const orderInterface = {
   listOrdersForRecipient: orderService.listOrdersForRecipient,
   findOrderById: orderService.findOrderById,
   findOrdersByIds: orderService.findOrdersByIds,
+  findNonCancelledOrdersByListingIds:
+    orderService.findNonCancelledOrdersByListingIds,
   verifyOrderOwnership: orderService.verifyOrderOwnership,
   findNonCancelledOrderIdsByListing:
     orderService.findNonCancelledOrderIdsByListing,

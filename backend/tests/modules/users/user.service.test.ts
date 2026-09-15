@@ -13,11 +13,13 @@ const {
   lockAccountMock,
   deleteUserMock,
   findUsersForAdminMock,
+  findDonorUserIdsByUsernameMock,
   createRecipientMock,
   findRecipientByUserIdMock,
   createDonorMock,
   findDonorByUserIdMock,
   updateDonorMock,
+  findDonorUserIdsByCompanyNameMock,
   hashPasswordMock,
   revokeTokenMock,
   revokeAllTokensForUserMock,
@@ -37,11 +39,13 @@ const {
   lockAccountMock: vi.fn(),
   deleteUserMock: vi.fn(),
   findUsersForAdminMock: vi.fn(),
+  findDonorUserIdsByUsernameMock: vi.fn(),
   createRecipientMock: vi.fn(),
   findRecipientByUserIdMock: vi.fn(),
   createDonorMock: vi.fn(),
   findDonorByUserIdMock: vi.fn(),
   updateDonorMock: vi.fn(),
+  findDonorUserIdsByCompanyNameMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   revokeTokenMock: vi.fn(),
   revokeAllTokensForUserMock: vi.fn(),
@@ -63,6 +67,7 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   lockAccount: lockAccountMock,
   deleteUser: deleteUserMock,
   findUsersForAdmin: findUsersForAdminMock,
+  findDonorUserIdsByUsername: findDonorUserIdsByUsernameMock,
 }));
 
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
@@ -82,6 +87,7 @@ vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   createDonor: createDonorMock,
   findDonorByUserId: findDonorByUserIdMock,
   updateDonor: updateDonorMock,
+  findDonorUserIdsByCompanyName: findDonorUserIdsByCompanyNameMock,
 }));
 
 vi.mock('../../../src/modules/security/security.interface.js', () => ({
@@ -110,6 +116,7 @@ import {
   setRecipientTier,
   listUsersForAdmin,
   updateAccountStatusForAdmin,
+  findDonorIdsMatchingSearch,
 } from '../../../src/modules/users/user.service.js';
 
 const payload = {
@@ -147,6 +154,26 @@ describe('user.service', () => {
     it('does not query the database for fewer than three characters', async () => {
       await expect(searchRecipientsByEmail('re')).resolves.toEqual([]);
       expect(searchActiveRecipientsByEmailMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findDonorIdsMatchingSearch', () => {
+    it('combines username, company, and exact ObjectId matches without duplicates', async () => {
+      const exactId = '507f1f77bcf86cd799439011';
+      findDonorUserIdsByUsernameMock.mockResolvedValue([
+        { _id: exactId }, { _id: '507f1f77bcf86cd799439012' },
+      ]);
+      findDonorUserIdsByCompanyNameMock.mockResolvedValue([
+        { userId: exactId }, { userId: '507f1f77bcf86cd799439013' },
+      ]);
+
+      await expect(findDonorIdsMatchingSearch(exactId)).resolves.toEqual([
+        exactId,
+        '507f1f77bcf86cd799439012',
+        '507f1f77bcf86cd799439013',
+      ]);
+      expect(findDonorUserIdsByUsernameMock).toHaveBeenCalledWith(exactId);
+      expect(findDonorUserIdsByCompanyNameMock).toHaveBeenCalledWith(exactId);
     });
   });
 

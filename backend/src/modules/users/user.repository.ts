@@ -46,6 +46,17 @@ function findUserById(id: string | Types.ObjectId) {
   return User.findById(id).lean<UserDocument>();
 }
 
+/** Finds Donor user ids whose username partially matches an Admin search term. */
+function findDonorUserIdsByUsername(search: string) {
+  return User.find(
+    {
+      role: 'DONOR',
+      username: { $regex: escapeRegExp(search), $options: 'i' },
+    },
+    { _id: 1 },
+  ).lean<Array<{ _id: Types.ObjectId }>>();
+}
+
 function updateUser(
   id: string | Types.ObjectId,
   data: Partial<CreateUserInput> & { avatarUrl?: string | null },
@@ -234,6 +245,7 @@ export {
   findUserByEmail,
   searchActiveRecipientsByEmail,
   findUserById,
+  findDonorUserIdsByUsername,
   updateUser,
   updateAccountStatus,
   updateLoginState,

@@ -23,6 +23,7 @@ vi.mock('../../../src/modules/users/donor.model.js', () => ({
 import {
   createDonor,
   findDonorByUserId,
+  findDonorUserIdsByCompanyName,
   updateDonor,
   findDonorsByUserIds,
 } from '../../../src/modules/users/donor.repository.js';
@@ -73,6 +74,20 @@ describe('donor.repository', () => {
 
     expect(findOneMock).toHaveBeenCalledWith({ userId: 'u1' });
     expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('finds Donor ids by a case-insensitive escaped company-name term', async () => {
+    leanMock.mockResolvedValue([{ userId: 'd1' }]);
+
+    const result = await findDonorUserIdsByCompanyName('Fresh (Foods)');
+
+    expect(findMock).toHaveBeenCalledWith(
+      {
+        companyName: { $regex: 'Fresh \\(Foods\\)', $options: 'i' },
+      },
+      { userId: 1 },
+    );
+    expect(result).toEqual([{ userId: 'd1' }]);
   });
 
   describe('updateDonor', () => {

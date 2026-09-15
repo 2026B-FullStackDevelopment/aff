@@ -3,7 +3,7 @@
   "info": {
     "title": "AFF Admin API",
     "version": "0.1.0",
-    "description": "Admin account management and read-only Delivery oversight (stories E1, E11, G1, and the persistence portion of G2). Design intent lives in docs/api_design.md §11; this document reflects the routes as implemented in backend/src/modules/admin. GET /admin/listings (G4) and PATCH /admin/listings/{id}/cancel (G3) are registered but still return 501, and are deliberately not documented here until they are wired. Account deactivation prevents future login, but revocation of every already-issued session remains pending the Security module's user-session registry."
+    "description": "Admin account, Listing, and read-only Delivery oversight (stories E1, E11, G1-G6). Design intent lives in docs/api_design.md §11; this document reflects the routes implemented in backend/src/modules/admin."
   },
   "servers": [
     { "url": "http://localhost:5000/api", "description": "Local development" }
@@ -11,6 +11,7 @@
   "tags": [
     { "name": "Admin Users", "description": "Role-aware account directory" },
     { "name": "Admin Couriers", "description": "Courier account creation and roster" },
+    { "name": "Admin Listings", "description": "Search and cancellation across all Listing statuses" },
     { "name": "Admin Deliveries", "description": "Read-only oversight of the Courier pipeline" }
   ],
   "paths": {
@@ -160,7 +161,7 @@
       "patch": {
         "tags": ["Admin Users"],
         "summary": "Deactivate or reactivate an account",
-        "description": "Updates USER.status uniformly for every role and returns the updated base User DTO. DEACTIVATED accounts are rejected by subsequent login attempts. Revoking every token that was issued before deactivation remains pending the Security module's user-session registry; this endpoint does not yet terminate those existing sessions.",
+        "description": "Updates USER.status uniformly for every role and returns the updated base User DTO. DEACTIVATED accounts are rejected by subsequent login attempts, and every recorded active token for the account is revoked immediately.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -196,6 +197,57 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/admin/listings": {
+      "get": {
+        "tags": ["Admin Listings"],
+        "summary": "Search the complete Listing directory",
+        "description": "Returns Listings in every lifecycle status. Search matches Donor company name or username, Donor ID, and Listing ID.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Donor company name or username, Donor ID, or Listing ID",
+            "schema": { "type": "string", "maxLength": 100 }
+          },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of Listings across all statuses",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminListingsResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/admin/listings/{id}/cancel": {
+      "patch": {
+        "tags": ["Admin Listings"],
+        "summary": "Cancel an active or paused Listing",
+        "description": "Runs the shared Donor cancellation transaction. Orders with no Delivery or an AWAITING_COURIER Delivery are cancelled; ASSIGNED, PICKED_UP, and DELIVERED Orders are protected. Each affected Recipient receives notification:admin_cancel.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ListingId" }],
+        "responses": {
+          "200": {
+            "description": "Listing cancelled and eligible Orders cascaded",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CancelListingResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "The Listing is terminal or changed concurrently",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
         }
       }
     },
@@ -268,6 +320,13 @@
         "required": false,
         "description": "Rows per page.",
         "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "ListingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "MongoDB Listing ObjectId",
+        "schema": { "type": "string", "pattern": "^[0-9a-fA-F]{24}$" }
       }
     },
     "schemas": {
@@ -373,6 +432,104 @@
           "fullName": { "type": "string", "nullable": true }
         },
         "required": ["id", "username", "email", "role", "status", "createdAt"]
+      },
+      "FoodCategory": {
+        "type": "string",
+        "enum": ["FRUIT", "VEGETABLE", "MEAT", "COOKED_DISH", "BAKED_GOODS", "DRINK"]
+      },
+      "MeasurementUnit": {
+        "type": "string",
+        "enum": ["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "PER_REQUEST"]
+      },
+      "ListingStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "PAUSED", "CANCELLED", "SOLD_OUT"]
+      },
+      "ListingDonorSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" },
+          "city": { "type": "string" },
+          "location": { "$ref": "#/components/schemas/GeoLocation" }
+        },
+        "required": ["id", "companyName", "city", "location"]
+      },
+      "Listing": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "donor": { "$ref": "#/components/schemas/ListingDonorSummary" },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "imageUrl": { "type": "string", "nullable": true },
+          "unit": { "$ref": "#/components/schemas/MeasurementUnit" },
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "isVegetarian": { "type": "boolean" },
+          "price": { "type": "number", "minimum": 0 },
+          "city": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/ListingStatus" },
+          "donationLimit": { "type": "number", "exclusiveMinimum": true, "minimum": 0 },
+          "rationLimitPerPerson": { "type": "number", "nullable": true, "exclusiveMinimum": true, "minimum": 0 },
+          "quantityRemaining": { "type": "number", "minimum": 0 },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "donor", "name", "description", "imageUrl", "unit", "category", "isVegetarian", "price", "city", "status", "donationLimit", "rationLimitPerPerson", "quantityRemaining", "createdAt"]
+      },
+      "AdminListing": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Listing" },
+          {
+            "type": "object",
+            "properties": {
+              "pendingOrderCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Current number of unprotected Orders the cancel action would affect."
+              }
+            },
+            "required": ["pendingOrderCount"]
+          }
+        ]
+      },
+      "AdminListingsResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/AdminListing" } },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" }
+            },
+            "required": ["items", "page", "limit", "total"]
+          }
+        },
+        "required": ["data"]
+      },
+      "RefundOutcome": {
+        "type": "object",
+        "properties": {
+          "orderId": { "type": "string" },
+          "refundStatus": { "type": "string", "enum": ["REFUND_PENDING", "FAILED"] }
+        },
+        "required": ["orderId", "refundStatus"]
+      },
+      "CancelListingResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "listing": { "$ref": "#/components/schemas/Listing" },
+              "cancelledOrderCount": { "type": "integer", "minimum": 0 },
+              "refundOutcomes": { "type": "array", "items": { "$ref": "#/components/schemas/RefundOutcome" } }
+            },
+            "required": ["listing", "cancelledOrderCount", "refundOutcomes"]
+          }
+        },
+        "required": ["data"]
       },
       "AdminDelivery": {
         "type": "object",
@@ -481,11 +638,14 @@
         }
       },
       "NotFound": {
-        "description": "The requested user account does not exist",
+        "description": "The requested user account or Listing does not exist",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
-            "example": { "message": "User not found." }
+            "examples": {
+              "userNotFound": { "value": { "message": "User not found." } },
+              "listingNotFound": { "value": { "message": "Listing not found." } }
+            }
           }
         }
       },

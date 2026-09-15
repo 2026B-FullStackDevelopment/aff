@@ -21,7 +21,7 @@ const {
   const selectMock = vi.fn(() => ({ limit: limitMock }));
   return {
     createMock: vi.fn(),
-    findMock: vi.fn(() => ({ select: selectMock })),
+    findMock: vi.fn(() => ({ select: selectMock, lean: searchLeanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     findByIdMock: vi.fn(() => ({ lean: leanMock })),
     findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
@@ -64,6 +64,7 @@ import {
   deleteUser,
   findUsersByRole,
   findUsersForAdmin,
+  findDonorUserIdsByUsername,
 } from '../../../src/modules/users/user.repository.js';
 
 describe('user.repository', () => {
@@ -143,6 +144,21 @@ describe('user.repository', () => {
 
     expect(findByIdMock).toHaveBeenCalledWith('u1');
     expect(leanMock).toHaveBeenCalled();
+  });
+
+  it('finds Donor ids by an escaped, case-insensitive username term', async () => {
+    searchLeanMock.mockResolvedValue([{ _id: 'd1' }]);
+
+    const result = await findDonorUserIdsByUsername('bakery (east)');
+
+    expect(findMock).toHaveBeenCalledWith(
+      {
+        role: 'DONOR',
+        username: { $regex: 'bakery \\(east\\)', $options: 'i' },
+      },
+      { _id: 1 },
+    );
+    expect(result).toEqual([{ _id: 'd1' }]);
   });
 
   it('updateUser updates by id and returns the new lean document', async () => {

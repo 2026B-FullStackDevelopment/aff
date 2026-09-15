@@ -31,6 +31,7 @@ vi.mock('../../../src/modules/listings/listing.model.js', () => ({
 
 import {
   findAvailableListings,
+  findListingsForAdmin,
   findListingById,
   findListingsByIds,
   findMyListingsWithStats,
@@ -71,6 +72,43 @@ describe('listing.query.repository', () => {
     await expect(
       findAvailableListings({ page: 1, limit: 20 }),
     ).resolves.toEqual({ items: [], page: 1, limit: 20, total: 0 });
+  });
+
+  it('returns every Listing status for Admin oversight', async () => {
+    aggregateMock.mockResolvedValue([
+      { items: [{ _id: 'l1', status: 'CANCELLED' }], metadata: [{ total: 4 }] },
+    ]);
+
+    const result = await findListingsForAdmin({
+      page: 2, limit: 2, hasSearch: false,
+    });
+
+    const pipeline = aggregateMock.mock.calls[0]?.[0];
+    expect(pipeline[0]).toEqual({ $match: {} });
+    expect(pipeline).toContainEqual({ $sort: { createdAt: -1, _id: -1 } });
+    expect(JSON.stringify(pipeline)).toContain('"$skip":2');
+    expect(result).toEqual({
+      items: [{ _id: 'l1', status: 'CANCELLED' }],
+      page: 2, limit: 2, total: 4,
+    });
+  });
+
+  it('searches Admin Listings by Listing id or matching Donor ids', async () => {
+    aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
+
+    await findListingsForAdmin({
+      page: 1,
+      limit: 20,
+      hasSearch: true,
+      listingId: '507f1f77bcf86cd799439011',
+      donorIds: ['507f1f77bcf86cd799439012'],
+    });
+
+    const match = aggregateMock.mock.calls[0]?.[0][0].$match;
+    expect(match.$or[0]._id.toString()).toBe('507f1f77bcf86cd799439011');
+    expect(match.$or[1].donorId.$in[0].toString()).toBe(
+      '507f1f77bcf86cd799439012',
+    );
   });
 
   it('composes public search, city, category and price filters', async () => {

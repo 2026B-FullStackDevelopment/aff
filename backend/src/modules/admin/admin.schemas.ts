@@ -93,11 +93,32 @@ const adminDeliveriesQuerySchema = paginationQuerySchema
   })
   .strict();
 
+/** Validates search and pagination for the complete Admin Listing directory. */
+const adminListingsQuerySchema = paginationQuerySchema
+  .extend({
+    search: z
+      .string({ message: 'Search must be text.' })
+      .trim()
+      .max(100, { message: 'Search must be at most 100 characters.' })
+      .optional(),
+  })
+  .strict();
+
+/** Validates Listing ids before an Admin cancellation reaches Mongoose. */
+const adminListingParamsSchema = z
+  .object({
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/, {
+      message: 'Listing ID must be a valid MongoDB ObjectId.',
+    }),
+  })
+  .strict();
+
 type CreateCourierPayload = z.infer<typeof createCourierSchema>;
 type AdminCouriersQuery = z.infer<typeof adminCouriersQuerySchema>;
 type AdminUsersQuery = z.infer<typeof adminUsersQuerySchema>;
 type AdminUserIdParams = z.infer<typeof adminUserIdParamsSchema>;
 type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
+type AdminListingsQuery = z.infer<typeof adminListingsQuerySchema>;
 
 export {
   createCourierSchema,
@@ -106,6 +127,8 @@ export {
   adminUserIdParamsSchema,
   updateUserStatusSchema,
   adminDeliveriesQuerySchema,
+  adminListingsQuerySchema,
+  adminListingParamsSchema,
 };
 export type {
   CreateCourierPayload,
@@ -113,4 +136,5 @@ export type {
   AdminUsersQuery,
   AdminUserIdParams,
   AdminDeliveriesQuery,
+  AdminListingsQuery,
 };

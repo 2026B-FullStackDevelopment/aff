@@ -31,6 +31,39 @@ interface AvailableListingsAggregationResult {
   metadata: Array<{ total: number }>;
 }
 
+interface AdminListingFilter {
+  page: number;
+  limit: number;
+  hasSearch: boolean;
+  donorIds?: string[];
+  listingId?: string;
+}
+
+/** Validated pagination and search input accepted by the Admin listing query. */
+interface AdminListingsQuery {
+  search?: string;
+  page: number;
+  limit: number;
+}
+
+interface AdminListingsRepositoryResult {
+  items: ListingDocument[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+interface AdminListingDtoSource extends ListingDtoSource {
+  pendingOrderCount: number;
+}
+
+interface AdminListingsServiceResult {
+  items: AdminListingDtoSource[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 interface MyListingsServiceResult {
   items: ListingWithStatsDtoSource[];
   page: number;
@@ -59,6 +92,11 @@ export type {
   MyListingsAggregationResult,
   AvailableListingsRepositoryResult,
   AvailableListingsAggregationResult,
+  AdminListingFilter,
+  AdminListingsQuery,
+  AdminListingsRepositoryResult,
+  AdminListingDtoSource,
+  AdminListingsServiceResult,
   MyListingsServiceResult,
   AvailableListingsServiceResult,
   ListingDonorSummaryByListing,

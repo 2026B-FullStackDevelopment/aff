@@ -14,7 +14,8 @@ import type { AdminUserDTO } from '@/types/api';
 const ADMIN_NAV_ITEMS: readonly PortalNavItem[] = [
   { label: 'Users', to: '/admin/user-directory', end: true },
   { label: 'Create Courier', to: '/admin/couriers/new', end: true },
-  { label: 'Listings', disabled: true },
+  { label: 'Listings', to: '/admin/listings', end: true },
+  { label: 'Deliveries', to: '/admin/deliveries', end: true },
   { label: 'Profile', to: '/admin/profile', end: true },
 ];
 

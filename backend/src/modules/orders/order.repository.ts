@@ -9,7 +9,7 @@ import mongoose, {
 import type {
   AggregatedListingOrder, AggregatedRecipientOrder, CreateOrderInput,
   ListingOrderRepositoryItem, ListingOrdersAggregationResult, ListingOrdersRepositoryResult,
-  OrderJoinSummary, RecipientOrdersAggregationResult, RecipientOrderRepositoryItem,
+  CancellationOrderSummary, OrderJoinSummary, RecipientOrdersAggregationResult, RecipientOrderRepositoryItem,
   RecipientOrdersRepositoryResult,
 } from './order.types.js';
 
@@ -199,6 +199,25 @@ async function findOrdersByIds(
   );
 
   return (session ? query.session(session) : query).lean<OrderJoinSummary[]>();
+}
+
+/** Loads active Orders for several Listings in one query. */
+async function findNonCancelledOrdersByListingIds(
+  listingIds: string[],
+  session?: ClientSession,
+): Promise<CancellationOrderSummary[]> {
+  if (listingIds.length === 0) return [];
+
+  const query = Order.find(
+    {
+      listingId: { $in: listingIds },
+      orderStatus: { $nin: ['CANCELLED', 'DELIVERED'] },
+    },
+    { _id: 1, recipientId: 1, listingId: 1 },
+  );
+
+  return (session ? query.session(session) : query)
+    .lean<CancellationOrderSummary[]>();
 }
 
 async function cancelOrdersByIds(
@@ -515,6 +534,7 @@ async function findOrdersForRecipient(
 
 export {
   findOrdersByIds,
+  findNonCancelledOrdersByListingIds,
   findOrderById,
   findOrderByIdAndRecipient,
   createOrder,

@@ -6,10 +6,53 @@ import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
 import type {
   AvailableListingsAggregationResult,
   AvailableListingsRepositoryResult,
+  AdminListingFilter,
+  AdminListingsRepositoryResult,
   ListingWithStatsRecord,
   MyListingsAggregationResult,
   MyListingsRepositoryResult,
 } from './listing.query.types.js';
+
+/** Returns every Listing status for Admin oversight with bounded pagination. */
+async function findListingsForAdmin(
+  filter: AdminListingFilter,
+): Promise<AdminListingsRepositoryResult> {
+  const match: Record<string, unknown> = {};
+
+  if (filter.hasSearch) {
+    const matches: Record<string, unknown>[] = [];
+
+    if (filter.listingId) {
+      matches.push({ _id: new Types.ObjectId(filter.listingId) });
+    }
+    if (filter.donorIds?.length) {
+      matches.push({
+        donorId: { $in: filter.donorIds.map((id) => new Types.ObjectId(id)) },
+      });
+    }
+
+    match.$or = matches.length > 0 ? matches : [{ _id: { $in: [] } }];
+  }
+
+  const skip = (filter.page - 1) * filter.limit;
+  const [result] = await Listing.aggregate<AvailableListingsAggregationResult>([
+    { $match: match },
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [{ $skip: skip }, { $limit: filter.limit }],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  ]);
+
+  return {
+    items: result?.items ?? [],
+    page: filter.page,
+    limit: filter.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
 
 /** Escapes user input before it is embedded in a MongoDB regular expression. */
 function escapeRegExp(value: string): string {
@@ -235,9 +278,16 @@ function findListingsByIds(listingIds: string[]) {
 }
 
 export {
+  findListingsForAdmin,
   findAvailableListings,
   findMyListingsWithStats,
   findListingById,
   findListingsByIds,
 };
-export type { ListingWithStatsRecord, MyListingsRepositoryResult, AvailableListingsRepositoryResult } from './listing.query.types.js';
+export type {
+  ListingWithStatsRecord,
+  MyListingsRepositoryResult,
+  AvailableListingsRepositoryResult,
+  AdminListingFilter,
+  AdminListingsRepositoryResult,
+} from './listing.query.types.js';

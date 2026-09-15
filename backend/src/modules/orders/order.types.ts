@@ -32,6 +32,7 @@ interface OrderJoinSummary {
   deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
   paymentMethod?: PaymentMethod; paymentStatus: PaymentStatus; listingId: Types.ObjectId; amount: number;
 }
+interface CancellationOrderSummary { _id: Types.ObjectId; recipientId: Types.ObjectId; listingId: Types.ObjectId }
 interface RecipientOrderListingSummary { id: string; name: string; imageUrl: string | undefined; unit: MeasurementUnit; category: FoodCategory }
 interface RecipientOrderDonorSummary { id: string; companyName: string }
 interface RecipientOrderRepositoryItem { order: OrderDocument; listing: RecipientOrderListingSummary; donor: RecipientOrderDonorSummary; deliveryStage: DeliveryStage | null }
@@ -43,6 +44,7 @@ export type {
   IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback, OrderAttrs, OrderDocument,
   CreateOrderInput, ListingOrderRepositoryItem, ListingOrdersRepositoryResult, AggregatedListingOrder,
   ListingOrdersAggregationResult, OrderJoinSummary, RecipientOrderListingSummary,
+  CancellationOrderSummary,
   RecipientOrderDonorSummary, RecipientOrderRepositoryItem, RecipientOrdersRepositoryResult,
   AggregatedRecipientOrder, RecipientOrdersAggregationResult,
 };

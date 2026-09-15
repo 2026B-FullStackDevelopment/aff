@@ -8,6 +8,8 @@ const {
   findCourierProfilesByUserIdsMock,
   listForAdminMock,
   findOrdersByIdsMock,
+  listListingsForAdminMock,
+  cancelListingAsAdminMock,
 } = vi.hoisted(() => ({
   createCourierAccountMock: vi.fn(),
   listCouriersMock: vi.fn(),
@@ -16,6 +18,8 @@ const {
   findCourierProfilesByUserIdsMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findOrdersByIdsMock: vi.fn(),
+  listListingsForAdminMock: vi.fn(),
+  cancelListingAsAdminMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.interface.js', () => ({
@@ -40,12 +44,21 @@ vi.mock('../../../src/modules/orders/order.interface.js', () => ({
   },
 }));
 
+vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
+  listingInterface: {
+    listListingsForAdmin: listListingsForAdminMock,
+    cancelListingAsAdmin: cancelListingAsAdminMock,
+  },
+}));
+
 import {
   createCourier,
   listCouriers,
   listUsers,
   updateUserStatus,
   listDeliveries,
+  listListings,
+  cancelListing,
 } from '../../../src/modules/admin/admin.service.js';
 
 const courierUser = {
@@ -272,12 +285,66 @@ describe('admin.service', () => {
       );
 
       expect(Object.keys(adminService).sort()).toEqual([
+        'cancelListing',
         'createCourier',
         'listCouriers',
         'listDeliveries',
+        'listListings',
         'listUsers',
         'updateUserStatus',
       ]);
+    });
+  });
+
+  describe('Listing oversight', () => {
+    const listingSource = {
+      listing: {
+        _id: 'l1', donorId: 'd1', name: 'Bread', unit: 'UNIT',
+        category: 'BAKED_GOODS', isVegetarian: true, price: 0,
+        city: 'Hanoi', status: 'ACTIVE', donationLimit: 10,
+        quantityRemaining: 5, createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+      donor: {
+        id: 'd1', companyName: 'Fresh Bakery', city: 'Hanoi',
+        addressText: '1 Bakery Street',
+        location: { latitude: 21, longitude: 105, updatedAt: new Date() },
+      },
+    };
+
+    it('maps Listing rows and preserves the pending cancellation count', async () => {
+      listListingsForAdminMock.mockResolvedValue({
+        items: [{ ...listingSource, pendingOrderCount: 2 }],
+        page: 1, limit: 20, total: 1,
+      });
+
+      const result = await listListings({ search: 'Bread', page: 1, limit: 20 });
+
+      expect(listListingsForAdminMock).toHaveBeenCalledWith({
+        search: 'Bread', page: 1, limit: 20,
+      });
+      expect(result.items[0]).toMatchObject({
+        id: 'l1', status: 'ACTIVE', pendingOrderCount: 2,
+      });
+    });
+
+    it('delegates cancellation with the authenticated Admin id', async () => {
+      cancelListingAsAdminMock.mockResolvedValue({
+        listing: {
+          ...listingSource,
+          listing: { ...listingSource.listing, status: 'CANCELLED' },
+        },
+        cancelledOrderCount: 2,
+        refundOutcomes: [],
+      });
+
+      const result = await cancelListing('l1', 'admin1');
+
+      expect(cancelListingAsAdminMock).toHaveBeenCalledWith('l1', 'admin1');
+      expect(result).toMatchObject({
+        listing: { id: 'l1', status: 'CANCELLED' },
+        cancelledOrderCount: 2,
+        refundOutcomes: [],
+      });
     });
   });
 });
