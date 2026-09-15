@@ -3,6 +3,7 @@
 import * as tokenService from './token.service.js';
 import * as passwordService from './password.service.js';
 import * as revokedTokenRepository from './revoked-token.repository.js';
+import * as activeTokenRepository from './active-token.repository.js';
 
 /**
  * The security module's public surface. Per the project's module-boundary
@@ -14,6 +15,8 @@ const securityInterface = {
   verifyAccessToken: tokenService.verifyAccessToken,
   issueSession: tokenService.issueSession,
   revokeToken: revokedTokenRepository.revokeToken,
+  revokeAllTokensForUser: tokenService.revokeAllTokensForUser,
+  listActiveTokensForUser: activeTokenRepository.listActiveTokensForUser,
   hashPassword: passwordService.hashPassword,
   verifyPassword: passwordService.verifyPassword,
   dummyCompare: passwordService.dummyCompare,

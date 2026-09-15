@@ -1,12 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { createMock, existsMock } = vi.hoisted(() => ({
+const { createMock, existsMock, removeActiveTokenMock } = vi.hoisted(() => ({
   createMock: vi.fn(),
   existsMock: vi.fn(),
+  removeActiveTokenMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/security/revoked-token.model.js', () => ({
   default: { create: createMock, exists: existsMock },
+}));
+
+vi.mock('../../../src/modules/security/active-token.repository.js', () => ({
+  removeActiveToken: removeActiveTokenMock,
 }));
 
 import { revokeToken, isTokenRevoked } from '../../../src/modules/security/revoked-token.repository.js';
@@ -17,7 +22,9 @@ describe('revoked-token.repository', () => {
   beforeEach(() => {
     createMock.mockClear();
     existsMock.mockClear();
+    removeActiveTokenMock.mockClear();
     createMock.mockResolvedValue({});
+    removeActiveTokenMock.mockResolvedValue(undefined);
   });
 
   it('revokeToken stores the jti with reason LOGOUT by default', async () => {
@@ -50,6 +57,20 @@ describe('revoked-token.repository', () => {
     await expect(revokeToken({ jti: 'j1', userId: 'u1', expiresAt })).rejects.toThrow(
       'connection lost'
     );
+  });
+
+  it('revokeToken removes the token from the live-session table', async () => {
+    await revokeToken({ jti: 'j1', userId: 'u1', expiresAt });
+
+    expect(removeActiveTokenMock).toHaveBeenCalledWith('j1');
+  });
+
+  it('revokeToken still removes the live-session row on a duplicate-key revoke', async () => {
+    createMock.mockRejectedValue({ code: 11000 });
+
+    await revokeToken({ jti: 'j1', userId: 'u1', expiresAt });
+
+    expect(removeActiveTokenMock).toHaveBeenCalledWith('j1');
   });
 
   it('isTokenRevoked returns true when a record exists', async () => {

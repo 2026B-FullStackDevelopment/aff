@@ -75,7 +75,7 @@ describe('auth.login.service', () => {
     updateLoginStateMock.mockResolvedValue(undefined);
     recordFailedLoginMock.mockResolvedValue(1);
     lockAccountMock.mockResolvedValue(undefined);
-    issueSessionMock.mockReturnValue({ accessToken: 't1', jti: 'j1', user: { _id: 'u1' } });
+    issueSessionMock.mockResolvedValue({ accessToken: 't1', jti: 'j1', user: { _id: 'u1' } });
   });
 
   afterEach(() => {

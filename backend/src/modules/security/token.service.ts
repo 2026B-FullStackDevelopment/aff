@@ -1,9 +1,12 @@
 // Signs, decodes, and verifies access tokens, including the server-side revocation check.
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
-import { isTokenRevoked } from './revoked-token.repository.js';
+import { isTokenRevoked, revokeToken } from './revoked-token.repository.js';
+import { recordIssuedToken, listActiveTokensForUser } from './active-token.repository.js';
 import { env } from '../../config/env.js';
+import type { RevokeReason } from './revoked-token.model.js';
 import type { Role, UserDocument } from '../users/user.model.js';
+import type { Types } from 'mongoose';
 
 /**
  * The claims signed into an access token: who the user is and what role they
@@ -128,14 +131,21 @@ async function verifyAccessToken(token: string): Promise<DecodedToken> {
 
 /**
  * Issues a new session for a user who has just registered or logged in
- * successfully. Purely local — signs a token and bundles it with the user
- * document; does not touch the database.
+ * successfully. Signs a token, records its `jti` as live (so a future
+ * revoke-all-sessions action has something to enumerate), and bundles it with
+ * the user document.
  *
  * @param user - The user to issue a session for.
  * @returns The new session, including the raw access token to return to the client.
  */
-function issueSession(user: UserDocument): AuthSession {
+async function issueSession(user: UserDocument): Promise<AuthSession> {
   const signed = signAccessToken({ userId: String(user._id), role: user.role });
+
+  await recordIssuedToken({
+    jti: signed.jti,
+    userId: String(user._id),
+    expiresAt: signed.expiresAt,
+  });
 
   return {
     accessToken: signed.token,
@@ -145,5 +155,31 @@ function issueSession(user: UserDocument): AuthSession {
   };
 }
 
-export { signAccessToken, decodeAccessToken, verifyAccessToken, issueSession };
+/**
+ * Revokes every token currently live for a user — the primitive a
+ * revoke-all-sessions action (e.g. Admin deactivation) composes from. Looks
+ * up the user's live `jti`s and revokes each one with the given reason;
+ * revoking a token that has already expired or been revoked is a no-op
+ * (`revokeToken` is idempotent), so this is safe to retry.
+ *
+ * @param userId - The user whose sessions to revoke.
+ * @param reason - Why these tokens are being revoked, written onto each
+ *   resulting `REVOKED_TOKEN` row.
+ * @throws Any error from revoking an individual token, e.g. a database
+ *   failure — the caller decides whether to retry.
+ */
+async function revokeAllTokensForUser(
+  userId: string | Types.ObjectId,
+  reason: RevokeReason
+): Promise<void> {
+  const liveTokens = await listActiveTokensForUser(userId);
+
+  await Promise.all(
+    liveTokens.map((token) =>
+      revokeToken({ jti: token.jti, userId, expiresAt: token.expiresAt, reason })
+    )
+  );
+}
+
+export { signAccessToken, decodeAccessToken, verifyAccessToken, issueSession, revokeAllTokensForUser };
 export type { AccessTokenPayload, SignedToken, DecodedToken, AuthSession };
