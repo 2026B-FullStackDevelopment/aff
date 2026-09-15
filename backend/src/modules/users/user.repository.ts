@@ -1,68 +1,18 @@
 // Contains user database queries so services do not call Mongoose directly.
-import User, {
-  type UserDocument,
-  type Role,
-  type AccountStatus,
-} from './user.model.js';
-import Recipient, { type RecipientDocument } from './recipient.model.js';
-import Donor, { type DonorDocument } from './donor.model.js';
-import Courier, { type CourierDocument } from './courier.model.js';
+import User from './user.model.js';
+import Recipient from './recipient.model.js';
+import Donor from './donor.model.js';
+import Courier from './courier.model.js';
+import type { AccountStatus, Role, UserDocument } from './user.types.js';
 import type { PipelineStage, Types } from 'mongoose';
-
-/** Pagination for an Admin-facing account listing. */
-interface RolePageQuery {
-  page: number;
-  limit: number;
-}
-
-/** One page of accounts holding a role, plus the total in that role. */
-interface UserPage {
-  items: UserDocument[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AdminUsersQuery extends RolePageQuery {
-  role?: Role;
-  status?: AccountStatus;
-  search?: string;
-}
-
-/** A USER row plus the role profile needed to build its Admin-facing DTO. */
-interface AdminUserDocument extends UserDocument {
-  recipientProfile?: RecipientDocument;
-  donorProfile?: DonorDocument;
-  courierProfile?: CourierDocument;
-  profileName: string;
-}
-
-interface AdminUserPage extends Omit<UserPage, 'items'> {
-  items: AdminUserDocument[];
-}
-
-interface UserPageAggregationResult<TItem = UserDocument> {
-  items: TItem[];
-  metadata: Array<{ total: number }>;
-}
+import type {
+  AdminUserDocument, AdminUserPage, AdminUsersQuery, CreateUserInput,
+  LoginStateUpdate, RecipientSearchResult, RolePageQuery, UserPage,
+  UserPageAggregationResult,
+} from './user.types.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-interface CreateUserInput {
-  username: string;
-  email: string;
-  passwordHash: string;
-  role: Role;
-  country?: string;
-  city?: string;
-}
-
-interface RecipientSearchResult {
-  _id: Types.ObjectId;
-  username: string;
-  email: string;
 }
 
 function createUser(data: CreateUserInput) {
@@ -113,12 +63,6 @@ function updateAccountStatus(
     { $set: { status } },
     { new: true, runValidators: true },
   ).lean<UserDocument>();
-}
-
-interface LoginStateUpdate {
-  failedLoginCount: number;
-  windowStartedAt: Date | null;
-  lockedUntil: Date | null;
 }
 
 function updateLoginState(id: string | Types.ObjectId, state: LoginStateUpdate) {
@@ -301,12 +245,6 @@ export {
   findUsersForAdmin,
 };
 export type {
-  CreateUserInput,
-  LoginStateUpdate,
-  RecipientSearchResult,
-  RolePageQuery,
-  UserPage,
-  AdminUsersQuery,
-  AdminUserDocument,
-  AdminUserPage,
-};
+  CreateUserInput, LoginStateUpdate, RecipientSearchResult, RolePageQuery,
+  UserPage, AdminUsersQuery, AdminUserDocument, AdminUserPage,
+} from './user.types.js';

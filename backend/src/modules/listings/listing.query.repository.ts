@@ -1,37 +1,15 @@
 // Contains read-only Listing queries and pagination aggregations.
-import Listing, { type ListingDocument } from './listing.model.js';
+import Listing from './listing.model.js';
+import type { ListingDocument } from './listing.types.js';
 import { Types, type ClientSession, type PipelineStage } from 'mongoose';
-import type { MineListingsQuery, ListingsQuery } from './listing.query.schemas.js';
-
-/** A Listing returned by the Donor aggregation with calculated statistics. */
-type ListingWithStatsRecord = ListingDocument & {
-  donatedQuantity: number;
-  revenue: number;
-};
-
-interface MyListingsRepositoryResult {
-  items: ListingWithStatsRecord[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface MyListingsAggregationResult {
-  items: ListingWithStatsRecord[];
-  metadata: Array<{ total: number }>;
-}
-
-interface AvailableListingsRepositoryResult {
-  items: ListingDocument[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AvailableListingsAggregationResult {
-  items: ListingDocument[];
-  metadata: Array<{ total: number }>;
-}
+import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
+import type {
+  AvailableListingsAggregationResult,
+  AvailableListingsRepositoryResult,
+  ListingWithStatsRecord,
+  MyListingsAggregationResult,
+  MyListingsRepositoryResult,
+} from './listing.query.types.js';
 
 /** Escapes user input before it is embedded in a MongoDB regular expression. */
 function escapeRegExp(value: string): string {
@@ -262,8 +240,4 @@ export {
   findListingById,
   findListingsByIds,
 };
-export type {
-  ListingWithStatsRecord,
-  MyListingsRepositoryResult,
-  AvailableListingsRepositoryResult,
-};
+export type { ListingWithStatsRecord, MyListingsRepositoryResult, AvailableListingsRepositoryResult } from './listing.query.types.js';

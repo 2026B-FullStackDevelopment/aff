@@ -1,15 +1,6 @@
 // Defines the MongoDB shape for Recipient profiles (docs/database_design.md § RECIPIENT).
 import mongoose, { Schema } from 'mongoose';
-
-type Tier = 'STANDARD' | 'PREMIUM';
-
-interface RecipientAttrs {
-  userId: mongoose.Types.ObjectId;
-  tier: Tier;
-  stripeCustomerId: string | null;
-}
-
-interface RecipientDocument extends RecipientAttrs, mongoose.Document {}
+import type { RecipientDocument } from './recipient.types.js';
 
 const recipientSchema = new Schema<RecipientDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
@@ -18,4 +9,4 @@ const recipientSchema = new Schema<RecipientDocument>({
 });
 
 export default mongoose.model<RecipientDocument>('Recipient', recipientSchema);
-export type { Tier, RecipientDocument };
+export type { Tier, RecipientDocument } from './recipient.types.js';

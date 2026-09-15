@@ -5,21 +5,10 @@ import * as listingCommandRepository from './listing.command.repository.js';
 import * as listingTransactionRepository from './listing.transaction.repository.js';
 import { getListingDonorData, requireOwnedListing } from './listing.access.service.js';
 import { createHttpError } from './listing.service.errors.js';
-import type { ListingDocument, ListingStatus } from './listing.model.js';
-import type {
-  ListingDtoSource,
-  UpdateListingStatusRequestDto,
-  UpdateListingStatusResponseDto,
-} from './listing.dto.js';
-import type { CreateListingPayload } from './listing.command.schemas.js';
-
-interface UpdateListingStatusServiceResult {
-  listing: ListingDtoSource;
-  cancelledOrderCount: number;
-  refundOutcomes: UpdateListingStatusResponseDto['refundOutcomes'];
-}
-
-type RequestedListingStatus = UpdateListingStatusRequestDto['status'];
+import type { ListingDocument, ListingStatus } from './listing.types.js';
+import type { ListingDtoSource } from './listing.response.dto.js';
+import type { CreateListingPayload } from './listing.schemas.js';
+import type { RequestedListingStatus, UpdateListingStatusServiceResult } from './listing.command.types.js';
 
 function assertStatusUpdated(listing: ListingDocument | null): ListingDocument {
   if (!listing) {

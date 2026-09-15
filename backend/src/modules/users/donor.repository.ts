@@ -1,14 +1,8 @@
 // Contains donor profile database queries so services do not call Mongoose directly.
-import Donor, { type DonorDocument } from './donor.model.js';
+import Donor from './donor.model.js';
+import type { DonorDocument } from './donor.types.js';
 import type { Types } from 'mongoose';
-
-interface CreateDonorInput {
-  userId: string | Types.ObjectId;
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: { latitude: number; longitude: number };
-}
+import type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';
 
 function createDonor(data: CreateDonorInput) {
   return Donor.create({
@@ -27,12 +21,6 @@ function createDonor(data: CreateDonorInput) {
 
 function findDonorByUserId(userId: string | Types.ObjectId) {
   return Donor.findOne({ userId }).lean<DonorDocument>();
-}
-
-interface UpdateDonorInput {
-  companyName?: string;
-  addressText?: string;
-  location?: { latitude: number; longitude: number };
 }
 
 function updateDonor(userId: string | Types.ObjectId, data: UpdateDonorInput) {
@@ -74,4 +62,4 @@ function findDonorsByUserIds(userIds: Array<string | Types.ObjectId>) {
 }
 
 export { createDonor, findDonorByUserId, updateDonor, findDonorsByUserIds };
-export type { CreateDonorInput, UpdateDonorInput };
+export type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';

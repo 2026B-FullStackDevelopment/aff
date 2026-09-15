@@ -1,5 +1,6 @@
 // Contains atomic Listing inventory updates used by donation and order flows.
-import Listing, { type ListingDocument } from './listing.model.js';
+import Listing from './listing.model.js';
+import type { ListingDocument } from './listing.types.js';
 import { Types, type ClientSession } from 'mongoose';
 
 /**

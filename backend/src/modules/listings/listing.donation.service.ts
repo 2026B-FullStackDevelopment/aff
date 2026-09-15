@@ -6,18 +6,9 @@ import * as listingStockRepository from './listing.stock.repository.js';
 import * as listingTransactionRepository from './listing.transaction.repository.js';
 import { requireOwnedListing } from './listing.access.service.js';
 import { createHttpError } from './listing.service.errors.js';
-import type {
-  CreateDonorInitiatedDonationRequestDto,
-  ListingOrderDtoSource,
-} from './listing.dto.js';
-import type { ListingOrdersQuery } from './listing.query.schemas.js';
-
-interface ListingOrdersServiceResult {
-  items: ListingOrderDtoSource[];
-  page: number;
-  limit: number;
-  total: number;
-}
+import type { CreateDonorInitiatedDonationRequestDto } from './listing.request.dto.js';
+import type { ListingOrdersQuery } from './listing.schemas.js';
+import type { ListingOrdersServiceResult } from './listing.donation.types.js';
 
 async function listListingOrders(
   listingId: string,

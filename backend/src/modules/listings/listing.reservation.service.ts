@@ -7,7 +7,7 @@ import * as listingQueryRepository from './listing.query.repository.js';
 import * as listingStockRepository from './listing.stock.repository.js';
 import * as listingTransactionRepository from './listing.transaction.repository.js';
 import { createHttpError } from './listing.service.errors.js';
-import type { ReserveListingRequestDto } from './listing.dto.js';
+import type { ReserveListingRequestDto } from './listing.request.dto.js';
 
 /** Creates a Recipient-initiated Order and its eligible Delivery atomically. */
 async function reserveListing(

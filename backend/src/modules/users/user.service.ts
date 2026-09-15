@@ -11,54 +11,16 @@ import type {
   AdminUsersQuery,
   LoginStateUpdate,
   RolePageQuery,
-} from './user.repository.js';
+} from './user.types.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
-import type { AccountStatus, Role, UserDocument } from './user.model.js';
-import type { Tier } from './recipient.model.js';
-import type { CourierDocument } from './courier.model.js';
+import type { AccountStatus, Role, UserDocument } from './user.types.js';
+import type { Tier } from './recipient.types.js';
 import type { Types } from 'mongoose';
-
-/** The presented token's claims, from `req.auth` (set by `requireAuth`). */
-interface RequestAuth {
-  jti: string;
-  expiresAt: Date;
-}
-
-/** The fields an Admin supplies when creating a Courier account (E1). */
-interface CreateCourierAccountInput {
-  username: string;
-  email: string;
-  password: string;
-  fullName: string;
-}
-
-/** A Courier account: the base `USER` row plus its `COURIER` profile. */
-interface CourierAccount {
-  user: UserDocument;
-  courier: CourierDocument;
-}
-
-/** One Courier account in a listing; `courier` is null if the profile row is missing. */
-interface CourierAccountSummary {
-  user: UserDocument;
-  courier: CourierDocument | null;
-}
-
-/** One page of Courier accounts for the Admin roster. */
-interface CourierAccountPage {
-  items: CourierAccountSummary[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface CreateDonorProfileInput {
-  userId: string | Types.ObjectId;
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: { latitude: number; longitude: number };
-}
+import type {
+  CourierAccount, CourierAccountPage, CourierAccountSummary,
+  CreateCourierAccountInput, RequestAuth,
+} from './user.types.js';
+import type { CreateDonorProfileInput } from './donor.types.js';
 
 function duplicateEmailError(): Error {
   const error: Error = new Error('This email is already registered.');
@@ -465,9 +427,9 @@ export {
   changeEmail,
 };
 export type {
-  CreateDonorProfileInput,
   CreateCourierAccountInput,
   CourierAccount,
   CourierAccountSummary,
   CourierAccountPage,
-};
+} from './user.types.js';
+export type { CreateDonorProfileInput } from './donor.types.js';

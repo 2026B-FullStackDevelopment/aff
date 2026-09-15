@@ -3,11 +3,11 @@ import {
   toListingResponseDto,
   toListingDetailResponseDto,
   toListingWithStatsResponseDto,
-} from '../../../src/modules/listings/listing.dto.js';
+} from '../../../src/modules/listings/listing.response.dto.js';
 import type {
   ListingDtoSource,
   ListingWithStatsDtoSource,
-} from '../../../src/modules/listings/listing.dto.js';
+} from '../../../src/modules/listings/listing.response.dto.js';
 
 function createListingSource(): ListingDtoSource {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');

@@ -1,32 +1,8 @@
 // Contains Listing creation and general state-change commands.
-import Listing, {
-  type ListingDocument,
-  type MeasurementUnit,
-  type FoodCategory,
-  type ListingStatus,
-} from './listing.model.js';
-import { Types, type ClientSession } from 'mongoose';
-
-interface CreateListingInput {
-  donorId: string | Types.ObjectId;
-  name: string;
-  description?: string;
-  imageUrl?: string;
-  unit: MeasurementUnit;
-  category: FoodCategory;
-  isVegetarian: boolean;
-  price: number;
-  city?: string;
-  status?: ListingStatus;
-  donationLimit: number;
-  rationLimitPerPerson?: number;
-  quantityRemaining: number;
-}
-
-interface UpdateListingStatusOptions {
-  session?: ClientSession;
-  closedAt?: Date;
-}
+import Listing from './listing.model.js';
+import type { ListingDocument, ListingStatus } from './listing.types.js';
+import { Types } from 'mongoose';
+import type { CreateListingInput, UpdateListingStatusOptions } from './listing.command.types.js';
 
 /** Creates a Listing from an already-validated service payload. */
 function createListing(data: CreateListingInput) {
@@ -60,4 +36,4 @@ function updateListingStatusIfCurrent(
 }
 
 export { createListing, updateListing, updateListingStatusIfCurrent };
-export type { CreateListingInput, UpdateListingStatusOptions };
+export type { CreateListingInput, UpdateListingStatusOptions } from './listing.command.types.js';

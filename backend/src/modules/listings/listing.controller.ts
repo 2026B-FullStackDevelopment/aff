@@ -9,21 +9,28 @@ import {
   toListingDetailResponseDto,
   toListingWithStatsResponseDto,
   toListingOrderResponseDto,
-} from './listing.dto.js';
+} from './listing.response.dto.js';
+import type {
+  ListingResponseDto,
+  ListingDetailResponseDto,
+  ListingWithStatsResponseDto,
+  MyListingsResponseDto,
+  UpdateListingStatusResponseDto,
+  ListingOrdersResponseDto,
+} from './listing.response.dto.js';
 import { created, ok, paginated } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js'; // parseBody takes a zod schema describing valid data. Returns validated data or throw error
-import { listingIdParamsSchema } from './listing.shared.schemas.js';
+import { listingIdParamsSchema } from './listing.schemas.js';
 import {
   createListingSchema,
   updateListingStatusSchema,
-} from './listing.command.schemas.js';
+} from './listing.schemas.js';
 import {
   mineListingsQuerySchema,
   listingsQuerySchema,
   listingOrdersQuerySchema,
-} from './listing.query.schemas.js';
-import { donorInitiatedDonationSchema } from './listing.donation.schemas.js';
-import { reserveListingSchema } from './listing.reservation.schemas.js';
+} from './listing.schemas.js';
+import { donorInitiatedDonationSchema, reserveListingSchema } from './listing.schemas.js';
 import { toOrderResponseDto } from '../orders/order.dto.js';
 
 async function listAvailableListings(req: Request, res: Response, next: NextFunction) {

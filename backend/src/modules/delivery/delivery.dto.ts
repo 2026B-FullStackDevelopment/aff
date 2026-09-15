@@ -1,4 +1,4 @@
-import type { DeliveryDocument, DeliveryStage } from './delivery.model.js';
+import type { DeliveryDocument, DeliveryStage } from './delivery.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface DeliveryResponseDto {

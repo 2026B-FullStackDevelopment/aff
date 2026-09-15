@@ -1,27 +1,18 @@
-// Shapes Listing request and response data sent between the backend,
-// frontend, and other backend modules.
+// Shapes Listing data returned by backend HTTP endpoints.
 import type {
   ListingDocument,
   MeasurementUnit,
   FoodCategory,
   ListingStatus,
-} from './listing.model.js';
+} from './listing.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 import {
   toOrderResponseDto,
   type OrderResponseDto,
 } from '../orders/order.dto.js';
-import type {
-  OrderDocument,
-  PaymentMethod,
-} from '../orders/order.model.js';
+import type { OrderDocument } from '../orders/order.types.js';
 
-/**
- * Donor data required when constructing Listing response DTOs.
- *
- * The Listing document stores donorId and city, but companyName,
- * addressText, and location come from the Donor profile.
- */
+/** Donor data required when constructing Listing response DTOs. */
 interface ListingDonorData {
   id: string;
   companyName: string;
@@ -30,17 +21,13 @@ interface ListingDonorData {
   location: GeoLocation;
 }
 
-/**
- * Enriched data passed from the Listing service to the DTO mapper.
- */
+/** Enriched data passed from the Listing service to the DTO mapper. */
 interface ListingDtoSource {
   listing: ListingDocument;
   donor: ListingDonorData;
 }
 
-/**
- * Donor information included in standard ListingDTO responses.
- */
+/** Donor information included in standard Listing responses. */
 interface ListingDonorSummary {
   id: string;
   companyName: string;
@@ -48,12 +35,7 @@ interface ListingDonorSummary {
   location: GeoLocation;
 }
 
-/**
- * Expanded Donor information returned by GET /listings/:id.
- *
- * The address and location are required for PER_REQUEST listings,
- * where the Recipient collects food directly from the Donor.
- */
+/** Expanded Donor information returned by `GET /listings/:id`. */
 interface ListingDonorDetail {
   id: string;
   companyName: string;
@@ -79,25 +61,8 @@ interface ListingResponseDto {
   createdAt: Date;
 }
 
-/**
- * Uses all ListingResponseDto fields except donor, then replaces donor
- * with the expanded ListingDonorDetail type.
- */
-interface ListingDetailResponseDto
-  extends Omit<ListingResponseDto, 'donor'> {
+interface ListingDetailResponseDto extends Omit<ListingResponseDto, 'donor'> {
   donor: ListingDonorDetail;
-}
-
-interface CreateListingRequestDto {
-  name: string;
-  description?: string;
-  imageUrl?: string;
-  unit: MeasurementUnit;
-  category: FoodCategory;
-  isVegetarian: boolean;
-  price: number;
-  donationLimit: number;
-  rationLimitPerPerson?: number;
 }
 
 interface ListingWithStatsResponseDto extends ListingResponseDto {
@@ -105,9 +70,7 @@ interface ListingWithStatsResponseDto extends ListingResponseDto {
   revenue: number;
 }
 
-/**
- * Enriched Listing source containing calculated donation statistics.
- */
+/** Enriched Listing source containing calculated donation statistics. */
 interface ListingWithStatsDtoSource extends ListingDtoSource {
   donatedQuantity: number;
   revenue: number;
@@ -118,10 +81,6 @@ interface MyListingsResponseDto {
   page: number;
   limit: number;
   total: number;
-}
-
-interface UpdateListingStatusRequestDto {
-  status: 'PAUSED' | 'ACTIVE' | 'CANCELLED';
 }
 
 interface RefundOutcomeDto {
@@ -135,25 +94,7 @@ interface UpdateListingStatusResponseDto {
   refundOutcomes: RefundOutcomeDto[];
 }
 
-// dto interface restricts the attributes being transfered
-interface CreateDonorInitiatedDonationRequestDto {
-  recipientEmail: string;
-  quantity: number;
-}
-
-interface ReserveListingRequestDto {
-  quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: {
-    latitude: number;
-    longitude: number;
-  };
-  paymentMethod?: 'STRIPE' | 'CASH';
-}
-
-/**
- * Data needed to build an order row for a Donor's Listing.
- */
+/** Data needed to build an order row for a Donor's Listing. */
 interface ListingOrderDtoSource {
   order: OrderDocument;
   recipient: {
@@ -169,10 +110,7 @@ interface ListingOrderDtoSource {
   };
 }
 
-/**
- * GET /listings/:id/orders returns OrderDTO with an additional
- * Recipient summary.
- */
+/** Order response extended with the Recipient summary needed by a Donor. */
 interface ListingOrderResponseDto extends OrderResponseDto {
   recipient: {
     id: string;
@@ -187,9 +125,7 @@ interface ListingOrdersResponseDto {
   total: number;
 }
 
-/**
- * Maps the fields shared by standard and detailed Listing responses.
- */
+/** Maps fields shared by standard and detailed Listing responses. */
 function mapListingFields(
   source: ListingDtoSource,
 ): Omit<ListingResponseDto, 'donor'> {
@@ -213,15 +149,11 @@ function mapListingFields(
   };
 }
 
-/**
- * Maps an enriched Listing to the standard ListingDTO response.
- */
+/** Maps an enriched Listing to the standard Listing response. */
 function toListingResponseDto(
   source: ListingDtoSource | null,
 ): ListingResponseDto | null {
-  if (!source) {
-    return null;
-  }
+  if (!source) return null;
 
   return {
     ...mapListingFields(source),
@@ -234,16 +166,11 @@ function toListingResponseDto(
   };
 }
 
-/**
- * Maps an enriched Listing to the detailed response used by
- * GET /listings/:id.
- */
+/** Maps an enriched Listing to the detailed Listing response. */
 function toListingDetailResponseDto(
   source: ListingDtoSource | null,
 ): ListingDetailResponseDto | null {
-  if (!source) {
-    return null;
-  }
+  if (!source) return null;
 
   return {
     ...mapListingFields(source),
@@ -256,9 +183,7 @@ function toListingDetailResponseDto(
   };
 }
 
-/**
- * Maps an enriched Listing and its calculated statistics.
- */
+/** Maps an enriched Listing and its calculated statistics. */
 function toListingWithStatsResponseDto(
   source: ListingWithStatsDtoSource,
 ): ListingWithStatsResponseDto {
@@ -275,10 +200,7 @@ function toListingWithStatsResponseDto(
   };
 }
 
-/**
- * Maps an Order and its Recipient into the row returned by
- * GET /listings/:id/orders.
- */
+/** Maps an Order and its Recipient into a Donor-facing Listing order row. */
 function toListingOrderResponseDto(
   source: ListingOrderDtoSource,
 ): ListingOrderResponseDto {
@@ -310,14 +232,11 @@ export type {
   ListingDonorDetail,
   ListingResponseDto,
   ListingDetailResponseDto,
-  CreateListingRequestDto,
   ListingWithStatsDtoSource,
   ListingWithStatsResponseDto,
   MyListingsResponseDto,
-  UpdateListingStatusRequestDto,
+  RefundOutcomeDto,
   UpdateListingStatusResponseDto,
-  CreateDonorInitiatedDonationRequestDto,
-  ReserveListingRequestDto,
   ListingOrderDtoSource,
   ListingOrderResponseDto,
   ListingOrdersResponseDto,

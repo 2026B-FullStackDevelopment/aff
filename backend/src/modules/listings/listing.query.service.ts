@@ -3,35 +3,10 @@ import { userInterface } from '../users/user.interface.js';
 import * as listingQueryRepository from './listing.query.repository.js';
 import { enrichListing, getListingDonorData } from './listing.access.service.js';
 import { createHttpError } from './listing.service.errors.js';
-import type { ListingDocument } from './listing.model.js';
-import type {
-  GeoLocation,
-  ListingDtoSource,
-  ListingWithStatsDtoSource,
-} from './listing.dto.js';
-import type { MineListingsQuery, ListingsQuery } from './listing.query.schemas.js';
-
-interface MyListingsServiceResult {
-  items: ListingWithStatsDtoSource[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AvailableListingsServiceResult {
-  items: ListingDtoSource[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface ListingDonorSummaryByListing {
-  listingId: string;
-  listingName: string;
-  companyName: string;
-  addressText: string;
-  location: GeoLocation;
-}
+import type { ListingDocument } from './listing.types.js';
+import type { ListingDtoSource } from './listing.response.dto.js';
+import type { MineListingsQuery, ListingsQuery } from './listing.schemas.js';
+import type { AvailableListingsServiceResult, ListingDonorSummaryByListing, MyListingsServiceResult } from './listing.query.types.js';
 
 async function listMyListings(
   donorId: string,
@@ -118,4 +93,4 @@ export {
   getListingById,
   findDonorSummariesByListingIds,
 };
-export type { ListingDonorSummaryByListing };
+export type { ListingDonorSummaryByListing } from './listing.query.types.js';

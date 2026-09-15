@@ -1,38 +1,7 @@
 // Defines the MongoDB shape for a Recipient's order on a listing (docs/database_design.md § ORDER).
 import mongoose, { Schema } from 'mongoose';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-
-type IntakePath = 'RESERVATION' | 'DONOR_INITIATED';
-type PaymentMethod = 'STRIPE' | 'CASH';
-type PaymentStatus = 'FREE' | 'PAYMENT_PENDING' | 'PAID' | 'REFUND_PENDING' | 'REFUNDED';
-type OrderStatus = 'PENDING_PAYMENT' | 'PREPARING' | 'DELIVERED' | 'CANCELLED';
-
-interface OrderFeedback {
-  comment: string;
-  createdAt: Date;
-}
-
-interface OrderAttrs {
-  recipientId: mongoose.Types.ObjectId;
-  listingId: mongoose.Types.ObjectId;
-  intakePath: IntakePath;
-  quantity: number;
-  amount: number;
-  paymentMethod?: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  orderStatus: OrderStatus;
-  deliveryAddressText?: string;
-  deliveryLocation?: GeoLocation;
-  cancelledByUserId?: mongoose.Types.ObjectId;
-  cashConfirmedByCourierId?: mongoose.Types.ObjectId;
-  cashConfirmedAt?: Date;
-  feedback?: OrderFeedback;
-  createdAt: Date;
-  updatedAt: Date;
-  cancelledAt?: Date;
-}
-
-interface OrderDocument extends OrderAttrs, mongoose.Document {}
+import type { OrderDocument } from './order.types.js';
 
 const deliveryLocationSchema = new Schema<GeoLocation>(
   {
@@ -86,4 +55,4 @@ const orderSchema = new Schema<OrderDocument>(
 );
 
 export default mongoose.model<OrderDocument>('Order', orderSchema);
-export type { IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback, OrderDocument };
+export type { IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback, OrderDocument } from './order.types.js';

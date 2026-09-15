@@ -1,20 +1,8 @@
 // Contains subscription database queries so services do not call Mongoose directly.
-import Subscription, { type SubscriptionDocument, type SubscriptionStatus } from './subscription.model.js';
+import Subscription from './subscription.model.js';
+import type { SubscriptionDocument } from './subscription.types.js';
 import type { Types } from 'mongoose';
-
-interface CreateSubscriptionInput {
-  recipientId: string | Types.ObjectId;
-  stripeSubscriptionId: string;
-  status: SubscriptionStatus;
-  currentPeriodEnd: Date;
-  cancelAtPeriodEnd?: boolean;
-  stripeInvoiceId?: string;
-}
-
-interface SetLatestSubscriptionFieldsPatch {
-  status?: SubscriptionStatus;
-  cancelAtPeriodEnd?: boolean;
-}
+import type { CreateSubscriptionInput, SetLatestSubscriptionFieldsPatch } from './subscription.types.js';
 
 function createSubscription(data: CreateSubscriptionInput) {
   return Subscription.create(data);

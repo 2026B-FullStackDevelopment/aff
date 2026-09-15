@@ -8,18 +8,20 @@ import {
   paymentMethodSchema,
   donationLimitSchema,
   positiveQuantitySchema,
-} from '../../../src/modules/listings/listing.shared.schemas.js';
+} from '../../../src/modules/listings/listing.schemas.js';
 import {
   createListingSchema,
   updateListingStatusSchema,
-} from '../../../src/modules/listings/listing.command.schemas.js';
+} from '../../../src/modules/listings/listing.schemas.js';
 import {
   listingOrdersQuerySchema,
   listingsQuerySchema,
   mineListingsQuerySchema,
-} from '../../../src/modules/listings/listing.query.schemas.js';
-import { donorInitiatedDonationSchema } from '../../../src/modules/listings/listing.donation.schemas.js';
-import { reserveListingSchema } from '../../../src/modules/listings/listing.reservation.schemas.js';
+} from '../../../src/modules/listings/listing.schemas.js';
+import {
+  donorInitiatedDonationSchema,
+  reserveListingSchema,
+} from '../../../src/modules/listings/listing.schemas.js';
 
 const validListing = {
   name: 'Fresh bread',

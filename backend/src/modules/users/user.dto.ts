@@ -1,7 +1,7 @@
 // Shapes user data before sending it to the frontend or another module.
-import type { UserDocument, Role, AccountStatus } from './user.model.js';
-import type { RecipientDocument } from './recipient.model.js';
-import type { DonorDocument } from './donor.model.js';
+import type { UserDocument, Role, AccountStatus } from './user.types.js';
+import type { RecipientDocument } from './recipient.types.js';
+import type { DonorDocument } from './donor.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface UserResponseDto {

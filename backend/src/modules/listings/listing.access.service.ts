@@ -2,8 +2,8 @@
 import type { ClientSession } from 'mongoose';
 import { userInterface } from '../users/user.interface.js';
 import * as listingQueryRepository from './listing.query.repository.js';
-import type { ListingDocument } from './listing.model.js';
-import type { ListingDonorData, ListingDtoSource } from './listing.dto.js';
+import type { ListingDocument } from './listing.types.js';
+import type { ListingDonorData, ListingDtoSource } from './listing.response.dto.js';
 import { createHttpError } from './listing.service.errors.js';
 
 async function getListingDonorData(donorId: string): Promise<ListingDonorData> {
