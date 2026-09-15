@@ -1,103 +1,17 @@
 // Contains order database queries so services do not call Mongoose directly.
-import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
-import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { FoodCategory, MeasurementUnit } from '../listings/listing.model.js';
-import type { DeliveryStage } from '../delivery/delivery.model.js';
+import Order from './order.model.js';
+import type { OrderDocument, PaymentMethod } from './order.types.js';
 import mongoose, {
   Types,
   type ClientSession,
   type PipelineStage,
 } from 'mongoose';
-
-interface CreateOrderInput {
-  recipientId: string | Types.ObjectId;
-  listingId: string | Types.ObjectId;
-  intakePath: IntakePath;
-  quantity: number;
-  amount: number;
-  paymentMethod?: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  orderStatus: OrderStatus;
-  deliveryAddressText?: string;
-  deliveryLocation?: GeoLocation;
-}
-
-interface ListingOrderRepositoryItem {
-  order: OrderDocument;
-  recipient: {
-    id: string;
-    username: string;
-  };
-}
-
-interface ListingOrdersRepositoryResult {
-  items: ListingOrderRepositoryItem[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AggregatedListingOrder extends OrderDocument {
-  recipient: {
-    id: string;
-    username: string;
-  };
-}
-
-interface ListingOrdersAggregationResult {
-  items: AggregatedListingOrder[];
-  metadata: Array<{ total: number }>;
-}
-
-interface OrderJoinSummary {
-  _id: Types.ObjectId;
-  recipientId: Types.ObjectId;
-  quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
-  paymentMethod?: 'STRIPE' | 'CASH';
-  paymentStatus: PaymentStatus;
-  listingId: Types.ObjectId;
-  amount: number;
-}
-
-interface RecipientOrderListingSummary {
-  id: string;
-  name: string;
-  imageUrl: string | undefined;
-  unit: MeasurementUnit;
-  category: FoodCategory;
-}
-
-interface RecipientOrderDonorSummary {
-  id: string;
-  companyName: string;
-}
-
-interface RecipientOrderRepositoryItem {
-  order: OrderDocument;
-  listing: RecipientOrderListingSummary;
-  donor: RecipientOrderDonorSummary;
-  deliveryStage: DeliveryStage | null;
-}
-
-interface RecipientOrdersRepositoryResult {
-  items: RecipientOrderRepositoryItem[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AggregatedRecipientOrder extends OrderDocument {
-  listing: RecipientOrderListingSummary;
-  donor: RecipientOrderDonorSummary;
-  deliveryStage: DeliveryStage | null;
-}
-
-interface RecipientOrdersAggregationResult {
-  items: AggregatedRecipientOrder[];
-  metadata: Array<{ total: number }>;
-}
+import type {
+  AggregatedListingOrder, AggregatedRecipientOrder, CreateOrderInput,
+  ListingOrderRepositoryItem, ListingOrdersAggregationResult, ListingOrdersRepositoryResult,
+  OrderJoinSummary, RecipientOrdersAggregationResult, RecipientOrderRepositoryItem,
+  RecipientOrdersRepositoryResult,
+} from './order.types.js';
 
 function findOrderById(
   orderId: string | Types.ObjectId,
@@ -620,10 +534,7 @@ export {
 };
 
 export type {
-  CreateOrderInput,
-  OrderJoinSummary,
-  ListingOrderRepositoryItem,
-  ListingOrdersRepositoryResult,
-  RecipientOrderRepositoryItem,
+  CreateOrderInput, OrderJoinSummary, ListingOrderRepositoryItem,
+  ListingOrdersRepositoryResult, RecipientOrderRepositoryItem,
   RecipientOrdersRepositoryResult,
-};
+} from './order.types.js';

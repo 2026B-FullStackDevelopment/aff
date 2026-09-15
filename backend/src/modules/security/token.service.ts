@@ -4,9 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { isTokenRevoked, revokeToken } from './revoked-token.repository.js';
 import { recordIssuedToken, listActiveTokensForUser } from './active-token.repository.js';
 import { env } from '../../config/env.js';
-import type { RevokeReason } from './revoked-token.model.js';
-import type { Role, UserDocument } from '../users/user.model.js';
+import type { RevokeReason } from './revoked-token.types.js';
+import type { Role, UserDocument } from '../users/user.types.js';
 import type { Types } from 'mongoose';
+import type { AccessTokenPayload, AuthSession, DecodedToken, SignedToken } from './token.types.js';
 
 /**
  * The claims signed into an access token: who the user is and what role they
@@ -14,41 +15,22 @@ import type { Types } from 'mongoose';
  * `docs/api_design.md` §2.1) — nothing here should ever be sourced from
  * client-controlled input at verification time.
  */
-interface AccessTokenPayload {
-  userId: string;
-  role: Role;
-}
 
 /**
  * The result of signing a new token — everything the caller needs both to
  * send the token to the client and, later, to revoke this exact session.
  */
-interface SignedToken {
-  token: string;
-  jti: string;
-  expiresAt: Date;
-}
 
 /**
  * An access token's claims after its signature and expiry have already been
  * verified. `jti` and `expiresAt` are what logout uses to write the
  * `REVOKED_TOKEN` row.
  */
-interface DecodedToken extends AccessTokenPayload {
-  jti: string;
-  expiresAt: Date;
-}
 
 /**
  * A live login session: the signed token plus everything logout needs to
  * revoke it later, and the full user document for building a response DTO.
  */
-interface AuthSession {
-  accessToken: string;
-  jti: string;
-  expiresAt: Date;
-  user: UserDocument;
-}
 
 /**
  * Signs a new JWT access token for a user, with a fresh, unique `jti`.
@@ -182,4 +164,4 @@ async function revokeAllTokensForUser(
 }
 
 export { signAccessToken, decodeAccessToken, verifyAccessToken, issueSession, revokeAllTokensForUser };
-export type { AccessTokenPayload, SignedToken, DecodedToken, AuthSession };
+export type { AccessTokenPayload, SignedToken, DecodedToken, AuthSession } from './token.types.js';

@@ -1,5 +1,5 @@
 // Shapes Notification response data crossing the backend's external boundary.
-import type { NotificationDocument } from './notification.model.js';
+import type { NotificationDocument } from './notification.types.js';
 
 interface NotificationResponseDto {
   id: string;

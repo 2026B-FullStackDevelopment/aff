@@ -1,13 +1,8 @@
 // Contains active-token database queries so services do not call Mongoose directly.
-import ActiveToken, { type ActiveTokenAttrs } from './active-token.model.js';
+import ActiveToken from './active-token.model.js';
+import type { ActiveTokenAttrs } from './active-token.types.js';
 import type { Types } from 'mongoose';
-
-/** Input for recording a newly issued token. */
-interface RecordIssuedTokenInput {
-  jti: string;
-  userId: string | Types.ObjectId;
-  expiresAt: Date;
-}
+import type { RecordIssuedTokenInput } from './active-token.types.js';
 
 /**
  * Records a freshly issued token as live. Idempotent: a duplicate `jti`
@@ -58,4 +53,4 @@ function listActiveTokensForUser(userId: string | Types.ObjectId): Promise<Activ
 }
 
 export { recordIssuedToken, removeActiveToken, listActiveTokensForUser };
-export type { RecordIssuedTokenInput };
+export type { RecordIssuedTokenInput } from './active-token.types.js';

@@ -6,10 +6,8 @@ import { Pagination } from '@/shared/components/Pagination/Pagination';
 import { Panel } from '@/shared/components/Panel/Panel';
 import type { ListingUnit } from '@/types/api';
 import type { ListingOrderDTO } from '../../types';
-import {
-    ListingOrderDesktopRow,
-    ListingOrderMobileCard,
-} from './ListingOrderItem';
+import { ListingOrderDesktopRow } from './ListingOrderDesktopRow';
+import { ListingOrderMobileCard } from './ListingOrderMobileCard';
 
 interface ListingOrdersTableProps {
     orders: ListingOrderDTO[];
@@ -24,6 +22,17 @@ interface ListingOrdersTableProps {
     onPageChange: (page: number) => void;
     onRetry: () => void;
 }
+
+const ORDER_TABLE_HEADINGS = [
+    'Recipient',
+    'Order type',
+    'Created',
+    'Quantity',
+    'Order status',
+    'Payment',
+    'Delivery',
+    'Feedback',
+] as const;
 
 // Renders the responsive, paginated C8 order collection.
 export function ListingOrdersTable({
@@ -93,7 +102,7 @@ export function ListingOrdersTable({
             className="mt-5 overflow-hidden shadow-sm"
             contentClassName="p-0"
         >
-            <div className="space-y-3 p-4 lg:hidden">
+            <div className="space-y-3 p-4 xl:hidden">
                 {orders.map((order) => (
                     <ListingOrderMobileCard
                         key={order.id}
@@ -103,70 +112,35 @@ export function ListingOrdersTable({
                 ))}
             </div>
 
-            <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[1240px] border-collapse text-left text-sm">
+            <div className="hidden xl:block">
+                <table className="w-full table-fixed border-collapse text-left text-sm">
                     <caption className="sr-only">
                         Donations and reservations for the selected
                         food listing
                     </caption>
 
+                    <colgroup>
+                        <col className="w-[13%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[15%]" />
+                        <col className="w-[9%]" />
+                        <col className="w-[13%]" />
+                        <col className="w-[12%]" />
+                        <col className="w-[13%]" />
+                        <col className="w-[13%]" />
+                    </colgroup>
+
                     <thead className="bg-[#F7F7FB] text-[#414844]">
                         <tr>
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Recipient
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Order type
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Created
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Quantity
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Order status
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Payment
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Delivery
-                            </th>
-
-                            <th
-                                scope="col"
-                                className="px-5 py-4 text-xs font-bold uppercase tracking-wider"
-                            >
-                                Feedback
-                            </th>
+                            {ORDER_TABLE_HEADINGS.map((heading) => (
+                                <th
+                                    key={heading}
+                                    scope="col"
+                                    className="px-3 py-4 text-xs font-bold uppercase tracking-wider"
+                                >
+                                    {heading}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
 

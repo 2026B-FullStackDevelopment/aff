@@ -1,6 +1,6 @@
 // Shapes NotificationPreference request/response data crossing the backend's external boundary.
-import type { NotificationPreferenceDocument } from './notification-preference.model.js';
-import type { FoodCategory } from '../listings/listing.model.js';
+import type { NotificationPreferenceDocument } from './notification-preference.types.js';
+import type { FoodCategory } from '../listings/listing.types.js';
 
 interface NotificationPreferenceResponseDto {
   id: string;

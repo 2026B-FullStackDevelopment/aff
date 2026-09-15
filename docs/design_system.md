@@ -8,7 +8,7 @@ This document defines the three role-based color themes used across the AFF port
 
 | Role | Theme | Primary Color | Source Reference |
 |---|---|---|---|
-| **Admin** | Blue / Navy | `#5b7bc0` | `/login` page |
+| **Admin** | Blue / Navy | `#0058be` | AFF Admin Figma desktop/mobile frames |
 | **Recipient** | Green | `#3D6852` | `/register/recipient` page |
 | **Donor** | Dark Brown / Gold | `#805300` | Approved AFF Figma donor wireframes |
 | **Courier** | Teal | `#0f766e` | Delivery queue / active delivery screens |
@@ -23,37 +23,40 @@ Used by: Login page, all admin dashboard pages.
 
 | Token | Hex | Usage |
 |---|---|---|
-| `admin-bg` | `#f0f4f8` | Page background |
+| `admin-bg` | `#f8f9ff` | Admin portal page background |
 | `admin-surface` | `#ffffff` | Cards, panels |
-| `admin-border` | `#dce3ec` | Panel borders |
-| `admin-shadow` | `rgba(30, 58, 95, 0.08)` | Panel drop shadows |
-| `admin-title` | `#1e3a5f` | Page and section titles |
-| `admin-text` | `#1e3a5f` | Body text on panels |
-| `admin-text-muted` | `#6B7280` | Taglines, helper text |
+| `admin-border` | `#c5c5d3` | Portal panel borders |
+| `admin-shadow` | `rgba(0, 35, 111, 0.08)` | Portal panel drop shadows |
+| `admin-title` | `#00236f` | Page and section titles |
+| `admin-text` | `#1e293b` | Body text on panels |
+| `admin-text-muted` | `#64748b` | Taglines, helper text |
+| `admin-nav` | `#00236f` | Portal top navigation |
 | `admin-label` | `#374151` | Form field labels (uppercase) |
 | `admin-input-border` | `#d1d9e0` | Input / select default border |
 | `admin-input-bg` | `#f8fafc` | Input / select background |
 | `admin-input-placeholder` | `#9CA3AF` | Input placeholder text |
-| `admin-primary` | `#5b7bc0` | Primary action button, focus ring, active input border |
-| `admin-primary-hover` | `#4a6ab0` | Primary button hover state |
-| `admin-input-focus-ring` | `rgba(91, 123, 192, 0.15)` | Input focus box-shadow |
+| `admin-primary` | `#0058be` | Primary portal action button and active navigation accent |
+| `admin-primary-hover` | `#00489d` | Primary button hover state |
+| `admin-input-focus-ring` | `rgba(0, 88, 190, 0.15)` | Input focus box-shadow |
 | `admin-link-recipient` | `#4B5563` | "Sign up as Recipient" link |
 | `admin-link-donor` | `#D97706` | "Sign up as Donor" link |
 
 ### Tailwind Equivalents (approximate)
 
 ```
-admin-bg              → bg-slate-100 / bg-[#f0f4f8]
+admin-bg              → bg-[#f8f9ff]
 admin-surface         → bg-white
-admin-border          → border-[#dce3ec]
-admin-title / text    → text-[#1e3a5f]
+admin-border          → border-[#c5c5d3]
+admin-title           → text-[#00236f]
+admin-text            → text-slate-800
 admin-text-muted      → text-gray-500
 admin-label           → text-gray-700
-admin-primary         → bg-[#5b7bc0]  text-white
-admin-primary-hover   → hover:bg-[#4a6ab0]
+admin-primary         → bg-[#0058be] text-white
+admin-primary-hover   → hover:bg-[#00489d]
+admin-nav             → bg-[#00236f]
 admin-input-bg        → bg-slate-50
 admin-input-border    → border-[#d1d9e0]
-focus ring            → focus-visible:border-[#5b7bc0] focus-visible:ring-[rgba(91,123,192,0.15)]
+focus ring            → focus-visible:border-[#0058be] focus-visible:ring-[#0058be]/15
 ```
 
 ---

@@ -1,5 +1,5 @@
 // Shapes subscription data before sending it to the frontend, and the request/response bodies for the module's other endpoints.
-import type { SubscriptionDocument, SubscriptionStatus } from './subscription.model.js';
+import type { SubscriptionDocument, SubscriptionStatus } from './subscription.types.js';
 
 interface SubscriptionResponseDto {
   id: string;

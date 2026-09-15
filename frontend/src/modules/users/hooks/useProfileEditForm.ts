@@ -4,7 +4,7 @@ import { validateUsername, validatePassword } from '@/shared/utils/validation';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import { userService } from '../services/user.service';
 import { clearSession, updateStoredUser } from '@/services/authStorage';
-import { useAvatarUpload } from './useAvatarUpload';
+import { useAvatarUpload } from '@/shared/hooks/useAvatarUpload';
 
 export interface ProfileFormData {
   username: string;

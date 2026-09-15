@@ -7,6 +7,7 @@ import type {
 } from '@/types/api';
 import type {
   CreateListingPayload,
+  DonorAnalyticsSnapshot,
   DonorInitiatedDonationPayload,
   ListingOrderDTO,
   ManagedListingDTO,
@@ -94,6 +95,12 @@ export const listingService = {
   ) =>
     httpClient.get<PaginatedData<ManagedListingDTO>>(
       buildMyListingsPath(query),
+    ),
+
+  // Loads the server-aggregated impact snapshot for the authenticated Donor.
+  getAnalytics: () =>
+    httpClient.get<DonorAnalyticsSnapshot>(
+      API_ROUTES.listings.analytics,
     ),
 
   // Creates a fresh active listing from an owned listing.

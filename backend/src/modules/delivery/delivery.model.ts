@@ -1,20 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-
-type DeliveryStage = 'AWAITING_COURIER' | 'ASSIGNED' | 'PICKED_UP' | 'DELIVERED' | 'CANCELLED';
-
-interface DeliveryAttrs {
-  orderId: mongoose.Types.ObjectId;
-  courierId?: mongoose.Types.ObjectId;
-  stage: DeliveryStage;
-  pickedUpAt?: Date;
-  deliveredAt?: Date;
-  courierLastLocation?: GeoLocation;
-  createdAt: Date;
-  cancelledAt?: Date;
-}
-
-interface DeliveryDocument extends DeliveryAttrs, mongoose.Document {}
+import type { DeliveryDocument } from './delivery.types.js';
 
 const deliverySchema = new Schema<DeliveryDocument>(
   {
@@ -59,4 +44,4 @@ deliverySchema.index(
 );
 
 export default mongoose.model<DeliveryDocument>('Delivery', deliverySchema);
-export type { DeliveryStage, DeliveryDocument };
+export type { DeliveryStage, DeliveryDocument } from './delivery.types.js';

@@ -1,26 +1,6 @@
 // Defines the MongoDB shape for AFF users.
 import mongoose, { Schema } from 'mongoose';
-
-type Role = 'RECIPIENT' | 'DONOR' | 'ADMIN' | 'COURIER';
-type AccountStatus = 'ACTIVE' | 'DEACTIVATED';
-
-interface UserAttrs {
-  username: string;
-  email: string;
-  passwordHash: string;
-  role: Role;
-  country?: string;
-  city?: string;
-  status: AccountStatus;
-  avatarUrl: string | null;
-  failedLoginCount: number;
-  windowStartedAt: Date | null;
-  lockedUntil: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface UserDocument extends UserAttrs, mongoose.Document {}
+import type { UserDocument } from './user.types.js';
 
 const userSchema = new Schema<UserDocument>(
   {
@@ -40,4 +20,4 @@ const userSchema = new Schema<UserDocument>(
 );
 
 export default mongoose.model<UserDocument>('User', userSchema);
-export type { Role, AccountStatus, UserDocument };
+export type { Role, AccountStatus, UserDocument } from './user.types.js';

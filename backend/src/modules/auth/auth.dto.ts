@@ -7,9 +7,9 @@ import {
   loginSchema,
 } from './auth.schemas.js';
 import type { UserResponseDto, RecipientResponseDto, DonorResponseDto } from '../users/user.dto.js';
-import type { AuthSession } from '../security/token.service.js';
-import type { RecipientDocument } from '../users/recipient.model.js';
-import type { DonorDocument } from '../users/donor.model.js';
+import type { AuthSession } from '../security/token.types.js';
+import type { RecipientDocument } from '../users/recipient.types.js';
+import type { DonorDocument } from '../users/donor.types.js';
 
 // Derived from the schemas so the validated shape and the DTO can never drift.
 /** Request body for `POST /auth/register/recipient`. */

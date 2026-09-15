@@ -185,6 +185,27 @@
         }
       }
     },
+    "/listings/analytics": {
+      "get": {
+        "tags": ["Donor Listings"],
+        "operationId": "getDonorAnalytics",
+        "summary": "Get the authenticated Donor's analytics snapshot",
+        "description": "Aggregates counts and paid, non-cancelled Order revenue in MongoDB. currentListings includes ACTIVE and PAUSED Listings. Returns all six food categories, including categories with zero Listings, and at most five top Listings ordered by revenue then creation date.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Server-aggregated Donor analytics snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DonorAnalyticsResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorRoleRequired" }
+        }
+      }
+    },
     "/listings/{id}": {
       "get": {
         "tags": ["Donor Listings"],
@@ -618,6 +639,54 @@
               "total": { "type": "integer" }
             }
           }
+        }
+      },
+      "DonorAnalyticsCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "listingCount", "revenue"],
+        "properties": {
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "listingCount": { "type": "integer", "minimum": 0 },
+          "revenue": { "type": "number", "minimum": 0 }
+        }
+      },
+      "DonorAnalyticsTopListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "revenue"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "revenue": { "type": "number", "minimum": 0 }
+        }
+      },
+      "DonorAnalyticsSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["totalRevenue", "totalListings", "currentListings", "soldOutListings", "categories", "topListings"],
+        "properties": {
+          "totalRevenue": { "type": "number", "minimum": 0 },
+          "totalListings": { "type": "integer", "minimum": 0 },
+          "currentListings": { "type": "integer", "minimum": 0 },
+          "soldOutListings": { "type": "integer", "minimum": 0 },
+          "categories": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DonorAnalyticsCategory" }
+          },
+          "topListings": {
+            "type": "array",
+            "maxItems": 5,
+            "items": { "$ref": "#/components/schemas/DonorAnalyticsTopListing" }
+          }
+        }
+      },
+      "DonorAnalyticsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/DonorAnalyticsSnapshot" }
         }
       },
       "UpdateListingStatusRequest": {

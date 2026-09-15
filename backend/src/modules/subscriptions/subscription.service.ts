@@ -8,7 +8,7 @@ import { userInterface } from '../users/user.interface.js';
 import * as subscriptionRepository from './subscription.repository.js';
 import { toSubscriptionResponseDto } from './subscription.dto.js';
 import type { SubscriptionStatusResponseDto, SubscriptionResponseDto } from './subscription.dto.js';
-import type { SubscriptionDocument } from './subscription.model.js';
+import type { AppendBillingCycleInput, SubscriptionDocument } from './subscription.types.js';
 
 function createHttpError(statusCode: number, message: string): Error {
   const error: Error = new Error(message);
@@ -118,14 +118,6 @@ async function resumeMySubscription(recipientId: string): Promise<SubscriptionRe
   const updated = await subscriptionRepository.setLatestSubscriptionFields(recipientId, { cancelAtPeriodEnd: false });
 
   return toSubscriptionResponseDto(updated);
-}
-
-interface AppendBillingCycleInput {
-  stripeCustomerId: string;
-  stripeSubscriptionId: string;
-  stripeInvoiceId: string;
-  currentPeriodEnd: Date;
-  cancelAtPeriodEnd: boolean;
 }
 
 /**

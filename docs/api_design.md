@@ -334,6 +334,13 @@ Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VN
 Query params: `?status=ACTIVE|PAST` (`ACTIVE` matches `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` matches `CANCELLED`/`SOLD_OUT`), `search=`, `category=`, `from=`, `to=`, `sort=createdAt|revenue&order=asc|desc`, plus pagination (§2.4).
 Response `200`: paginated `{ items: (ListingDTO & { donatedQuantity: number, revenue: number })[], page, limit, total }`.
 
+### `GET /listings/analytics` — *Issue `#137`*
+**Auth:** `DONOR`
+**Ownership:** implicit — always scoped to `req.user.id` as `donorId`
+
+Runs one MongoDB aggregation over the Donor's Listings and their paid, non-cancelled Orders. No Listing collection is downloaded to the client for browser-side aggregation.
+Response `200`: `{ totalRevenue, totalListings, currentListings, soldOutListings, categories: { category, listingCount, revenue }[], topListings: { id, name, revenue }[] }`. `currentListings` counts `ACTIVE` and `PAUSED`; `topListings` contains at most five rows ordered by revenue, then newest creation date. All six food categories are returned, including zero-valued categories.
+
 ### `POST /listings/:id/clone` — *`4.1.3`*
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`

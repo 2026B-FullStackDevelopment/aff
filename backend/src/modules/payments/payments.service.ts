@@ -9,7 +9,7 @@ import { notificationInterface } from '../notifications/notification.interface.j
 import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
 import { emailInterface } from '../../integrations/email/email.interface.js';
 import { emitToUser } from '../../realtime/socket.js';
-import type { PayableType } from './payment.model.js';
+import type { PayableType } from './payment.types.js';
 import type { ClientSession, Types } from 'mongoose';
 import type Stripe from 'stripe';
 

@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.post('/', requireAuth, requireRole('DONOR'), listingController.createListing);
 router.get('/mine', requireAuth, requireRole('DONOR'), listingController.listMyListings);
+router.get('/analytics', requireAuth, requireRole('DONOR'), listingController.getDonorAnalytics);
 router.post('/:id/clone', requireAuth, requireRole('DONOR'), listingController.cloneListing);
 router.patch('/:id/status', requireAuth, requireRole('DONOR'), listingController.updateListingStatus);
 router.get('/:id/orders', requireAuth, requireRole('DONOR'), listingController.listListingOrders);
