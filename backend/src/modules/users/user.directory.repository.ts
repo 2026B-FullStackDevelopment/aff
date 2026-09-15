@@ -3,7 +3,7 @@ import User from './user.model.js';
 import Recipient from './recipient.model.js';
 import Donor from './donor.model.js';
 import Courier from './courier.model.js';
-import type { Role, UserDocument } from './user.types.js';
+import type { Role } from './user.types.js';
 import type { PipelineStage } from 'mongoose';
 import type {
   AdminUserDocument, AdminUserPage, AdminUsersQuery,
