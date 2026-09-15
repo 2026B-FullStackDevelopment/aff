@@ -1,108 +1,17 @@
 // Contains order database queries so services do not call Mongoose directly.
-import Order, { type OrderDocument, type IntakePath, type PaymentMethod, type PaymentStatus, type OrderStatus } from './order.model.js';
-import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { FoodCategory, MeasurementUnit } from '../listings/listing.model.js';
-import type { DeliveryStage } from '../delivery/delivery.model.js';
+import Order from './order.model.js';
+import type { OrderDocument, PaymentMethod } from './order.types.js';
 import mongoose, {
   Types,
   type ClientSession,
   type PipelineStage,
 } from 'mongoose';
-
-interface CreateOrderInput {
-  recipientId: string | Types.ObjectId;
-  listingId: string | Types.ObjectId;
-  intakePath: IntakePath;
-  quantity: number;
-  amount: number;
-  paymentMethod?: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  orderStatus: OrderStatus;
-  deliveryAddressText?: string;
-  deliveryLocation?: GeoLocation;
-}
-
-interface ListingOrderRepositoryItem {
-  order: OrderDocument;
-  recipient: {
-    id: string;
-    username: string;
-  };
-}
-
-interface ListingOrdersRepositoryResult {
-  items: ListingOrderRepositoryItem[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AggregatedListingOrder extends OrderDocument {
-  recipient: {
-    id: string;
-    username: string;
-  };
-}
-
-interface ListingOrdersAggregationResult {
-  items: AggregatedListingOrder[];
-  metadata: Array<{ total: number }>;
-}
-
-interface OrderJoinSummary {
-  _id: Types.ObjectId;
-  recipientId: Types.ObjectId;
-  quantity: number;
-  deliveryAddressText: string;
-  deliveryLocation: { latitude: number; longitude: number; updatedAt: Date };
-  paymentMethod?: 'STRIPE' | 'CASH';
-  listingId: Types.ObjectId;
-  amount: number;
-}
-
-interface CancellationOrderSummary {
-  _id: Types.ObjectId;
-  recipientId: Types.ObjectId;
-  listingId: Types.ObjectId;
-}
-
-interface RecipientOrderListingSummary {
-  id: string;
-  name: string;
-  imageUrl: string | undefined;
-  unit: MeasurementUnit;
-  category: FoodCategory;
-}
-
-interface RecipientOrderDonorSummary {
-  id: string;
-  companyName: string;
-}
-
-interface RecipientOrderRepositoryItem {
-  order: OrderDocument;
-  listing: RecipientOrderListingSummary;
-  donor: RecipientOrderDonorSummary;
-  deliveryStage: DeliveryStage | null;
-}
-
-interface RecipientOrdersRepositoryResult {
-  items: RecipientOrderRepositoryItem[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface AggregatedRecipientOrder extends OrderDocument {
-  listing: RecipientOrderListingSummary;
-  donor: RecipientOrderDonorSummary;
-  deliveryStage: DeliveryStage | null;
-}
-
-interface RecipientOrdersAggregationResult {
-  items: AggregatedRecipientOrder[];
-  metadata: Array<{ total: number }>;
-}
+import type {
+  AggregatedListingOrder, AggregatedRecipientOrder, CreateOrderInput,
+  ListingOrderRepositoryItem, ListingOrdersAggregationResult, ListingOrdersRepositoryResult,
+  CancellationOrderSummary, OrderJoinSummary, RecipientOrdersAggregationResult, RecipientOrderRepositoryItem,
+  RecipientOrdersRepositoryResult,
+} from './order.types.js';
 
 function findOrderById(
   orderId: string | Types.ObjectId,
@@ -283,6 +192,7 @@ async function findOrdersByIds(
       deliveryAddressText: 1,
       deliveryLocation: 1,
       paymentMethod: 1,
+      paymentStatus: 1,
       listingId: 1,
       amount: 1,
     },
@@ -368,8 +278,37 @@ function cancelOrderById(
 }
 
 /**
+ * Flips a cancelled Order's `paymentStatus` from `PAID` to `REFUND_PENDING`
+ * once a Stripe refund has actually been created for it (D4). Guarding on
+ * `paymentStatus: 'PAID'` makes this a safe no-op if called twice, or if the
+ * `refund.updated` webhook has already raced ahead and flipped the Order to
+ * `REFUNDED` first.
+ */
+function markOrderRefundPending(
+  orderId: string | Types.ObjectId,
+  session?: ClientSession,
+) {
+  return Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      paymentStatus: 'PAID',
+    },
+    {
+      $set: {
+        paymentStatus: 'REFUND_PENDING',
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+      session,
+    },
+  ).lean<OrderDocument>();
+}
+
+/**
  * Flips a cancelled Order's `paymentStatus` from `REFUND_PENDING` to
- * `REFUNDED` once the `charge.refunded` webhook confirms the refund (D4).
+ * `REFUNDED` once the `refund.updated` webhook confirms the refund (D4).
  * Mirrors `markOrderPaid`'s exact guard-then-set shape.
  */
 function markOrderRefunded(
@@ -606,6 +545,7 @@ export {
   hasNonCancelledOrderForListing,
   cancelOrdersByIds,
   cancelOrderById,
+  markOrderRefundPending,
   markOrderRefunded,
   setFeedback,
   withTransaction,
@@ -614,11 +554,7 @@ export {
 };
 
 export type {
-  CreateOrderInput,
-  OrderJoinSummary,
-  CancellationOrderSummary,
-  ListingOrderRepositoryItem,
-  ListingOrdersRepositoryResult,
-  RecipientOrderRepositoryItem,
+  CreateOrderInput, OrderJoinSummary, ListingOrderRepositoryItem,
+  ListingOrdersRepositoryResult, RecipientOrderRepositoryItem,
   RecipientOrdersRepositoryResult,
-};
+} from './order.types.js';

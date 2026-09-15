@@ -5,6 +5,7 @@ const {
   createStripeCustomerMock,
   createCheckoutSessionMock,
   createSubscriptionCheckoutSessionMock,
+  updateSubscriptionCancelAtPeriodEndMock,
   createRefundMock,
   createPaymentMock,
   findPaymentBySessionIdMock,
@@ -22,11 +23,16 @@ const {
   markOrderRefundedMock,
   createForOrderMock,
   emitToUserMock,
+  appendBillingCycleMock,
+  markLatestPastDueMock,
+  markLatestCancelledMock,
+  sendSubscriptionConfirmationMock,
   sendNotificationMock,
 } = vi.hoisted(() => ({
   createStripeCustomerMock: vi.fn(),
   createCheckoutSessionMock: vi.fn(),
   createSubscriptionCheckoutSessionMock: vi.fn(),
+  updateSubscriptionCancelAtPeriodEndMock: vi.fn(),
   createRefundMock: vi.fn(),
   createPaymentMock: vi.fn(),
   findPaymentBySessionIdMock: vi.fn(),
@@ -44,6 +50,10 @@ const {
   markOrderRefundedMock: vi.fn(),
   createForOrderMock: vi.fn(),
   emitToUserMock: vi.fn(),
+  appendBillingCycleMock: vi.fn(),
+  markLatestPastDueMock: vi.fn(),
+  markLatestCancelledMock: vi.fn(),
+  sendSubscriptionConfirmationMock: vi.fn(),
   sendNotificationMock: vi.fn(),
 }));
 
@@ -51,7 +61,22 @@ vi.mock('../../../src/integrations/payment/payment.provider.js', () => ({
   createStripeCustomer: createStripeCustomerMock,
   createCheckoutSession: createCheckoutSessionMock,
   createSubscriptionCheckoutSession: createSubscriptionCheckoutSessionMock,
+  updateSubscriptionCancelAtPeriodEnd: updateSubscriptionCancelAtPeriodEndMock,
   createRefund: createRefundMock,
+}));
+
+vi.mock('../../../src/modules/subscriptions/subscription.interface.js', () => ({
+  subscriptionInterface: {
+    appendBillingCycle: appendBillingCycleMock,
+    markLatestPastDue: markLatestPastDueMock,
+    markLatestCancelled: markLatestCancelledMock,
+  },
+}));
+
+vi.mock('../../../src/integrations/email/email.interface.js', () => ({
+  emailInterface: {
+    sendSubscriptionConfirmation: sendSubscriptionConfirmationMock,
+  },
 }));
 
 vi.mock('../../../src/modules/payments/payment.repository.js', () => ({
@@ -101,6 +126,7 @@ import {
   getOrCreateStripeCustomer,
   startOneTimeCheckout,
   startSubscriptionCheckout,
+  setSubscriptionCancelAtPeriodEnd,
   refundOrderPayment,
   cancelPendingOrderPayment,
   processWebhookEvent,
@@ -114,14 +140,47 @@ function checkoutSessionCompletedEvent(overrides: Partial<Stripe.Checkout.Sessio
   } as unknown as Stripe.Event;
 }
 
-function chargeRefundedEvent(overrides: Partial<Stripe.Charge> = {}, eventId = 'evt_9') {
+function invoicePaidEvent(overrides: Record<string, unknown> = {}, eventId = 'evt_5') {
   return {
     id: eventId,
-    type: 'charge.refunded',
+    type: 'invoice.paid',
     data: {
       object: {
-        id: 'ch_123',
-        refunds: { data: [{ id: 're_123' }] },
+        id: 'in_123',
+        customer: 'cus_123',
+        parent: { subscription_details: { subscription: 'stripe_sub_1' } },
+        period_end: 1780000000,
+        lines: { data: [{ period: { end: 1780000000 } }] },
+        ...overrides,
+      },
+    },
+  } as unknown as Stripe.Event;
+}
+
+function invoicePaymentFailedEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'evt_6',
+    type: 'invoice.payment_failed',
+    data: { object: { id: 'in_456', customer: 'cus_123', ...overrides } },
+  } as unknown as Stripe.Event;
+}
+
+function subscriptionDeletedEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'evt_7',
+    type: 'customer.subscription.deleted',
+    data: { object: { id: 'stripe_sub_1', customer: 'cus_123', ...overrides } },
+  } as unknown as Stripe.Event;
+}
+
+function refundUpdatedEvent(overrides: Partial<Stripe.Refund> = {}, eventId = 'evt_9') {
+  return {
+    id: eventId,
+    type: 'refund.updated',
+    data: {
+      object: {
+        id: 're_123',
+        status: 'succeeded',
         ...overrides,
       },
     },
@@ -152,6 +211,11 @@ describe('payments.service', () => {
     markOrderRefundedMock.mockReset();
     createForOrderMock.mockReset();
     emitToUserMock.mockReset();
+    updateSubscriptionCancelAtPeriodEndMock.mockReset();
+    appendBillingCycleMock.mockReset();
+    markLatestPastDueMock.mockReset();
+    markLatestCancelledMock.mockReset();
+    sendSubscriptionConfirmationMock.mockReset();
     sendNotificationMock.mockReset();
 
     withTransactionMock.mockImplementation(
@@ -323,6 +387,32 @@ describe('payments.service', () => {
       createSubscriptionCheckoutSessionMock.mockRejectedValue(new Error('Stripe is down'));
 
       await expect(startSubscriptionCheckout(input)).rejects.toMatchObject({ statusCode: 502 });
+    });
+  });
+
+  describe('setSubscriptionCancelAtPeriodEnd', () => {
+    it('delegates to the provider and returns its payload', async () => {
+      const providerResult = {
+        provider: 'stripe',
+        subscriptionId: 'stripe_sub_1',
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: new Date('2026-03-01T00:00:00.000Z'),
+        status: 'active',
+      };
+      updateSubscriptionCancelAtPeriodEndMock.mockResolvedValue(providerResult);
+
+      const result = await setSubscriptionCancelAtPeriodEnd('stripe_sub_1', true);
+
+      expect(updateSubscriptionCancelAtPeriodEndMock).toHaveBeenCalledWith('stripe_sub_1', true);
+      expect(result).toEqual(providerResult);
+    });
+
+    it('re-wraps a Stripe SDK failure as a 502 error', async () => {
+      updateSubscriptionCancelAtPeriodEndMock.mockRejectedValue(new Error('Stripe is down'));
+
+      await expect(setSubscriptionCancelAtPeriodEnd('stripe_sub_1', true)).rejects.toMatchObject({
+        statusCode: 502,
+      });
     });
   });
 
@@ -505,23 +595,85 @@ describe('payments.service', () => {
       expect(sendNotificationMock).not.toHaveBeenCalled();
     });
 
-    it('no-ops on a subscription-mode checkout.session.completed event (F1 stub)', async () => {
+    it('creates nothing for a subscription-mode checkout.session.completed event (the row is appended by invoice.paid)', async () => {
       await processWebhookEvent(checkoutSessionCompletedEvent({ mode: 'subscription' }));
 
       expect(findPaymentBySessionIdMock).not.toHaveBeenCalled();
       expect(markPaymentPaidIfPendingMock).not.toHaveBeenCalled();
+      expect(appendBillingCycleMock).not.toHaveBeenCalled();
     });
 
-    it.each(['invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'])(
-      'no-ops on %s (F1 stub)',
-      async (type) => {
-        const event = { id: 'evt_2', type, data: { object: {} } } as unknown as Stripe.Event;
+    describe('invoice.paid (F1)', () => {
+      it('appends a billing cycle with the converted period end and sends the confirmation email when a row is newly created', async () => {
+        appendBillingCycleMock.mockResolvedValue({
+          created: true,
+          recipientEmail: 'jane@example.com',
+          currentPeriodEnd: new Date(1780000000 * 1000),
+        });
 
-        await expect(processWebhookEvent(event)).resolves.toBeUndefined();
-        expect(findPaymentBySessionIdMock).not.toHaveBeenCalled();
-        expect(updatePaymentEventMock).not.toHaveBeenCalled();
-      },
-    );
+        await processWebhookEvent(invoicePaidEvent());
+
+        expect(appendBillingCycleMock).toHaveBeenCalledWith({
+          stripeCustomerId: 'cus_123',
+          stripeSubscriptionId: 'stripe_sub_1',
+          stripeInvoiceId: 'in_123',
+          currentPeriodEnd: new Date(1780000000 * 1000),
+          cancelAtPeriodEnd: false,
+        });
+        expect(sendSubscriptionConfirmationMock).toHaveBeenCalledWith({
+          to: 'jane@example.com',
+          currentPeriodEnd: new Date(1780000000 * 1000),
+        });
+      });
+
+      it('falls back to invoice.period_end when a line item has no period (still converts to a Date)', async () => {
+        appendBillingCycleMock.mockResolvedValue({ created: false });
+
+        await processWebhookEvent(invoicePaidEvent({ lines: { data: [] }, period_end: 1790000000 }));
+
+        expect(appendBillingCycleMock).toHaveBeenCalledWith(
+          expect.objectContaining({ currentPeriodEnd: new Date(1790000000 * 1000) }),
+        );
+      });
+
+      it('resolves an expanded (object) customer/subscription reference to its plain id', async () => {
+        appendBillingCycleMock.mockResolvedValue({ created: false });
+
+        await processWebhookEvent(
+          invoicePaidEvent({
+            customer: { id: 'cus_expanded' },
+            parent: { subscription_details: { subscription: { id: 'stripe_sub_expanded' } } },
+          }),
+        );
+
+        expect(appendBillingCycleMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            stripeCustomerId: 'cus_expanded',
+            stripeSubscriptionId: 'stripe_sub_expanded',
+          }),
+        );
+      });
+
+      it('is idempotent: a duplicate invoice.paid sends no second confirmation email', async () => {
+        appendBillingCycleMock.mockResolvedValue({ created: false });
+
+        await processWebhookEvent(invoicePaidEvent());
+
+        expect(sendSubscriptionConfirmationMock).not.toHaveBeenCalled();
+      });
+    });
+
+    it('invoice.payment_failed marks the latest subscription PAST_DUE for the resolved customer', async () => {
+      await processWebhookEvent(invoicePaymentFailedEvent());
+
+      expect(markLatestPastDueMock).toHaveBeenCalledWith('cus_123');
+    });
+
+    it('customer.subscription.deleted marks the latest subscription CANCELLED for the resolved customer', async () => {
+      await processWebhookEvent(subscriptionDeletedEvent());
+
+      expect(markLatestCancelledMock).toHaveBeenCalledWith('cus_123');
+    });
 
     it('marks the matching Payment REFUNDED, flips the Order, and emits payment:refunded (D4)', async () => {
       findPaymentByRefundIdMock.mockResolvedValue({
@@ -536,7 +688,7 @@ describe('payments.service', () => {
         paymentStatus: 'REFUNDED',
       });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(findPaymentByRefundIdMock).toHaveBeenCalledWith('re_123');
       expect(updatePaymentEventMock).toHaveBeenCalledWith('p1', {
@@ -553,10 +705,10 @@ describe('payments.service', () => {
       });
     });
 
-    it('skips already-processed charge.refunded events (idempotency)', async () => {
+    it('skips already-processed refund.updated events (idempotency)', async () => {
       findPaymentByRefundIdMock.mockResolvedValue({ _id: 'p1', lastProcessedEventId: 'evt_9' });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(updatePaymentEventMock).not.toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
@@ -570,7 +722,7 @@ describe('payments.service', () => {
         lastProcessedEventId: undefined,
       });
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(updatePaymentEventMock).toHaveBeenCalled();
       expect(markOrderRefundedMock).not.toHaveBeenCalled();
@@ -586,7 +738,7 @@ describe('payments.service', () => {
       });
       markOrderRefundedMock.mockResolvedValue(null);
 
-      await processWebhookEvent(chargeRefundedEvent());
+      await processWebhookEvent(refundUpdatedEvent());
 
       expect(markOrderRefundedMock).toHaveBeenCalledWith('o1');
       expect(sendNotificationMock).not.toHaveBeenCalled();
@@ -595,16 +747,19 @@ describe('payments.service', () => {
     it('no-ops when no Payment row matches the refund id', async () => {
       findPaymentByRefundIdMock.mockResolvedValue(null);
 
-      await expect(processWebhookEvent(chargeRefundedEvent())).resolves.toBeUndefined();
+      await expect(processWebhookEvent(refundUpdatedEvent())).resolves.toBeUndefined();
       expect(updatePaymentEventMock).not.toHaveBeenCalled();
     });
 
-    it('no-ops on a charge.refunded event with no refunds on the charge', async () => {
-      await expect(
-        processWebhookEvent(chargeRefundedEvent({ refunds: { data: [] } } as never)),
-      ).resolves.toBeUndefined();
-      expect(findPaymentByRefundIdMock).not.toHaveBeenCalled();
-    });
+    it.each(['pending', 'failed', 'canceled'] as const)(
+      'no-ops on a refund.updated event whose status is not yet succeeded (%s)',
+      async (status) => {
+        await expect(
+          processWebhookEvent(refundUpdatedEvent({ status })),
+        ).resolves.toBeUndefined();
+        expect(findPaymentByRefundIdMock).not.toHaveBeenCalled();
+      },
+    );
 
     it('no-ops on an undocumented event type', async () => {
       const event = { id: 'evt_3', type: 'account.updated', data: { object: {} } } as unknown as Stripe.Event;

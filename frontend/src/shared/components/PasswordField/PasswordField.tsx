@@ -13,6 +13,7 @@ interface PasswordFieldProps {
   required?: boolean;
   value: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void;
   placeholder?: string;
   autoComplete?: string;
   error?: string;
@@ -21,9 +22,9 @@ interface PasswordFieldProps {
 
 const themeFocusStyles: Record<ThemeRole, { input: string; button: string; icon: string }> = {
   admin: {
-    input: 'focus-visible:border-[#5b7bc0] focus-visible:ring-[#5b7bc0]/15',
-    button: 'focus-visible:ring-[#5b7bc0]/30',
-    icon: 'group-focus-within/field:text-[#5b7bc0]',
+    input: 'focus-visible:border-admin-primary focus-visible:ring-admin-primary/15',
+    button: 'focus-visible:ring-admin-primary/30',
+    icon: 'group-focus-within/field:text-admin-primary',
   },
   recipient: {
     input: 'focus-visible:border-[#3D6852] focus-visible:ring-[#3D6852]/15',
@@ -44,6 +45,7 @@ export function PasswordField({
   required = false,
   value,
   onChange,
+  onBlur,
   placeholder = '••••••••',
   autoComplete = 'new-password',
   error,
@@ -75,6 +77,7 @@ export function PasswordField({
           type={visible ? 'text' : 'password'}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           placeholder={placeholder}
           autoComplete={autoComplete}
           aria-invalid={Boolean(error)}

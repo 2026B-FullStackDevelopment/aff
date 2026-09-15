@@ -1,20 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createListingSchema,
-  donorInitiatedDonationSchema,
   foodCategorySchema,
   listingIdParamsSchema,
-  listingOrdersQuerySchema,
   listingPriceSchema,
-  listingsQuerySchema,
   measurementUnitSchema,
-  mineListingsQuerySchema,
   paginationQuerySchema,
   paymentMethodSchema,
   donationLimitSchema,
   positiveQuantitySchema,
-  reserveListingSchema,
+} from '../../../src/modules/listings/listing.schemas.js';
+import {
+  createListingSchema,
   updateListingStatusSchema,
+} from '../../../src/modules/listings/listing.schemas.js';
+import {
+  listingOrdersQuerySchema,
+  listingsQuerySchema,
+  mineListingsQuerySchema,
+} from '../../../src/modules/listings/listing.schemas.js';
+import {
+  donorInitiatedDonationSchema,
+  reserveListingSchema,
 } from '../../../src/modules/listings/listing.schemas.js';
 
 const validListing = {
@@ -29,7 +35,7 @@ const validListing = {
   rationLimitPerPerson: 2,
 };
 
-describe('listing.schemas', () => {
+describe('Listing schemas', () => {
   describe('supported enums', () => {
     it.each(['KILOGRAM', 'GRAM', 'LITER', 'MILLILITER', 'UNIT', 'PER_REQUEST'])(
       'accepts measurement unit %s',

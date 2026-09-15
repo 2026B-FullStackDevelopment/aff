@@ -13,12 +13,16 @@ const userInterface = {
   createDonorProfile: userService.createDonorProfile,
   createCourierAccount: userService.createCourierAccount,
   listCouriers: userService.listCouriers,
+  listUsersForAdmin: userService.listUsersForAdmin,
+  updateAccountStatusForAdmin: userService.updateAccountStatusForAdmin,
   findCourierProfilesByUserIds: userService.findCourierProfilesByUserIds,
   findDonorsByUserIds: userService.findDonorsByUserIds,
   findDonorIdsMatchingSearch: userService.findDonorIdsMatchingSearch,
   getDonorByUserId: userService.getDonorByUserId,
   findRecipientByUserId: userService.findRecipientByUserId,
   setRecipientStripeCustomerId: userService.setRecipientStripeCustomerId,
+  findRecipientByStripeCustomerId: userService.findRecipientByStripeCustomerId,
+  setRecipientTier: userService.setRecipientTier,
 };
 
 export { userInterface };

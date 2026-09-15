@@ -4,55 +4,23 @@ import * as recipientRepository from './recipient.repository.js';
 import * as donorRepository from './donor.repository.js';
 import * as courierRepository from './courier.repository.js';
 import { securityInterface } from '../security/security.interface.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
 import { toUserResponseDto, toRecipientResponseDto, toDonorResponseDto } from './user.dto.js';
 import type { CreateUserRequestDto } from './user.dto.js';
-import type { LoginStateUpdate, RolePageQuery } from './user.repository.js';
+import type {
+  AdminUsersQuery,
+  LoginStateUpdate,
+  RolePageQuery,
+} from './user.types.js';
 import type { UpdateUserRequestDto } from './user.schemas.js';
-import type { Role, UserDocument } from './user.model.js';
-import type { CourierDocument } from './courier.model.js';
+import type { AccountStatus, Role, UserDocument } from './user.types.js';
+import type { Tier } from './recipient.types.js';
 import { isValidObjectId, type Types } from 'mongoose';
-
-/** The presented token's claims, from `req.auth` (set by `requireAuth`). */
-interface RequestAuth {
-  jti: string;
-  expiresAt: Date;
-}
-
-/** The fields an Admin supplies when creating a Courier account (E1). */
-interface CreateCourierAccountInput {
-  username: string;
-  email: string;
-  password: string;
-  fullName: string;
-}
-
-/** A Courier account: the base `USER` row plus its `COURIER` profile. */
-interface CourierAccount {
-  user: UserDocument;
-  courier: CourierDocument;
-}
-
-/** One Courier account in a listing; `courier` is null if the profile row is missing. */
-interface CourierAccountSummary {
-  user: UserDocument;
-  courier: CourierDocument | null;
-}
-
-/** One page of Courier accounts for the Admin roster. */
-interface CourierAccountPage {
-  items: CourierAccountSummary[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface CreateDonorProfileInput {
-  userId: string | Types.ObjectId;
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: { latitude: number; longitude: number };
-}
+import type {
+  CourierAccount, CourierAccountPage, CourierAccountSummary,
+  CreateCourierAccountInput, RequestAuth,
+} from './user.types.js';
+import type { CreateDonorProfileInput } from './donor.types.js';
 
 function duplicateEmailError(): Error {
   const error: Error = new Error('This email is already registered.');
@@ -151,6 +119,37 @@ async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, str
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
 }
 
+/** Resolves Donor ids matching an id, username, or company-name search term. */
+async function findDonorIdsMatchingSearch(search: string): Promise<string[]> {
+  const [users, donors] = await Promise.all([
+    userRepository.findDonorUserIdsByUsername(search),
+    donorRepository.findDonorUserIdsByCompanyName(search),
+  ]);
+
+  const ids = new Set<string>([
+    ...users.map((user) => String(user._id)),
+    ...donors.map((donor) => String(donor.userId)),
+  ]);
+
+  if (isValidObjectId(search)) ids.add(search);
+
+  return [...ids];
+}
+
+async function findRecipientByStripeCustomerId(stripeCustomerId: string) {
+  return recipientRepository.findRecipientByStripeCustomerId(stripeCustomerId);
+}
+
+/**
+ * Updates the Recipient's cached `tier` column. This is a denormalized copy for database
+ * inspection only — the authoritative tier is derived per request from the SUBSCRIPTION ledger in
+ * `subscription.service.ts`, and no read path should consult this column (F1,
+ * `backend/SUBSCRIPTION.md` risk #7 and its DEBUG section).
+ */
+async function setRecipientTier(userId: string | Types.ObjectId, tier: Tier) {
+  return recipientRepository.setRecipientTierIfChanged(userId, tier);
+}
+
 async function createDonorProfile(input: CreateDonorProfileInput) {
   return donorRepository.createDonor(input);
 }
@@ -219,28 +218,6 @@ async function findDonorsByUserIds(userIds: string[]) {
 }
 
 /**
- * Resolves Donor ids matching the identifier, username, or company-name term
- * used by the Admin listing directory.
- */
-async function findDonorIdsMatchingSearch(search: string): Promise<string[]> {
-  const [users, donors] = await Promise.all([
-    userRepository.findDonorUserIdsByUsername(search),
-    donorRepository.findDonorUserIdsByCompanyName(search),
-  ]);
-
-  const ids = new Set<string>([
-    ...users.map((user) => String(user._id)),
-    ...donors.map((donor) => String(donor.userId)),
-  ]);
-
-  if (isValidObjectId(search)) {
-    ids.add(search);
-  }
-
-  return [...ids];
-}
-
-/**
  * Reads one page of Courier accounts for the Admin roster (E11), pairing each
  * `USER` with its `COURIER` profile in a single follow-up query rather than
  * one per row. An account whose profile row is missing is still listed, with
@@ -271,6 +248,66 @@ async function listCouriers(query: RolePageQuery): Promise<CourierAccountPage> {
   };
 }
 
+/**
+ * Builds the role-appropriate DTOs for one Admin account-directory page (G1).
+ * The repository supplies the joined role profiles, keeping this mapping free
+ * of per-row database calls.
+ */
+async function listUsersForAdmin(query: AdminUsersQuery) {
+  const page = await userRepository.findUsersForAdmin(query);
+
+  return {
+    ...page,
+    items: page.items.map((user) => {
+      if (user.role === 'RECIPIENT') {
+        // G1 only needs shared account fields for Recipient rows. Premium tier
+        // remains subscription-owned and is resolved only for Recipient profile
+        // responses, rather than adding one subscription lookup per table row.
+        return toUserResponseDto(user)!;
+      }
+
+      if (user.role === 'DONOR') {
+        return toDonorResponseDto(user, user.donorProfile ?? {});
+      }
+
+      if (user.role === 'COURIER') {
+        return {
+          ...toUserResponseDto(user)!,
+          fullName: user.courierProfile?.fullName ?? '',
+        };
+      }
+
+      return toUserResponseDto(user)!;
+    }),
+  };
+}
+
+/**
+ * Changes an account's persisted status for the Admin module.
+ *
+ * A deactivated account is rejected by the login service on its next sign-in,
+ * and every currently recorded session is revoked immediately through the
+ * Security module's public interface. Reactivation never restores old tokens;
+ * the user must sign in again to receive a fresh session.
+ *
+ * @throws {Error} `404` when the target account does not exist.
+ */
+async function updateAccountStatusForAdmin(userId: string, status: AccountStatus) {
+  const user = await userRepository.updateAccountStatus(userId, status);
+
+  if (!user) {
+    const error: Error = new Error('User not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (status === 'DEACTIVATED') {
+    await securityInterface.revokeAllTokensForUser(userId, 'ADMIN_DEACTIVATE');
+  }
+
+  return toUserResponseDto(user)!;
+}
+
 function donorFieldsRejectedError(): Error {
   const error: Error = new Error('Only Donors can edit company profile fields.');
   error.statusCode = 400;
@@ -280,7 +317,9 @@ function donorFieldsRejectedError(): Error {
 /**
  * Fetches the authoritative, role-appropriate profile DTO for `userId` — used
  * by both `getMyProfile` and `updateMyProfile` so they always return the same
- * shape (`docs/api_design.md` §5).
+ * shape (`docs/api_design.md` §5). For a RECIPIENT, `tier` is derived via
+ * `subscriptionInterface.getMySubscriptionStatus` rather than read off the stored
+ * `recipient.tier` column (F1, `backend/SUBSCRIPTION.md`).
  */
 async function getMyProfileDto(userId: string) {
   const user = await getUserById(userId);
@@ -292,7 +331,8 @@ async function getMyProfileDto(userId: string) {
 
   if (user.role === 'RECIPIENT') {
     const recipient = await recipientRepository.findRecipientByUserId(userId);
-    return toRecipientResponseDto(user, recipient || {});
+    const { tier } = await subscriptionInterface.getMySubscriptionStatus(userId);
+    return toRecipientResponseDto(user, recipient || {}, tier);
   }
 
   return toUserResponseDto(user);
@@ -388,6 +428,8 @@ export {
   createDonorProfile,
   createCourierAccount,
   listCouriers,
+  listUsersForAdmin,
+  updateAccountStatusForAdmin,
   findCourierProfilesByUserIds,
   findDonorsByUserIds,
   findDonorIdsMatchingSearch,
@@ -395,15 +437,17 @@ export {
   findRecipientByUserId,
   searchRecipientsByEmail,
   setRecipientStripeCustomerId,
+  findRecipientByStripeCustomerId,
+  setRecipientTier,
   getMyProfileDto,
   updateUserProfile,
   changePassword,
   changeEmail,
 };
 export type {
-  CreateDonorProfileInput,
   CreateCourierAccountInput,
   CourierAccount,
   CourierAccountSummary,
   CourierAccountPage,
-};
+} from './user.types.js';
+export type { CreateDonorProfileInput } from './donor.types.js';

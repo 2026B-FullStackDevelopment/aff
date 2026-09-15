@@ -1,22 +1,8 @@
 // Contains the registration business rules for recipients and donors.
 import { userInterface } from '../users/user.interface.js';
 import { securityInterface } from '../security/security.interface.js';
-import type { AuthSession } from '../security/token.service.js';
 import type { RegisterRecipientRequestDto, RegisterDonorRequestDto } from './auth.dto.js';
-import type { RecipientDocument } from '../users/recipient.model.js';
-import type { DonorDocument } from '../users/donor.model.js';
-
-/** The result of a successful Recipient registration: the new session plus the created profile. */
-interface RecipientRegistration {
-  session: AuthSession;
-  recipient: RecipientDocument;
-}
-
-/** The result of a successful Donor registration: the new session plus the created profile. */
-interface DonorRegistration {
-  session: AuthSession;
-  donor: DonorDocument;
-}
+import type { DonorRegistration, RecipientRegistration } from './auth.register.types.js';
 
 // MongoDB gives no transaction here, so if the profile write fails the new user
 // is deleted to avoid an orphan that would block the email forever.
@@ -63,7 +49,7 @@ async function registerRecipient(
     userInterface.createRecipientProfile(userId)
   );
 
-  return { session: securityInterface.issueSession(user), recipient };
+  return { session: await securityInterface.issueSession(user), recipient };
 }
 
 /**
@@ -94,8 +80,8 @@ async function registerDonor(payload: RegisterDonorRequestDto): Promise<DonorReg
     })
   );
 
-  return { session: securityInterface.issueSession(user), donor };
+  return { session: await securityInterface.issueSession(user), donor };
 }
 
 export { registerRecipient, registerDonor };
-export type { RecipientRegistration, DonorRegistration };
+export type { RecipientRegistration, DonorRegistration } from './auth.register.types.js';

@@ -3,6 +3,10 @@ import * as subscriptionService from './subscription.service.js';
 
 const subscriptionInterface = {
   isPremiumRecipient: subscriptionService.isPremiumRecipient,
+  getMySubscriptionStatus: subscriptionService.getMySubscriptionStatus,
+  appendBillingCycle: subscriptionService.appendBillingCycle,
+  markLatestPastDue: subscriptionService.markLatestPastDue,
+  markLatestCancelled: subscriptionService.markLatestCancelled,
 };
 
 export { subscriptionInterface };

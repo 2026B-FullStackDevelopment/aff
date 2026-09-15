@@ -10,7 +10,7 @@ import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantitySte
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, shortCityLabel } from '@/shared/utils/listingFormatting';
 import { getStoredUser } from '@/services/authStorage';
 import type { ListingDetailDTO } from '@/types/api';
-import { NavigationHeader } from '../../../shared/components/NavigationHeader/NavigationHeader';
+import { NavigationHeader } from '@/shared/components/NavigationHeader/NavigationHeader';
 import { useListingDetail } from '../hooks/useListingDetail';
 import { useReserveListing } from '../hooks/useReserveListing';
 

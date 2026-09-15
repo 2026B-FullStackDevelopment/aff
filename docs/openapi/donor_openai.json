@@ -185,6 +185,27 @@
         }
       }
     },
+    "/listings/analytics": {
+      "get": {
+        "tags": ["Donor Listings"],
+        "operationId": "getDonorAnalytics",
+        "summary": "Get the authenticated Donor's analytics snapshot",
+        "description": "Aggregates counts and paid, non-cancelled Order revenue in MongoDB. currentListings includes ACTIVE and PAUSED Listings. Returns all six food categories, including categories with zero Listings, and at most five top Listings ordered by revenue then creation date.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Server-aggregated Donor analytics snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DonorAnalyticsResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/DonorRoleRequired" }
+        }
+      }
+    },
     "/listings/{id}": {
       "get": {
         "tags": ["Donor Listings"],
@@ -239,7 +260,7 @@
         "tags": ["Donor Listings"],
         "operationId": "updateDonorListingStatus",
         "summary": "Pause, resume, or cancel an owned listing",
-        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling cascades to non-terminal Orders whose Delivery is AWAITING_COURIER and Stripe Reservations awaiting payment before Delivery creation. DELIVERED manual Orders are untouched even though they intentionally have no Delivery. cancelledOrderCount is authoritative.",
+        "description": "Allowed transitions are ACTIVE to PAUSED/CANCELLED and PAUSED to ACTIVE/CANCELLED. SOLD_OUT and CANCELLED are terminal. Cancelling cascades to non-terminal Orders whose Delivery is AWAITING_COURIER and Stripe Reservations awaiting payment before Delivery creation. DELIVERED manual Orders are untouched even though they intentionally have no Delivery. cancelledOrderCount is authoritative. Each cascaded Order also has its Listing stock restored and, for STRIPE Orders, its pending payment cancelled or its PAID payment refunded (refund happens after the transaction commits); refundOutcomes reports one entry per refunded Order.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/ListingId" }
@@ -620,6 +641,54 @@
           }
         }
       },
+      "DonorAnalyticsCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "listingCount", "revenue"],
+        "properties": {
+          "category": { "$ref": "#/components/schemas/FoodCategory" },
+          "listingCount": { "type": "integer", "minimum": 0 },
+          "revenue": { "type": "number", "minimum": 0 }
+        }
+      },
+      "DonorAnalyticsTopListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "revenue"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "revenue": { "type": "number", "minimum": 0 }
+        }
+      },
+      "DonorAnalyticsSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["totalRevenue", "totalListings", "currentListings", "soldOutListings", "categories", "topListings"],
+        "properties": {
+          "totalRevenue": { "type": "number", "minimum": 0 },
+          "totalListings": { "type": "integer", "minimum": 0 },
+          "currentListings": { "type": "integer", "minimum": 0 },
+          "soldOutListings": { "type": "integer", "minimum": 0 },
+          "categories": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DonorAnalyticsCategory" }
+          },
+          "topListings": {
+            "type": "array",
+            "maxItems": 5,
+            "items": { "$ref": "#/components/schemas/DonorAnalyticsTopListing" }
+          }
+        }
+      },
+      "DonorAnalyticsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/DonorAnalyticsSnapshot" }
+        }
+      },
       "UpdateListingStatusRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -639,12 +708,27 @@
           "data": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["listing", "cancelledOrderCount"],
+            "required": ["listing", "cancelledOrderCount", "refundOutcomes"],
             "properties": {
               "listing": { "$ref": "#/components/schemas/Listing" },
               "cancelledOrderCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "refundOutcomes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["orderId", "refundStatus"],
+                  "properties": {
+                    "orderId": { "type": "string" },
+                    "refundStatus": {
+                      "type": "string",
+                      "enum": ["REFUND_PENDING", "FAILED"]
+                    }
+                  }
+                }
               }
             }
           }

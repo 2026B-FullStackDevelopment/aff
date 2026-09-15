@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Bell, UserRound, Menu, X } from 'lucide-react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { PortalMobileMenu } from './PortalMobileMenu';
+import { PortalNavigationLinks } from './PortalNavigationLinks';
 
 type PortalVariant = 'donor' | 'recipient' | 'admin' | 'courier';
 
 export interface PortalNavItem {
   label: string;
-  to: string;
+  to?: string;
   end?: boolean;
+  disabled?: boolean;
 }
 
 interface PortalTopNavigationProps {
@@ -19,13 +22,8 @@ interface PortalTopNavigationProps {
   avatarAlt?: string;
   hasUnreadNotification?: boolean;
   onNotificationsClick?: () => void;
-  /**
-   * Rendered anchored beneath the bell button (e.g. the Premium upsell
-   * today, a live notification feed later per SRS 5.3.2). Content-agnostic
-   * — this component only provides the anchor point.
-   */
+  /** Content rendered beneath the bell button. */
   notificationPanel?: React.ReactNode;
-  /** For aria-expanded on the bell button only — open/closed state itself is owned by the caller. */
   isNotificationPanelOpen?: boolean;
   profileTo?: string;
   extraRightActions?: React.ReactNode;
@@ -59,12 +57,12 @@ const VARIANT_STYLES: Record<
     iconButton: 'text-[#e9f5ee] hover:bg-[#e9f5ee]/10 hover:text-[#e9f5ee]/75',
   },
   admin: {
-    header: 'border-[#dce3ec] bg-white',
-    brand: 'text-[#1e3a5f]',
-    activeLink: 'bg-[#eef2fa] text-[#1e3a5f]',
-    inactiveLink: 'text-slate-600 hover:bg-[#eef2fa] hover:text-[#1e3a5f]',
-    avatar: 'bg-[#eef2fa] text-[#5b7bc0]',
-    iconButton: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+    header: 'border-admin-nav bg-admin-nav',
+    brand: 'text-white',
+    activeLink: 'bg-white/10 text-white ring-1 ring-white/20',
+    inactiveLink: 'text-white/75 hover:bg-white/10 hover:text-white',
+    avatar: 'bg-white/15 text-white ring-white/30',
+    iconButton: 'text-white/80 hover:bg-white/10 hover:text-white',
   },
   courier: {
     header: 'border-courier-primary bg-courier-primary',
@@ -79,7 +77,6 @@ const VARIANT_STYLES: Record<
 export function PortalTopNavigation({
   variant,
   brandLabel,
-  brandTo,
   navItems,
   avatarUrl,
   avatarAlt = 'Profile',
@@ -123,7 +120,7 @@ export function PortalTopNavigation({
   const renderAvatar = () => (
     <Link
       to={profileTo}
-      aria-label="Open profile"
+      title="Open profile"
       className={`flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-slate-200 ${styles.avatar}`}
     >
       {avatarUrl ? (
@@ -144,49 +141,26 @@ export function PortalTopNavigation({
   return (
     <header className={`sticky top-0 z-40 border-b shadow-sm ${styles.header}`}>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link
-          to={brandTo}
-          className={`shrink-0 text-lg font-bold ${styles.brand}`}
-        >
+        <div className={`shrink-0 text-lg font-bold ${styles.brand}`}>
           {brandLabel}
-        </Link>
+        </div>
 
-        {/* Desktop Navigation */}
-        <nav
-          aria-label={`${brandLabel} desktop navigation`}
-          className="hidden md:flex min-w-0 flex-1 items-center justify-center overflow-x-auto mx-4"
-        >
-          <ul className="flex min-w-max items-center justify-center gap-1">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    [
-                      'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
-                      isActive ? styles.activeLink : styles.inactiveLink,
-                    ].join(' ')
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <PortalNavigationLinks
+          ariaLabel={`${brandLabel} desktop navigation`}
+          items={navItems}
+          activeLinkClassName={styles.activeLink}
+          inactiveLinkClassName={styles.inactiveLink}
+        />
 
-        {/* Desktop Right Actions */}
         <div className="hidden md:flex shrink-0 items-center gap-2">
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
           {extraRightActions}
           {renderAvatar()}
         </div>
 
-        {/* Mobile Toggle & Actions */}
         <div className="flex md:hidden shrink-0 items-center gap-1">
           {(variant === 'recipient' || variant === 'donor') && renderBell()}
+          {extraRightActions}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -203,35 +177,18 @@ export function PortalTopNavigation({
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-black/5">
-          <nav className="flex flex-col px-2 pt-2 pb-3 space-y-1" aria-label={`${brandLabel} mobile navigation`}>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  [
-                    'block rounded-md px-3 py-2 text-base font-medium transition-colors',
-                    isActive ? styles.activeLink : styles.inactiveLink,
-                  ].join(' ')
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="border-t border-black/5 p-4 flex items-center gap-3">
-            {renderAvatar()}
-            <div className="flex flex-col flex-1">
-              <span className={`text-sm font-medium ${styles.brand}`}>{avatarAlt}</span>
-            </div>
-            {extraRightActions}
-          </div>
-        </div>
+        <PortalMobileMenu
+          brandLabel={brandLabel}
+          items={navItems}
+          activeLinkClassName={styles.activeLink}
+          inactiveLinkClassName={styles.inactiveLink}
+          brandClassName={styles.brand}
+          avatar={renderAvatar()}
+          avatarAlt={avatarAlt}
+          extraRightActions={extraRightActions}
+          onNavigate={() => setIsMobileMenuOpen(false)}
+        />
       )}
     </header>
   );

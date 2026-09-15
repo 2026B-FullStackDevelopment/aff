@@ -1,17 +1,11 @@
 // Contains donor profile database queries so services do not call Mongoose directly.
-import Donor, { type DonorDocument } from './donor.model.js';
+import Donor from './donor.model.js';
+import type { DonorDocument } from './donor.types.js';
 import type { Types } from 'mongoose';
+import type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-interface CreateDonorInput {
-  userId: string | Types.ObjectId;
-  companyName: string;
-  taxCode: string;
-  addressText: string;
-  location: { latitude: number; longitude: number };
 }
 
 function createDonor(data: CreateDonorInput) {
@@ -39,12 +33,6 @@ function findDonorUserIdsByCompanyName(search: string) {
     { companyName: { $regex: escapeRegExp(search), $options: 'i' } },
     { userId: 1 },
   ).lean<Array<{ userId: Types.ObjectId }>>();
-}
-
-interface UpdateDonorInput {
-  companyName?: string;
-  addressText?: string;
-  location?: { latitude: number; longitude: number };
 }
 
 function updateDonor(userId: string | Types.ObjectId, data: UpdateDonorInput) {
@@ -92,4 +80,4 @@ export {
   updateDonor,
   findDonorsByUserIds,
 };
-export type { CreateDonorInput, UpdateDonorInput };
+export type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';

@@ -15,7 +15,9 @@ const orderInterface = {
   markOrderPaid: orderService.markOrderPaid,
   markOrderDelivered: orderService.markOrderDelivered,
   markOrderRefunded: orderService.markOrderRefunded,
-  cancelOrdersByIds: orderService.cancelOrdersByIds,
+  cancelOrdersForListingCancellation:
+    orderService.cancelOrdersForListingCancellation,
+  refundCancelledOrders: orderService.refundCancelledOrders,
   listOrdersForListing: orderService.listOrdersForListing,
 };
 

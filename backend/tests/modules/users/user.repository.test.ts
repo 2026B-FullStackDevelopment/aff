@@ -11,19 +11,17 @@ const {
   deleteOneMock,
   aggregateMock,
   leanMock,
-  directFindLeanMock,
   searchLeanMock,
   selectMock,
   limitMock,
 } = vi.hoisted(() => {
   const leanMock = vi.fn();
-  const directFindLeanMock = vi.fn();
   const searchLeanMock = vi.fn();
   const limitMock = vi.fn(() => ({ lean: searchLeanMock }));
   const selectMock = vi.fn(() => ({ limit: limitMock }));
   return {
     createMock: vi.fn(),
-    findMock: vi.fn(() => ({ select: selectMock, lean: directFindLeanMock })),
+    findMock: vi.fn(() => ({ select: selectMock, lean: searchLeanMock })),
     findOneMock: vi.fn(() => ({ lean: leanMock })),
     findByIdMock: vi.fn(() => ({ lean: leanMock })),
     findByIdAndUpdateMock: vi.fn(() => ({ lean: leanMock })),
@@ -32,7 +30,6 @@ const {
     deleteOneMock: vi.fn(),
     aggregateMock: vi.fn(),
     leanMock,
-    directFindLeanMock,
     searchLeanMock,
     selectMock,
     limitMock,
@@ -59,12 +56,14 @@ import {
   searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
+  updateAccountStatus,
   updateLoginState,
   incrementFailedLoginInWindow,
   startFailedLoginWindow,
   lockAccount,
   deleteUser,
   findUsersByRole,
+  findUsersForAdmin,
   findDonorUserIdsByUsername,
 } from '../../../src/modules/users/user.repository.js';
 
@@ -79,26 +78,11 @@ describe('user.repository', () => {
     updateOneMock.mockClear();
     deleteOneMock.mockClear();
     leanMock.mockClear();
-    directFindLeanMock.mockReset();
     leanMock.mockResolvedValue({ _id: 'u1' });
     searchLeanMock.mockReset();
     selectMock.mockClear();
     limitMock.mockClear();
-  });
-
-  it('finds Donor ids by a case-insensitive escaped username term', async () => {
-    directFindLeanMock.mockResolvedValue([{ _id: 'd1' }]);
-
-    const result = await findDonorUserIdsByUsername('fresh+food');
-
-    expect(findMock).toHaveBeenCalledWith(
-      {
-        role: 'DONOR',
-        username: { $regex: 'fresh\\+food', $options: 'i' },
-      },
-      { _id: 1 },
-    );
-    expect(result).toEqual([{ _id: 'd1' }]);
+    aggregateMock.mockReset();
   });
 
   it('createUser calls User.create with the given data', async () => {
@@ -162,6 +146,21 @@ describe('user.repository', () => {
     expect(leanMock).toHaveBeenCalled();
   });
 
+  it('finds Donor ids by an escaped, case-insensitive username term', async () => {
+    searchLeanMock.mockResolvedValue([{ _id: 'd1' }]);
+
+    const result = await findDonorUserIdsByUsername('bakery (east)');
+
+    expect(findMock).toHaveBeenCalledWith(
+      {
+        role: 'DONOR',
+        username: { $regex: 'bakery \\(east\\)', $options: 'i' },
+      },
+      { _id: 1 },
+    );
+    expect(result).toEqual([{ _id: 'd1' }]);
+  });
+
   it('updateUser updates by id and returns the new lean document', async () => {
     await updateUser('u1', { city: 'Paris' });
 
@@ -177,6 +176,17 @@ describe('user.repository', () => {
       { avatarUrl: 'https://cdn.example.com/avatars/u1.png' },
       { new: true }
     );
+  });
+
+  it('updateAccountStatus updates only status and runs model validators', async () => {
+    await updateAccountStatus('u1', 'DEACTIVATED');
+
+    expect(findByIdAndUpdateMock).toHaveBeenCalledWith(
+      'u1',
+      { $set: { status: 'DEACTIVATED' } },
+      { new: true, runValidators: true },
+    );
+    expect(leanMock).toHaveBeenCalled();
   });
 
   it('updateLoginState writes the three lockout columns', async () => {
@@ -260,6 +270,52 @@ describe('user.repository', () => {
 
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('findUsersForAdmin', () => {
+    it('joins role profiles before searching and paginating accounts', async () => {
+      const account = { _id: 'u1', role: 'DONOR' };
+      aggregateMock.mockResolvedValue([{ items: [account], metadata: [{ total: 1 }] }]);
+
+      const result = await findUsersForAdmin({
+        page: 1,
+        limit: 10,
+        role: 'DONOR',
+        status: 'ACTIVE',
+        search: 'Fresh Foods',
+      });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(pipeline[0]).toEqual({ $match: { role: 'DONOR', status: 'ACTIVE' } });
+      expect(pipeline.filter((stage) => '$lookup' in stage)).toHaveLength(3);
+      expect(pipeline).toContainEqual({
+        $match: {
+          $or: [
+            { username: { $regex: 'Fresh Foods', $options: 'i' } },
+            { email: { $regex: 'Fresh Foods', $options: 'i' } },
+            { profileName: { $regex: 'Fresh Foods', $options: 'i' } },
+          ],
+        },
+      });
+      expect(result).toEqual({ items: [account], page: 1, limit: 10, total: 1 });
+    });
+
+    it('escapes regular-expression characters in account searches', async () => {
+      aggregateMock.mockResolvedValue([{ items: [], metadata: [] }]);
+
+      await findUsersForAdmin({ page: 1, limit: 20, search: 'a+b@example.com' });
+
+      const [pipeline] = aggregateMock.mock.calls[0];
+      expect(pipeline).toContainEqual({
+        $match: {
+          $or: [
+            { username: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+            { email: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+            { profileName: { $regex: 'a\\+b@example\\.com', $options: 'i' } },
+          ],
+        },
+      });
     });
   });
 });

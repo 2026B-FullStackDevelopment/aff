@@ -1,0 +1,277 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AFF Subscriptions API",
+    "version": "0.1.0",
+    "description": "Premium Recipient subscription endpoints (Epic F — F1 recurring subscribe, F5 cancel/resume). Reflects backend/src/modules/subscriptions/subscription.controller.ts::getMySubscription, ::createSubscriptionCheckoutSession, and ::updateMySubscription as implemented. Confirmation, billing-cycle appends, past-due marking, and cancellation-lapse all happen asynchronously via POST /webhooks/stripe (docs/openapi/payments_openapi.json) — none of the endpoints here mutate SUBSCRIPTION state directly except PATCH /subscriptions/me's cancelAtPeriodEnd toggle. F2's PUT /recipients/me/preferences is documented separately, see NOTI_MATCH.md.",
+    "contact": { "name": "AFF Backend" }
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Subscriptions", "description": "Premium Recipient subscription lifecycle: start Stripe Checkout, read the derived tier, cancel/resume (F1, F5)" }
+  ],
+  "paths": {
+    "/subscriptions/me": {
+      "get": {
+        "tags": ["Subscriptions"],
+        "operationId": "getMySubscription",
+        "summary": "Get the authenticated Recipient's derived tier and latest subscription row",
+        "description": "tier is derived, never a stored writable column: PREMIUM iff the latest SUBSCRIPTION row is ACTIVE and currentPeriodEnd is still in the future. subscription is that latest row (or null if the Recipient has never subscribed), including any pending cancelAtPeriodEnd flag — a pending cancellation does not affect tier until the period actually ends.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "The Recipient's current tier and latest subscription row",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SubscriptionStatusResponse" },
+                "examples": {
+                  "premium": {
+                    "summary": "Active Premium subscription",
+                    "value": {
+                      "data": {
+                        "tier": "PREMIUM",
+                        "subscription": {
+                          "id": "507f1f77bcf86cd799439011",
+                          "status": "ACTIVE",
+                          "currentPeriodEnd": "2026-04-01T00:00:00.000Z",
+                          "cancelAtPeriodEnd": false,
+                          "createdAt": "2026-03-01T00:00:00.000Z"
+                        }
+                      }
+                    }
+                  },
+                  "standardNeverSubscribed": {
+                    "summary": "Never subscribed",
+                    "value": { "data": { "tier": "STANDARD", "subscription": null } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" }
+        }
+      },
+      "patch": {
+        "tags": ["Subscriptions"],
+        "operationId": "updateMySubscription",
+        "summary": "Cancel or resume the caller's own Premium subscription (F5)",
+        "description": "One toggle endpoint handles both directions. { cancelAtPeriodEnd: true } calls stripe.subscriptions.update(id, { cancel_at_period_end: true }) and schedules cancellation at the end of the current billing period — access and tier are NOT revoked immediately; they lapse only once the customer.subscription.deleted webhook fires at currentPeriodEnd (docs/api_design.md §8). { cancelAtPeriodEnd: false } undoes a pending cancellation while currentPeriodEnd is still in the future — no new Checkout Session, no second charge. Idempotent both ways: resending the current value is a no-op 200 with the same DTO and no second Stripe call. Always scoped to the caller's own latest subscription — there is no path to mutate another user's.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSubscriptionRequest" },
+              "examples": {
+                "cancel": { "summary": "Schedule cancellation at period end", "value": { "cancelAtPeriodEnd": true } },
+                "resume": { "summary": "Undo a pending cancellation", "value": { "cancelAtPeriodEnd": false } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated subscription",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UpdateSubscriptionResponse" },
+                "example": {
+                  "data": {
+                    "subscription": {
+                      "id": "507f1f77bcf86cd799439011",
+                      "status": "ACTIVE",
+                      "currentPeriodEnd": "2026-04-01T00:00:00.000Z",
+                      "cancelAtPeriodEnd": true,
+                      "createdAt": "2026-03-01T00:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/UpdateSubscriptionValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "409": { "$ref": "#/components/responses/NoActiveSubscription" }
+        }
+      }
+    },
+    "/subscriptions/checkout-session": {
+      "post": {
+        "tags": ["Subscriptions"],
+        "operationId": "createSubscriptionCheckoutSession",
+        "summary": "Start a Stripe Checkout Session for the $5/month Premium subscription (F1)",
+        "description": "Creates a Stripe Customer first if the Recipient has none yet (shared logic with POST /orders/:id/checkout-session, docs/openapi/orders_openapi.json). Returns only a redirect URL — no SUBSCRIPTION row and no confirmation email are created here. The $5/month price is built inline (price_data), not read from a pre-created Stripe Dashboard Price object. Confirmation happens asynchronously once POST /webhooks/stripe receives invoice.paid.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false } } }
+        },
+        "responses": {
+          "200": {
+            "description": "A Stripe-hosted Checkout URL to redirect the browser to",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CheckoutSessionResponse" },
+                "example": { "data": { "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_..." } }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/RecipientRoleRequired" },
+          "502": { "$ref": "#/components/responses/StripeApiError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      },
+      "SubscriptionDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "currentPeriodEnd", "cancelAtPeriodEnd", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["ACTIVE", "PAST_DUE", "CANCELLED"] },
+          "currentPeriodEnd": { "type": "string", "format": "date-time" },
+          "cancelAtPeriodEnd": {
+            "type": "boolean",
+            "description": "true once PATCH /subscriptions/me has scheduled cancellation at period end. Access and the derived tier are unaffected until currentPeriodEnd, when the customer.subscription.deleted webhook flips status to CANCELLED."
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SubscriptionStatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tier", "subscription"],
+            "properties": {
+              "tier": { "type": "string", "enum": ["STANDARD", "PREMIUM"] },
+              "subscription": {
+                "allOf": [{ "$ref": "#/components/schemas/SubscriptionDTO" }],
+                "nullable": true,
+                "description": "The latest SUBSCRIPTION row, or null if the Recipient has never subscribed"
+              }
+            }
+          }
+        }
+      },
+      "CheckoutSessionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["checkoutUrl"],
+            "properties": {
+              "checkoutUrl": { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      },
+      "UpdateSubscriptionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cancelAtPeriodEnd"],
+        "properties": {
+          "cancelAtPeriodEnd": {
+            "type": "boolean",
+            "description": "true cancels (at period end), false resumes"
+          }
+        }
+      },
+      "UpdateSubscriptionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subscription"],
+            "properties": {
+              "subscription": { "$ref": "#/components/schemas/SubscriptionDTO" }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "UpdateSubscriptionValidationError": {
+        "description": "Request body validation failed. updateSubscriptionSchema is .strict(): cancelAtPeriodEnd is required and must be a boolean.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Invalid input: expected boolean, received undefined" } },
+              "wrongType": { "value": { "message": "Invalid input: expected boolean, received string" } },
+              "unknownField": { "value": { "message": "Unrecognized key: \"extra\"" } }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, malformed, expired, invalid, or revoked Bearer token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "missing": { "value": { "message": "Authentication is required." } },
+              "invalid": { "value": { "message": "Your session is invalid or has expired." } }
+            }
+          }
+        }
+      },
+      "RecipientRoleRequired": {
+        "description": "The authenticated account is not a Recipient",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "message": "You do not have permission to access this resource." }
+          }
+        }
+      },
+      "NoActiveSubscription": {
+        "description": "The caller has no ACTIVE, unexpired subscription to cancel/resume — never subscribed, or already lapsed. Checked before any Stripe call.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "cancel": { "value": { "message": "No active subscription to cancel." } },
+              "resume": { "value": { "message": "No active subscription to resume." } }
+            }
+          }
+        }
+      },
+      "StripeApiError": {
+        "description": "The Stripe API call itself failed (network error, invalid customer, etc.)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  }
+}

@@ -11,9 +11,24 @@ interface PaginationProps {
   itemLabel?: string;
   isDisabled?: boolean;
   className?: string;
-  theme?: 'admin' | 'donor';
+  theme?: 'donor' | 'admin';
   onPageChange: (page: number) => void;
 }
+
+const paginationThemes = {
+  donor: {
+    container: 'border-[#C1C8C2] bg-[#FFF6E3]',
+    text: 'text-[#414844]',
+    button: 'border-[#727972] bg-transparent text-[#414844] hover:bg-white',
+    current: 'bg-[#805300] text-white hover:bg-[#694400]',
+  },
+  admin: {
+    container: 'border-admin-border/50 bg-[#eff4ff]',
+    text: 'text-admin-text-muted',
+    button: 'border-admin-border bg-white text-admin-title hover:bg-white/70',
+    current: 'bg-admin-nav text-white hover:bg-admin-primary',
+  },
+} as const;
 
 function buildPageItems(currentPage: number, totalPages: number): PageItem[] {
   if (totalPages <= 5) {
@@ -52,6 +67,7 @@ export function Pagination({
   theme = 'donor',
   onPageChange,
 }: PaginationProps) {
+  const styles = paginationThemes[theme];
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(Math.max(page, 1), totalPages);
 
@@ -79,13 +95,11 @@ export function Pagination({
       aria-label="Pagination"
       className={cn(
         'flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6',
-        theme === 'admin'
-          ? 'border-[#dce3ec] bg-slate-50'
-          : 'border-[#C1C8C2] bg-[#FFF6E3]',
+        styles.container,
         className,
       )}
     >
-      <p className="text-sm text-[#414844]" aria-live="polite">
+      <p className={cn('text-sm', styles.text)} aria-live="polite">
         Showing {firstItem}–{lastItem} of {totalItems} {itemLabel}
       </p>
 
@@ -97,7 +111,7 @@ export function Pagination({
           disabled={isDisabled || currentPage === 1}
           aria-label="Go to previous page"
           onClick={() => changePage(currentPage - 1)}
-          className="size-8 border-[#727972] bg-transparent text-[#414844] transition-all duration-200 ease-out hover:bg-white hover:shadow-md active:scale-[0.98]"
+          className={cn('size-8 transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98]', styles.button)}
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
         </Button>
@@ -130,10 +144,8 @@ export function Pagination({
               className={cn(
                 'size-8 transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98]',
                 isCurrent
-                  ? theme === 'admin'
-                    ? 'bg-[#5b7bc0] text-white hover:bg-[#4a6ab0]'
-                    : 'bg-[#805300] text-white hover:bg-[#694400]'
-                  : 'border-[#727972] bg-transparent text-[#414844] hover:bg-white',
+                  ? styles.current
+                  : styles.button,
               )}
             >
               {item}
@@ -148,7 +160,7 @@ export function Pagination({
           disabled={isDisabled || currentPage === totalPages}
           aria-label="Go to next page"
           onClick={() => changePage(currentPage + 1)}
-          className="size-8 border-[#727972] bg-transparent text-[#414844] transition-all duration-200 ease-out hover:bg-white hover:shadow-md active:scale-[0.98]"
+          className={cn('size-8 transition-all duration-200 ease-out hover:shadow-md active:scale-[0.98]', styles.button)}
         >
           <ChevronRight className="size-4" aria-hidden="true" />
         </Button>

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   createCourierAccountMock,
   listCouriersMock,
+  listUsersForAdminMock,
+  updateAccountStatusForAdminMock,
   findCourierProfilesByUserIdsMock,
   listForAdminMock,
   findOrdersByIdsMock,
@@ -11,6 +13,8 @@ const {
 } = vi.hoisted(() => ({
   createCourierAccountMock: vi.fn(),
   listCouriersMock: vi.fn(),
+  listUsersForAdminMock: vi.fn(),
+  updateAccountStatusForAdminMock: vi.fn(),
   findCourierProfilesByUserIdsMock: vi.fn(),
   listForAdminMock: vi.fn(),
   findOrdersByIdsMock: vi.fn(),
@@ -22,6 +26,8 @@ vi.mock('../../../src/modules/users/user.interface.js', () => ({
   userInterface: {
     createCourierAccount: createCourierAccountMock,
     listCouriers: listCouriersMock,
+    listUsersForAdmin: listUsersForAdminMock,
+    updateAccountStatusForAdmin: updateAccountStatusForAdminMock,
     findCourierProfilesByUserIds: findCourierProfilesByUserIdsMock,
   },
 }));
@@ -48,6 +54,8 @@ vi.mock('../../../src/modules/listings/listing.interface.js', () => ({
 import {
   createCourier,
   listCouriers,
+  listUsers,
+  updateUserStatus,
   listDeliveries,
   listListings,
   cancelListing,
@@ -133,6 +141,43 @@ describe('admin.service', () => {
         id: 'u1',
         fullName: 'Nguyen Van A',
       });
+    });
+  });
+
+  describe('listUsers', () => {
+    it('delegates the validated filters to the users module', async () => {
+      const page = {
+        items: [courierUser],
+        page: 2,
+        limit: 10,
+        total: 11,
+      };
+      const query = {
+        page: 2,
+        limit: 10,
+        role: 'COURIER' as const,
+        status: 'ACTIVE' as const,
+        search: 'courier',
+      };
+      listUsersForAdminMock.mockResolvedValue(page);
+
+      await expect(listUsers(query)).resolves.toBe(page);
+      expect(listUsersForAdminMock).toHaveBeenCalledWith(query);
+    });
+  });
+
+  describe('updateUserStatus', () => {
+    it('delegates the status change through the users module interface', async () => {
+      const updated = { ...courierUser, status: 'DEACTIVATED' };
+      updateAccountStatusForAdminMock.mockResolvedValue(updated);
+
+      await expect(
+        updateUserStatus('507f1f77bcf86cd799439011', { status: 'DEACTIVATED' }),
+      ).resolves.toBe(updated);
+      expect(updateAccountStatusForAdminMock).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439011',
+        'DEACTIVATED',
+      );
     });
   });
 
@@ -245,6 +290,8 @@ describe('admin.service', () => {
         'listCouriers',
         'listDeliveries',
         'listListings',
+        'listUsers',
+        'updateUserStatus',
       ]);
     });
   });
@@ -252,23 +299,13 @@ describe('admin.service', () => {
   describe('Listing oversight', () => {
     const listingSource = {
       listing: {
-        _id: 'l1',
-        donorId: 'donor1',
-        name: 'Bread',
-        unit: 'UNIT',
-        category: 'BAKED_GOODS',
-        isVegetarian: true,
-        price: 0,
-        city: 'Hanoi',
-        status: 'ACTIVE',
-        donationLimit: 10,
-        quantityRemaining: 7,
-        createdAt: new Date('2026-09-01T00:00:00.000Z'),
+        _id: 'l1', donorId: 'd1', name: 'Bread', unit: 'UNIT',
+        category: 'BAKED_GOODS', isVegetarian: true, price: 0,
+        city: 'Hanoi', status: 'ACTIVE', donationLimit: 10,
+        quantityRemaining: 5, createdAt: new Date('2026-08-01T00:00:00.000Z'),
       },
       donor: {
-        id: 'donor1',
-        companyName: 'Fresh Bakery',
-        city: 'Hanoi',
+        id: 'd1', companyName: 'Fresh Bakery', city: 'Hanoi',
         addressText: '1 Bakery Street',
         location: { latitude: 21, longitude: 105, updatedAt: new Date() },
       },
@@ -277,22 +314,16 @@ describe('admin.service', () => {
     it('maps Listing rows and preserves the pending cancellation count', async () => {
       listListingsForAdminMock.mockResolvedValue({
         items: [{ ...listingSource, pendingOrderCount: 2 }],
-        page: 1,
-        limit: 20,
-        total: 1,
+        page: 1, limit: 20, total: 1,
       });
 
       const result = await listListings({ search: 'Bread', page: 1, limit: 20 });
 
       expect(listListingsForAdminMock).toHaveBeenCalledWith({
-        search: 'Bread',
-        page: 1,
-        limit: 20,
+        search: 'Bread', page: 1, limit: 20,
       });
       expect(result.items[0]).toMatchObject({
-        id: 'l1',
-        status: 'ACTIVE',
-        pendingOrderCount: 2,
+        id: 'l1', status: 'ACTIVE', pendingOrderCount: 2,
       });
     });
 
@@ -303,6 +334,7 @@ describe('admin.service', () => {
           listing: { ...listingSource.listing, status: 'CANCELLED' },
         },
         cancelledOrderCount: 2,
+        refundOutcomes: [],
       });
 
       const result = await cancelListing('l1', 'admin1');
@@ -311,6 +343,7 @@ describe('admin.service', () => {
       expect(result).toMatchObject({
         listing: { id: 'l1', status: 'CANCELLED' },
         cancelledOrderCount: 2,
+        refundOutcomes: [],
       });
     });
   });

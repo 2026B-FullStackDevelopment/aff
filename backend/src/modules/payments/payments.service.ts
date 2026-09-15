@@ -6,7 +6,10 @@ import { userInterface } from '../users/user.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { notificationInterface } from '../notifications/notification.interface.js';
-import type { PayableType } from './payment.model.js';
+import { subscriptionInterface } from '../subscriptions/subscription.interface.js';
+import { emailInterface } from '../../integrations/email/email.interface.js';
+import { emitToUser } from '../../realtime/socket.js';
+import type { PayableType } from './payment.types.js';
 import type { ClientSession, Types } from 'mongoose';
 import type Stripe from 'stripe';
 
@@ -26,6 +29,15 @@ function stripeApiError(message: string): Error {
   const error: Error = new Error(message);
   error.statusCode = 502;
   return error;
+}
+
+/**
+ * Resolves a Stripe id field to its plain string id, whether Stripe sent it un-expanded (a
+ * string) or expanded (an object with an `id`) — mirrors the `payment_intent` handling in
+ * handlePaymentCheckoutCompleted below.
+ */
+function resolveStripeId(value: string | { id: string } | null | undefined): string {
+  return typeof value === 'string' ? value : (value?.id ?? '');
 }
 
 /**
@@ -209,6 +221,21 @@ async function startSubscriptionCheckout({
 }
 
 /**
+ * Toggles a Stripe Subscription's cancel-at-period-end flag (F5 — cancel/resume Premium).
+ * Never calls Stripe's `subscriptions.cancel()`/`.del()`, so access is never revoked mid-period.
+ * @param subscriptionId - the Stripe Subscription id to update
+ * @param cancelAtPeriodEnd - `true` to schedule cancellation at period end, `false` to resume
+ * @throws {Error} with statusCode = 502 if the Stripe API call fails
+ */
+async function setSubscriptionCancelAtPeriodEnd(subscriptionId: string, cancelAtPeriodEnd: boolean) {
+  try {
+    return await paymentProvider.updateSubscriptionCancelAtPeriodEnd(subscriptionId, cancelAtPeriodEnd);
+  } catch (error) {
+    throw stripeApiError(error instanceof Error ? error.message : 'Failed to update Stripe subscription.');
+  }
+}
+
+/**
  * Completes an Order payment after Stripe verifies checkout success.
  * All database changes commit together; the Recipient event is emitted only
  * after the transaction succeeds.
@@ -287,7 +314,7 @@ async function handlePaymentCheckoutCompleted(
 /**
  * Synchronously refunds a Stripe-paid order's payment as part of cancellation (D4). Only touches
  * the PAYMENT row — sets REFUND_PENDING, not REFUNDED; final confirmation is the caller's job to
- * surface once the charge.refunded webhook (see handleChargeRefunded below) settles it. Marking
+ * surface once the refund.updated webhook (see handleRefundUpdated below) settles it. Marking
  * ORDER.paymentStatus is the caller's responsibility, same division as handlePaymentCheckoutCompleted.
  * Idempotent: a payment already REFUND_PENDING or REFUNDED is not refunded again.
  * @param orderId - the cancelled ORDER._id. The caller is expected to have already confirmed the
@@ -340,22 +367,27 @@ async function cancelPendingOrderPayment(
 }
 
 /**
- * Reconciles a verified "charge.refunded" event against its Payment row (matched by stripeRefundId,
- * set synchronously by refundOrderPayment above): skips if already processed, otherwise marks it
- * REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED and sending the
- * PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors handlePaymentCheckoutCompleted.
+ * Reconciles a verified "refund.updated" event against its Payment row (matched by
+ * stripeRefundId, set synchronously by refundOrderPayment above): ignores the refund
+ * until it reaches a terminal `succeeded` status, skips if already processed, otherwise
+ * marks it REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED
+ * and sending the PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors
+ * handlePaymentCheckoutCompleted.
+ *
+ * Listens to the Refund object directly rather than the older `charge.refunded` event:
+ * as of Stripe's 2024-10-28 API change, `charge.refunded` no longer reliably carries the
+ * refund's id/status in its payload, whereas `refund.updated` (now sent for every refund
+ * type, not just chargeless ones) gives both directly with no extra API call.
  */
-async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
-  const refundId = charge.refunds?.data[0]?.id;
-
-  // No refund on this charge (shouldn't happen for this event type) — nothing to reconcile.
-  if (!refundId) {
+async function handleRefundUpdated(refund: Stripe.Refund, eventId: string) {
+  // Only a terminal success confirms the refund; ignore pending/failed/canceled updates.
+  if (refund.status !== 'succeeded') {
     return;
   }
 
-  const payment = await paymentRepository.findPaymentByRefundId(refundId);
+  const payment = await paymentRepository.findPaymentByRefundId(refund.id);
 
-  // No matching Payment row (e.g. stripeRefundId not yet persisted, or an unrelated charge) —
+  // No matching Payment row (e.g. stripeRefundId not yet persisted, or an unrelated refund) —
   // nothing to reconcile.
   if (!payment) {
     return;
@@ -402,28 +434,47 @@ async function processWebhookEvent(event: Stripe.Event) {
       if (session.mode === 'payment') {
         await handlePaymentCheckoutCompleted(session, event.id);
       } else if (session.mode === 'subscription') {
-        // TODO(F1 - Stripe Recurring Subscription): create the initial SUBSCRIPTION row
-        // (status=ACTIVE) for this Recipient. No Payment row exists to check
-        // lastProcessedEventId against yet, since startSubscriptionCheckout doesn't create one.
+        // Creates nothing — the SUBSCRIPTION row is appended by invoice.paid instead, which
+        // fires for both the first payment and every renewal (F1, backend/SUBSCRIPTION.md).
+        console.info(`Stripe subscription checkout completed for session ${session.id}; awaiting invoice.paid.`);
       }
       break;
     }
     case 'invoice.paid': {
-      // TODO(F1): append a new SUBSCRIPTION row for the new billing cycle (append-only ledger
-      // per docs/database_design.md) and send the confirmation email (Nodemailer).
+      const invoice = event.data.object as Stripe.Invoice;
+      const stripeCustomerId = resolveStripeId(invoice.customer);
+      const stripeSubscriptionId = resolveStripeId(invoice.parent?.subscription_details?.subscription ?? null);
+      const currentPeriodEndSeconds = invoice.lines.data[0]?.period?.end ?? invoice.period_end;
+
+      const result = await subscriptionInterface.appendBillingCycle({
+        stripeCustomerId,
+        stripeSubscriptionId,
+        stripeInvoiceId: invoice.id,
+        currentPeriodEnd: new Date(currentPeriodEndSeconds * 1000),
+        cancelAtPeriodEnd: false,
+      });
+
+      if (result.created) {
+        await emailInterface.sendSubscriptionConfirmation({
+          to: result.recipientEmail,
+          currentPeriodEnd: result.currentPeriodEnd,
+        });
+      }
       break;
     }
     case 'invoice.payment_failed': {
-      // TODO(F1): set the latest SUBSCRIPTION.status=PAST_DUE for this Recipient.
+      const invoice = event.data.object as Stripe.Invoice;
+      await subscriptionInterface.markLatestPastDue(resolveStripeId(invoice.customer));
       break;
     }
     case 'customer.subscription.deleted': {
-      // TODO(F1): set the latest SUBSCRIPTION.status=CANCELLED for this Recipient.
+      const subscription = event.data.object as Stripe.Subscription;
+      await subscriptionInterface.markLatestCancelled(resolveStripeId(subscription.customer));
       break;
     }
-    case 'charge.refunded': {
-      const charge = event.data.object as Stripe.Charge;
-      await handleChargeRefunded(charge, event.id);
+    case 'refund.updated': {
+      const refund = event.data.object as Stripe.Refund;
+      await handleRefundUpdated(refund, event.id);
       break;
     }
     default:
@@ -434,5 +485,5 @@ async function processWebhookEvent(event: Stripe.Event) {
 }
 
 export { getOrCreateStripeCustomer, startOneTimeCheckout, startSubscriptionCheckout,
-  refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
+  setSubscriptionCancelAtPeriodEnd, refundOrderPayment, cancelPendingOrderPayment, processWebhookEvent,
 };

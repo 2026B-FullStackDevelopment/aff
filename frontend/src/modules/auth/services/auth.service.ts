@@ -14,5 +14,5 @@ export const authService = {
     httpClient.post<AuthSession>(API_ROUTES.auth.login, credentials, { skipAuthRedirect: true }),
 
   logout: () =>
-    httpClient.post<null>(API_ROUTES.auth.logout, null),
+    httpClient.post<null>(API_ROUTES.auth.logout, {}),
 };

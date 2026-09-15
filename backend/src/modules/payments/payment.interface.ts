@@ -5,6 +5,7 @@ const paymentInterface = {
   getOrCreateStripeCustomer: paymentsService.getOrCreateStripeCustomer,
   startOneTimeCheckout: paymentsService.startOneTimeCheckout,
   startSubscriptionCheckout: paymentsService.startSubscriptionCheckout,
+  setSubscriptionCancelAtPeriodEnd: paymentsService.setSubscriptionCancelAtPeriodEnd,
   refundOrderPayment: paymentsService.refundOrderPayment,
   cancelPendingOrderPayment: paymentsService.cancelPendingOrderPayment,
 };

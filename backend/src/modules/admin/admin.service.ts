@@ -3,7 +3,7 @@ import { userInterface } from '../users/user.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
-import { toListingResponseDto } from '../listings/listing.dto.js';
+import { toListingResponseDto } from '../listings/listing.response.dto.js';
 import {
   toCourierResponseDto,
   toAdminDeliveryResponseDto,
@@ -13,6 +13,8 @@ import type {
   CourierResponseDto,
   AdminCouriersResponseDto,
   AdminDeliveriesResponseDto,
+  AdminUsersResponseDto,
+  UpdateUserStatusRequestDto,
   AdminListingsResponseDto,
   CancelListingResponseDto,
 } from './admin.dto.js';
@@ -20,6 +22,7 @@ import type {
   CreateCourierPayload,
   AdminCouriersQuery,
   AdminDeliveriesQuery,
+  AdminUsersQuery,
   AdminListingsQuery,
 } from './admin.schemas.js';
 
@@ -66,6 +69,24 @@ async function listCouriers(
     ...page,
     items: page.items.map((entry) => toCourierResponseDto(entry.user, entry.courier)),
   };
+}
+
+/**
+ * Reads one filtered page of every account role for the Admin directory (G1).
+ * Profile joins and role-specific DTO mapping stay inside the users module,
+ * which owns the USER, RECIPIENT, DONOR, and COURIER collections.
+ */
+async function listUsers(query: AdminUsersQuery): Promise<AdminUsersResponseDto> {
+  return userInterface.listUsersForAdmin(query);
+}
+
+/**
+ * Applies the Admin's account-state decision through the users module, which
+ * owns USER persistence and coordinates immediate revocation of the target
+ * user's recorded sessions when the account is deactivated.
+ */
+async function updateUserStatus(userId: string, payload: UpdateUserStatusRequestDto) {
+  return userInterface.updateAccountStatusForAdmin(userId, payload.status);
 }
 
 /**
@@ -139,12 +160,15 @@ async function cancelListing(
   return {
     listing,
     cancelledOrderCount: result.cancelledOrderCount,
+    refundOutcomes: result.refundOutcomes,
   };
 }
 
 export {
   createCourier,
   listCouriers,
+  listUsers,
+  updateUserStatus,
   listDeliveries,
   listListings,
   cancelListing,

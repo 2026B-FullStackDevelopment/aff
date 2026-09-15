@@ -1,17 +1,8 @@
 // Contains NotificationPreference database queries so services do not call Mongoose directly.
-import NotificationPreference, { type NotificationPreferenceDocument } from './notification-preference.model.js';
+import NotificationPreference from './notification-preference.model.js';
+import type { NotificationPreferenceDocument } from './notification-preference.types.js';
 import type { Types } from 'mongoose';
-import type { FoodCategory } from '../listings/listing.model.js';
-
-interface NotificationPreferenceWriteInput {
-  preferenceTitle: string;
-  categories: FoodCategory[];
-  vegetarian: boolean | null;
-  priceMin: number | null;
-  priceMax: number | null;
-  city: string | null;
-  isActive: boolean;
-}
+import type { NotificationPreferenceWriteInput } from './notification-preference.types.js';
 
 function createPreference(recipientId: string | Types.ObjectId, data: NotificationPreferenceWriteInput) {
   return NotificationPreference.create({ recipientId, ...data });
@@ -56,4 +47,4 @@ export {
   findPreferenceByIdAndRecipient,
   findAllActivePreferences,
 };
-export type { NotificationPreferenceWriteInput };
+export type { NotificationPreferenceWriteInput } from './notification-preference.types.js';

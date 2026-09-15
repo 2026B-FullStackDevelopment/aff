@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createCourierSchema,
   adminCouriersQuerySchema,
+  adminUsersQuerySchema,
+  adminUserIdParamsSchema,
+  updateUserStatusSchema,
   adminDeliveriesQuerySchema,
   adminListingsQuerySchema,
   adminListingParamsSchema,
@@ -62,6 +65,57 @@ describe('admin.schemas', () => {
         page: 1,
         limit: 20,
       });
+    });
+  });
+
+  describe('adminUsersQuerySchema', () => {
+    it('defaults pagination while leaving every filter optional', () => {
+      expect(adminUsersQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
+    });
+
+    it('accepts composable role, status, and trimmed search filters', () => {
+      expect(
+        adminUsersQuerySchema.parse({
+          page: '2',
+          limit: '10',
+          role: 'COURIER',
+          status: 'ACTIVE',
+          search: '  Nguyen  ',
+        }),
+      ).toEqual({
+        page: 2,
+        limit: 10,
+        role: 'COURIER',
+        status: 'ACTIVE',
+        search: 'Nguyen',
+      });
+    });
+
+    it('rejects unsupported role and status filters', () => {
+      expect(adminUsersQuerySchema.safeParse({ role: 'SUPER_ADMIN' }).success).toBe(false);
+      expect(adminUsersQuerySchema.safeParse({ status: 'LOCKED' }).success).toBe(false);
+    });
+  });
+
+  describe('account status schemas', () => {
+    it('accepts a MongoDB user id and either supported status', () => {
+      expect(
+        adminUserIdParamsSchema.parse({ id: '507f1f77bcf86cd799439011' }),
+      ).toEqual({ id: '507f1f77bcf86cd799439011' });
+      expect(updateUserStatusSchema.parse({ status: 'ACTIVE' })).toEqual({
+        status: 'ACTIVE',
+      });
+      expect(updateUserStatusSchema.parse({ status: 'DEACTIVATED' })).toEqual({
+        status: 'DEACTIVATED',
+      });
+    });
+
+    it('rejects malformed ids, unsupported statuses, and extra fields', () => {
+      expect(adminUserIdParamsSchema.safeParse({ id: 'not-an-id' }).success).toBe(false);
+      expect(updateUserStatusSchema.safeParse({ status: 'LOCKED' }).success).toBe(false);
+      expect(
+        updateUserStatusSchema.safeParse({ status: 'ACTIVE', role: 'ADMIN' }).success,
+      ).toBe(false);
     });
   });
 

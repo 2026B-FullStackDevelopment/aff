@@ -46,7 +46,7 @@ AFF's backend exposes a REST API (JWT-authenticated, role-based) plus one shared
 | Delivery (§9) | `PATCH /deliveries/:id/deliver` | COURIER |
 | Subscriptions (§10) | `GET /subscriptions/me` | RECIPIENT |
 | Subscriptions (§10) | `POST /subscriptions/checkout-session` | RECIPIENT |
-| Subscriptions (§10) | `DELETE /subscriptions/me` | RECIPIENT (Premium) |
+| Subscriptions (§10) | `PATCH /subscriptions/me` | RECIPIENT (Premium) |
 | Subscriptions (§10) | `GET /recipients/me/preferences` | RECIPIENT |
 | Subscriptions (§10) | `POST /recipients/me/preferences` | RECIPIENT (Premium) |
 | Subscriptions (§10) | `PATCH /recipients/me/preferences/:id` | RECIPIENT (Premium) |
@@ -334,6 +334,13 @@ Errors: `400` invalid unit/category enum, `price` fails the "free or >= 15000 VN
 Query params: `?status=ACTIVE|PAST` (`ACTIVE` matches `LISTING.status` in `ACTIVE`/`PAUSED`; `PAST` matches `CANCELLED`/`SOLD_OUT`), `search=`, `category=`, `from=`, `to=`, `sort=createdAt|revenue&order=asc|desc`, plus pagination (§2.4).
 Response `200`: paginated `{ items: (ListingDTO & { donatedQuantity: number, revenue: number })[], page, limit, total }`.
 
+### `GET /listings/analytics` — *Issue `#137`*
+**Auth:** `DONOR`
+**Ownership:** implicit — always scoped to `req.user.id` as `donorId`
+
+Runs one MongoDB aggregation over the Donor's Listings and their paid, non-cancelled Orders. No Listing collection is downloaded to the client for browser-side aggregation.
+Response `200`: `{ totalRevenue, totalListings, currentListings, soldOutListings, categories: { category, listingCount, revenue }[], topListings: { id, name, revenue }[] }`. `currentListings` counts `ACTIVE` and `PAUSED`; `topListings` contains at most five rows ordered by revenue, then newest creation date. All six food categories are returned, including zero-valued categories.
+
 ### `POST /listings/:id/clone` — *`4.1.3`*
 **Auth:** `DONOR`
 **Ownership:** the listing must belong to `req.user.id`
@@ -347,8 +354,8 @@ Errors: `404` listing not found; `403` not the owning Donor
 **Ownership:** the listing must belong to `req.user.id`
 
 Request body: `{ status: 'PAUSED'|'ACTIVE'|'CANCELLED' }`
-Behavior: transitioning to `CANCELLED` cascades to each non-terminal `ORDER` whose `DELIVERY.stage=AWAITING_COURIER`, plus a Stripe Reservation still awaiting payment with no `DELIVERY`. Orders already `DELIVERED` or `CANCELLED`, including completed Donor-initiated manual Orders that intentionally have no Delivery, are untouched. `ASSIGNED`-or-later deliveries are also untouched.
-Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number }`
+Behavior: transitioning to `CANCELLED` cascades to each non-terminal `ORDER` whose `DELIVERY.stage=AWAITING_COURIER`, plus a Stripe Reservation still awaiting payment with no `DELIVERY`. Orders already `DELIVERED` or `CANCELLED`, including completed Donor-initiated manual Orders that intentionally have no Delivery, are untouched. `ASSIGNED`-or-later deliveries are also untouched. Each cascaded Order gets the same treatment the Recipient's own self-cancel (`DELETE /orders/:id`, §7) applies: Listing stock is restored, a dangling `STRIPE`+`PAYMENT_PENDING` row is cancelled, and a `STRIPE`+`PAID` Order is refunded — the refund call happens only after the cancellation transaction commits, mirroring `DELETE /orders/:id`, so one Order's Stripe failure can't roll back the others' cancellation.
+Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number, refundOutcomes: { orderId: string, refundStatus: 'REFUND_PENDING'|'FAILED' }[] }` — `refundOutcomes` has one entry per `STRIPE`+`PAID` Order caught by the cascade (empty array otherwise).
 Errors: `409` invalid transition (e.g. re-cancelling an already-cancelled listing)
 
 ### `GET /listings/:id/orders` — *`4.2.5`*
@@ -419,7 +426,7 @@ This is the Recipient's own self-cancel action. Donor- and Admin-initiated cance
 
 Behavior: first rejects any terminal Order (`orderStatus=DELIVERED` or `CANCELLED`). For a non-terminal Order, it atomically checks the associated `DELIVERY.stage`. Cancellation proceeds when `stage=AWAITING_COURIER`, or when a Stripe Reservation is still awaiting payment and has no Delivery: `ORDER.orderStatus=CANCELLED`, `cancelledByUserId=<req.user.id>`, `cancelledAt=now`; `LISTING.quantityRemaining` is restored. A completed Donor-initiated manual Order has no Delivery by design but remains non-cancellable because its status is already `DELIVERED`. If a Delivery is `ASSIGNED` or later, the update is rejected — this is the same atomic check that backs the claim endpoint's guarantee (`PATCH /deliveries/:id/claim`, §9).
 
-**Automatic Stripe refund:** if the cancelled order has `paymentMethod=STRIPE` and `paymentStatus=PAID`, the cancellation additionally triggers a synchronous `stripe.refunds.create()` call against `PAYMENT.stripePaymentIntentId`. On success, `PAYMENT.status`/`ORDER.paymentStatus=REFUND_PENDING` and `PAYMENT.stripeRefundId` is stored — **not** `REFUNDED` yet, since Stripe's synchronous response isn't treated as final; the refund is only confirmed `REFUNDED` by the `charge.refunded` webhook (§8), which also emits `payment:refunded` (§12) to push the update live. If the Stripe API call itself fails, cancellation still proceeds (never blocked on Stripe reachability) and the response reports `refundStatus=FAILED` for manual follow-up. Idempotent: a `PAYMENT` already `REFUND_PENDING` or `REFUNDED` is not refunded again. Orders that are free, cash, or Stripe-but-never-paid (`PENDING_PAYMENT`, no money taken) get `refundStatus=NOT_APPLICABLE` and no Stripe call at all.
+**Automatic Stripe refund:** if the cancelled order has `paymentMethod=STRIPE` and `paymentStatus=PAID`, the cancellation additionally triggers a synchronous `stripe.refunds.create()` call against `PAYMENT.stripePaymentIntentId`. On success, `PAYMENT.status`/`ORDER.paymentStatus=REFUND_PENDING` and `PAYMENT.stripeRefundId` is stored — **not** `REFUNDED` yet, since Stripe's synchronous response isn't treated as final; the refund is only confirmed `REFUNDED` by the `refund.updated` webhook (§8), which also emits `payment:refunded` (§12) to push the update live. If the Stripe API call itself fails, cancellation still proceeds (never blocked on Stripe reachability) and the response reports `refundStatus=FAILED` for manual follow-up. Idempotent: a `PAYMENT` already `REFUND_PENDING` or `REFUNDED` is not refunded again. Orders that are free, cash, or Stripe-but-never-paid (`PENDING_PAYMENT`, no money taken) get `refundStatus=NOT_APPLICABLE` and no Stripe call at all.
 
 Response `200`: `OrderDTO & { refundStatus: 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED' }`
 Errors: `404` order not found; `409` Order already terminal or Delivery already `ASSIGNED`/`PICKED_UP`/`DELIVERED` — "This order can no longer be cancelled."
@@ -456,14 +463,14 @@ Single endpoint handling both one-off order payments and subscription billing, d
 | Stripe event | Effect |
 |---|---|
 | `checkout.session.completed` (payment mode) | Look up `ORDER` via session metadata → `ORDER.paymentStatus=PAID`, `orderStatus=PREPARING`; `PAYMENT.status=PAID`, `paidAt=now`, `stripePaymentIntentId=session.payment_intent` (captured now so a later refund doesn't need an extra Stripe lookup); **now** call `DeliveryService.createForOrder` (Stripe orders only enter the queue after payment succeeds); emit `payment:success` (§12) |
-| `checkout.session.completed` (subscription mode) | Create initial `SUBSCRIPTION` row, `status=ACTIVE` |
+| `checkout.session.completed` (subscription mode) | No-op (logged only) — nothing to create yet at this point, since there's no invoice/period data on the Checkout Session itself. The `SUBSCRIPTION` row is created by `invoice.paid` below, which fires immediately after for both the first payment and every renewal |
 | `invoice.paid` | Append a new `SUBSCRIPTION` row for the new billing cycle (append-only ledger per `docs/database_design.md`); send confirmation email (Nodemailer) |
 | `invoice.payment_failed` | Latest `SUBSCRIPTION.status=PAST_DUE` |
-| `customer.subscription.updated` | Reconcile `cancelAtPeriodEnd` on the latest `SUBSCRIPTION` row from `event.data.object.cancel_at_period_end` (keeps the local flag in sync if a cancellation is ever toggled outside `DELETE /subscriptions/me`). Optional — the `DELETE`/`PATCH` response is the primary source of truth for the flag |
-| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` (fires at `currentPeriodEnd` for a `cancel_at_period_end` cancellation — see `DELETE /subscriptions/me`, §10) |
-| `charge.refunded` | Confirms a refund initiated by `DELETE /orders/:id` (§7) actually settled. Look up `PAYMENT` via `stripeRefundId` → `PAYMENT.status=REFUNDED`, `refundedAt=now`; `ORDER.paymentStatus=REFUNDED`; emit `payment:refunded` (§12). If no matching `PAYMENT` (e.g. `stripeRefundId` not yet persisted when the event arrives), safe to ignore — the event isn't retried indefinitely, but this ordering shouldn't occur since the id is stored synchronously before the webhook can fire |
+| `customer.subscription.updated` | Reconcile `cancelAtPeriodEnd` on the latest `SUBSCRIPTION` row from `event.data.object.cancel_at_period_end` (keeps the local flag in sync if a cancellation is ever toggled outside `PATCH /subscriptions/me`). Optional — the `PATCH` response is the primary source of truth for the flag |
+| `customer.subscription.deleted` | Latest `SUBSCRIPTION.status=CANCELLED` (fires at `currentPeriodEnd` for a `cancel_at_period_end` cancellation — see `PATCH /subscriptions/me`, §10) |
+| `refund.updated` | Confirms a refund initiated by `DELETE /orders/:id` (§7) actually settled. Ignored unless `event.data.object.status=succeeded` (a refund can update through `pending`/`failed`/`canceled` first). Look up `PAYMENT` via `stripeRefundId=event.data.object.id` → `PAYMENT.status=REFUNDED`, `refundedAt=now`; `ORDER.paymentStatus=REFUNDED`; emit `payment:refunded` (§12). If no matching `PAYMENT` (e.g. `stripeRefundId` not yet persisted when the event arrives), safe to ignore — the event isn't retried indefinitely, but this ordering shouldn't occur since the id is stored synchronously before the webhook can fire. Chosen over the older `charge.refunded` event, which as of Stripe's 2024-10-28 API change no longer reliably carries refund id/status in its payload — `refund.updated` now fires for every refund type (not just chargeless ones) and gives both directly |
 
-Idempotency: `PAYMENT.lastProcessedEventId` (per `docs/database_design.md`) is checked before applying any event, guarding against Stripe's at-least-once webhook delivery.
+Idempotency: for order/refund events, `PAYMENT.lastProcessedEventId` (per `docs/database_design.md`) is checked before applying any event, guarding against Stripe's at-least-once webhook delivery. Subscription billing events create no `PAYMENT` row, so they dedupe separately: `invoice.paid` guards on `SUBSCRIPTION.stripeInvoiceId` (unique, sparse) — a re-delivered event finds the existing row by invoice id and appends nothing a second time.
 Response: `200` (always, once the event is durably processed or recognized as a duplicate) — Stripe treats non-2xx as "retry."
 
 ---
@@ -551,7 +558,7 @@ Not an HTTP route — a same-process service-interface call (`A.3.1`) invoked fo
 
 ### `GET /subscriptions/me` *(supporting endpoint — needed to render Premium/upgrade UI state; `RECIPIENT.tier` is derived from this)*
 **Auth:** `RECIPIENT`
-Response `200`: `{ tier: 'STANDARD'|'PREMIUM', subscription: SubscriptionDTO | null }` (`subscription` is the latest row; `PREMIUM` iff it's `ACTIVE` and `currentPeriodEnd` is in the future)
+Response `200`: `{ tier: 'STANDARD'|'PREMIUM', subscription: SubscriptionDTO | null }` (`subscription` is the latest row, including its `cancelAtPeriodEnd` flag; `tier` is derived — `PREMIUM` iff the row is `ACTIVE` and `currentPeriodEnd` is in the future, unaffected by a pending `cancelAtPeriodEnd` until the period actually ends)
 
 ### `POST /subscriptions/checkout-session` — *`6.2.1`*
 **Auth:** `RECIPIENT`
@@ -560,14 +567,15 @@ Behavior: creates a Stripe Checkout Session in subscription mode ($5/month), cre
 Response `200`: `{ checkoutUrl: string }`
 Confirmation happens via the `POST /webhooks/stripe` handler (§8), which creates the `SUBSCRIPTION` row and sends the confirmation email.
 
-### `DELETE /subscriptions/me` — *(new — not tied to an original PRD story; see `docs/user-story/F-premium-subscription/F5-cancel-subscription.md`)*
-**Auth:** `RECIPIENT` (tier must be `PREMIUM` — the caller must have an `ACTIVE` subscription)
+### `PATCH /subscriptions/me` — *(new — not tied to an original PRD story; see `docs/user-story/F-premium-subscription/F5-cancel-subscription.md`)*
+**Auth:** `RECIPIENT` (tier must be `PREMIUM` — the caller must have an `ACTIVE`, unexpired subscription)
 
-Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end: true })` on the caller's own latest subscription, then sets `cancelAtPeriodEnd=true` on that `SUBSCRIPTION` row. **Access is not revoked now** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`POST`/`PATCH`/`DELETE /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`.
-Idempotent: calling again while `cancelAtPeriodEnd` is already `true` is a no-op success, no second Stripe call.
-Reversible: a follow-up `POST /subscriptions/checkout-session` is **not** needed to undo a not-yet-lapsed cancellation — a client may re-call this route's inverse (`cancel_at_period_end: false`) via `PATCH /subscriptions/me { cancelAtPeriodEnd: false }` while `currentPeriodEnd` is still in the future. *(If the team prefers a single toggle endpoint over `DELETE` + `PATCH`, collapse both into `PATCH /subscriptions/me { cancelAtPeriodEnd: boolean }` — the F5 story is written against the observable behavior, not the verb.)*
-Response `200`: `SubscriptionDTO` (with `cancelAtPeriodEnd=true`)
-Errors: `409` no `ACTIVE` subscription to cancel (never subscribed, or already lapsed)
+Request body: `{ cancelAtPeriodEnd: boolean }` — one endpoint, both directions: `true` cancels, `false` resumes.
+
+Behavior: calls `stripe.subscriptions.update(<stripeSubscriptionId>, { cancel_at_period_end })` on the caller's own latest subscription, then persists the same flag on that `SUBSCRIPTION` row. **Cancelling does not revoke access immediately** — `status` stays `ACTIVE`, `RECIPIENT.tier` stays `PREMIUM`, and Premium-gated endpoints (`POST`/`PATCH`/`DELETE /recipients/me/preferences`) keep working until `currentPeriodEnd`. At period end Stripe stops billing and fires `customer.subscription.deleted`, which the §8 handler turns into `status=CANCELLED`; the derived tier then lapses to `STANDARD`. Resuming (`cancelAtPeriodEnd: false`) while `currentPeriodEnd` is still in the future needs no new Checkout Session and triggers no second charge.
+Idempotent both ways: sending the same value as the current flag is a no-op `200` with the same DTO — no second Stripe call.
+Response `200`: `SubscriptionDTO`
+Errors: `409` no `ACTIVE`, unexpired subscription to cancel/resume (never subscribed, or already lapsed)
 
 ### `GET /recipients/me/preferences` — *`5.3.1`*
 **Auth:** `RECIPIENT`
@@ -633,8 +641,8 @@ Response `200`: `UserDTO`
 ### `PATCH /admin/listings/:id/cancel` — *`7.2.2`*
 **Auth:** `ADMIN`
 
-Same cascade rule as the Donor's listing-cancel endpoint (`PATCH /listings/:id/status`): only `AWAITING_COURIER`-or-no-Delivery orders on the listing are auto-cancelled; `cancelledByUserId=<admin's userId>`.
-Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number }`
+Same cascade rule as the Donor's listing-cancel endpoint (`PATCH /listings/:id/status`, §6): only `AWAITING_COURIER`-or-no-Delivery orders on the listing are auto-cancelled; `cancelledByUserId=<admin's userId>`; same per-order stock restoration and refund handling.
+Response `200`: `{ listing: ListingDTO, cancelledOrderCount: number, refundOutcomes: { orderId: string, refundStatus: 'REFUND_PENDING'|'FAILED' }[] }`
 
 ### `GET /admin/listings` — *`7.3.1`, `7.3.2`*
 **Auth:** `ADMIN`
@@ -660,7 +668,7 @@ Client connects with the JWT in the handshake (`socket.handshake.auth.token`); t
 | `notification:premium_match` | `user:<recipientId>` | new `ACTIVE` listing matches a Premium Recipient's saved preference | `{ listingId, name, matchedPreferenceId, message }` | `5.3.2` |
 | `notification:admin_cancel` | `user:<recipientId>` | Admin/Donor cascade cancels this Recipient's order | `{ orderId, listingName, message }` | `7.3.3` |
 | `payment:success` | `user:<recipientId>` | Stripe webhook confirms `checkout.session.completed` for an order | `{ orderId, message }` | `6.1.2` |
-| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `charge.refunded` for a cancelled order (D4) | `{ orderId, message }` | new |
+| `payment:refunded` | `user:<recipientId>` | Stripe webhook confirms `refund.updated` (`status=succeeded`) for a cancelled order (D4) | `{ orderId, message }` | new |
 | `order:status_changed` | `user:<recipientId>` | any `DELIVERY.stage` transition on that Recipient's order | `{ orderId, stage, message }` | new |
 | `delivery:location` | `order:<orderId>` | Courier GPS ping, only while `stage=PICKED_UP` | `{ orderId, latitude, longitude, updatedAt }` | new |
 | `delivery:delivered` | `user:<recipientId>` | `stage → DELIVERED` | `{ orderId, deliveredAt, message }` | new |

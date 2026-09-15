@@ -1,17 +1,7 @@
 // Contains the sole place that both emits a live notification event and persists it (Epic H, H1).
 import * as notificationRepository from './notification.repository.js';
 import { emitToUser } from '../../realtime/socket.js';
-import type { NotificationType } from './notification.model.js';
-
-interface SendNotificationParams {
-  userId: string;
-  type: NotificationType;
-  event?: string;
-  orderId?: string;
-  listingId?: string;
-  payload: Record<string, unknown>;
-  persist?: boolean;
-}
+import type { NotificationType, SendNotificationParams } from './notification.types.js';
 
 // DELIVERY_STATUS has no single default event — it covers both
 // `order:status_changed` and `delivery:delivered` — so callers must pass
@@ -100,4 +90,4 @@ function listMyNotifications(userId: string, page: number, limit: number) {
 }
 
 export { sendNotification, listMyNotifications };
-export type { SendNotificationParams };
+export type { SendNotificationParams } from './notification.types.js';

@@ -1,12 +1,12 @@
 // Shapes admin data before sending it to the frontend. See docs/api_design.md §11.
 import { toUserResponseDto } from '../users/user.dto.js';
 import type { UserResponseDto } from '../users/user.dto.js';
-import type { UserDocument } from '../users/user.model.js';
-import type { CourierDocument } from '../users/courier.model.js';
-import type { DeliveryDocument } from '../delivery/delivery.model.js';
-import type { UpdateListingStatusResponseDto, ListingResponseDto } from '../listings/listing.dto.js';
-import { toListingResponseDto } from '../listings/listing.dto.js';
-import type { AdminListingDtoSource } from '../listings/listing.service.js';
+import type { UserDocument } from '../users/user.types.js';
+import type { CourierDocument } from '../users/courier.types.js';
+import type { DeliveryDocument } from '../delivery/delivery.types.js';
+import type { UpdateListingStatusResponseDto, ListingResponseDto } from '../listings/listing.response.dto.js';
+import { toListingResponseDto } from '../listings/listing.response.dto.js';
+import type { AdminListingDtoSource } from '../listings/listing.query.types.js';
 import { toDeliveryResponseDto } from '../delivery/delivery.dto.js';
 import type { DeliveryResponseDto, DeliveryOrderSource } from '../delivery/delivery.dto.js';
 

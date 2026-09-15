@@ -6,13 +6,15 @@ import {
   Routes,
 } from 'react-router-dom';
 import { CourierLayout } from './CourierLayout';
-import { AdminLayout } from './AdminLayout';
 import { GuestRoute } from './GuestRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RootRedirect } from './RootRedirect';
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage';
+import { CreateCourierPage } from '../modules/admin/pages/CreateCourierPage';
+import { AdminProfilePage } from '../modules/admin/pages/AdminProfilePage';
 import { AdminListingsPage } from '../modules/admin/pages/AdminListingsPage';
 import { AdminDeliveriesPage } from '../modules/admin/pages/AdminDeliveriesPage';
+import { AdminLayout } from '../modules/admin/components/AdminLayout/AdminLayout';
 import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
 import { RecipientRegisterPage } from '../modules/auth/pages/RecipientRegisterPage';
@@ -21,7 +23,6 @@ import { ListingDetailPage } from '../modules/browsing/pages/ListingDetailPage';
 import { ActiveDeliveryPage } from '../modules/delivery/pages/ActiveDeliveryPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
-import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
 import { FoodListingCreationPage } from '../modules/donations/pages/FoodListingCreationPage';
 import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPage';
 import { OrderTrackingPage } from '../modules/reservations/pages/OrderTrackingPage';
@@ -79,7 +80,6 @@ export function AppRouter() {
               allowedRoles={[
                 'RECIPIENT',
                 'DONOR',
-                'ADMIN',
               ]}
             >
               <ProfilePage />
@@ -184,17 +184,6 @@ export function AppRouter() {
         />
 
         <Route
-          path="/donor/reservations"
-          element={
-            <ProtectedRoute
-              allowedRoles={['DONOR']}
-            >
-              <DonorReservationsPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
           path="/donor/analytics"
           element={
             <ProtectedRoute
@@ -207,7 +196,9 @@ export function AppRouter() {
 
         <Route
           element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
+            <ProtectedRoute
+              allowedRoles={['ADMIN']}
+            >
               <AdminLayout />
             </ProtectedRoute>
           }
@@ -215,6 +206,14 @@ export function AppRouter() {
           <Route
             path="/admin/user-directory"
             element={<AdminDashboardPage />}
+          />
+          <Route
+            path="/admin/couriers/new"
+            element={<CreateCourierPage />}
+          />
+          <Route
+            path="/admin/profile"
+            element={<AdminProfilePage />}
           />
           <Route
             path="/admin/listings"

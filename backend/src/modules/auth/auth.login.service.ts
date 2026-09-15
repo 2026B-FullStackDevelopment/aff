@@ -2,9 +2,9 @@
 import { userInterface } from '../users/user.interface.js';
 import { securityInterface } from '../security/security.interface.js';
 import { env } from '../../config/env.js';
-import type { AuthSession } from '../security/token.service.js';
+import type { AuthSession } from '../security/token.types.js';
 import type { LoginRequestDto } from './auth.dto.js';
-import type { UserDocument } from '../users/user.model.js';
+import type { UserDocument } from '../users/user.types.js';
 
 // One message for every credential failure, so nothing reveals whether the
 // account exists (issue #49).

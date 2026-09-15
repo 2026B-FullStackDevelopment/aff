@@ -1,10 +1,11 @@
 // Shapes subscription data before sending it to the frontend, and the request/response bodies for the module's other endpoints.
-import type { SubscriptionDocument, SubscriptionStatus } from './subscription.model.js';
+import type { SubscriptionDocument, SubscriptionStatus } from './subscription.types.js';
 
 interface SubscriptionResponseDto {
   id: string;
   status: SubscriptionStatus;
   currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
   createdAt: Date;
 }
 
@@ -24,6 +25,7 @@ function toSubscriptionResponseDto(subscription: SubscriptionDocument | null): S
     id: String(subscription._id),
     status: subscription.status,
     currentPeriodEnd: subscription.currentPeriodEnd,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
     createdAt: subscription.createdAt,
   };
 }

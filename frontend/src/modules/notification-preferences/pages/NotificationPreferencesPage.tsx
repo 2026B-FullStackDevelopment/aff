@@ -9,7 +9,7 @@ import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkel
 import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog/ConfirmationDialog';
 import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
 import { Button } from '@/shared/components/Button/Button';
-import { getStoredUser } from '@/services/authStorage';
+import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
 import { PreferenceCard } from '../components/PreferenceCard';
 import { AddPreferenceCard } from '../components/AddPreferenceCard';
 import { PreferenceFormPanel } from '../components/PreferenceFormPanel';
@@ -22,15 +22,17 @@ type PanelState =
   | { mode: 'edit'; preference: NotificationPreference };
 
 export function NotificationPreferencesPage() {
-  // Discriminated-union narrowing on `role` — no unsafe cast needed even
-  // though getStoredUser() returns AnyUserDTO. This route is RECIPIENT-only
-  // (see router.tsx), but the check is kept honest rather than assumed.
-  const user = getStoredUser();
-  const isPremium = user?.role === 'RECIPIENT' && user.tier === 'PREMIUM';
+  // Tier is derived server-side from the latest SUBSCRIPTION row (F1 impl note #6).
+  // Reading user.tier from localStorage is wrong — that value is written at login
+  // and is never updated when a subscription upgrade happens mid-session.
+  const { tier, isLoading: isTierLoading } = useSubscription();
+  const isPremium = tier === 'PREMIUM';
   const navigate = useNavigate();
 
-  const { preferences, isLoading, error, reload, toggleActive, removePreference, upsertPreference } =
+  const { preferences, isLoading: isPrefsLoading, error, reload, toggleActive, removePreference, upsertPreference } =
     useNotificationPreferences();
+
+  const isLoading = isTierLoading || isPrefsLoading;
 
   const [panel, setPanel] = useState<PanelState>({ mode: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<NotificationPreference | null>(null);

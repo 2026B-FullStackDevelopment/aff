@@ -5,41 +5,53 @@ const {
   findUserByEmailMock,
   findUserByIdMock,
   searchActiveRecipientsByEmailMock,
-  findDonorUserIdsByUsernameMock,
   updateUserMock,
+  updateAccountStatusMock,
   updateLoginStateMock,
   incrementFailedLoginInWindowMock,
   startFailedLoginWindowMock,
   lockAccountMock,
   deleteUserMock,
+  findUsersForAdminMock,
+  findDonorUserIdsByUsernameMock,
   createRecipientMock,
   findRecipientByUserIdMock,
   createDonorMock,
   findDonorByUserIdMock,
-  findDonorUserIdsByCompanyNameMock,
   updateDonorMock,
+  findDonorUserIdsByCompanyNameMock,
   hashPasswordMock,
   revokeTokenMock,
+  revokeAllTokensForUserMock,
+  getMySubscriptionStatusMock,
+  findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChangedMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
   findUserByIdMock: vi.fn(),
   searchActiveRecipientsByEmailMock: vi.fn(),
-  findDonorUserIdsByUsernameMock: vi.fn(),
   updateUserMock: vi.fn(),
+  updateAccountStatusMock: vi.fn(),
   updateLoginStateMock: vi.fn(),
   incrementFailedLoginInWindowMock: vi.fn(),
   startFailedLoginWindowMock: vi.fn(),
   lockAccountMock: vi.fn(),
   deleteUserMock: vi.fn(),
+  findUsersForAdminMock: vi.fn(),
+  findDonorUserIdsByUsernameMock: vi.fn(),
   createRecipientMock: vi.fn(),
   findRecipientByUserIdMock: vi.fn(),
   createDonorMock: vi.fn(),
   findDonorByUserIdMock: vi.fn(),
-  findDonorUserIdsByCompanyNameMock: vi.fn(),
   updateDonorMock: vi.fn(),
+  findDonorUserIdsByCompanyNameMock: vi.fn(),
   hashPasswordMock: vi.fn(),
   revokeTokenMock: vi.fn(),
+  revokeAllTokensForUserMock: vi.fn(),
+  getMySubscriptionStatusMock: vi.fn(),
+  findRecipientByStripeCustomerIdMock: vi.fn(),
+  setRecipientTierIfChangedMock: vi.fn(),
 }));
 
 vi.mock('../../../src/modules/users/user.repository.js', () => ({
@@ -47,31 +59,42 @@ vi.mock('../../../src/modules/users/user.repository.js', () => ({
   findUserByEmail: findUserByEmailMock,
   findUserById: findUserByIdMock,
   searchActiveRecipientsByEmail: searchActiveRecipientsByEmailMock,
-  findDonorUserIdsByUsername: findDonorUserIdsByUsernameMock,
   updateUser: updateUserMock,
+  updateAccountStatus: updateAccountStatusMock,
   updateLoginState: updateLoginStateMock,
   incrementFailedLoginInWindow: incrementFailedLoginInWindowMock,
   startFailedLoginWindow: startFailedLoginWindowMock,
   lockAccount: lockAccountMock,
   deleteUser: deleteUserMock,
+  findUsersForAdmin: findUsersForAdminMock,
+  findDonorUserIdsByUsername: findDonorUserIdsByUsernameMock,
 }));
 
 vi.mock('../../../src/modules/users/recipient.repository.js', () => ({
   createRecipient: createRecipientMock,
   findRecipientByUserId: findRecipientByUserIdMock,
+  findRecipientByStripeCustomerId: findRecipientByStripeCustomerIdMock,
+  setRecipientTierIfChanged: setRecipientTierIfChangedMock,
+}));
+
+vi.mock('../../../src/modules/subscriptions/subscription.interface.js', () => ({
+  subscriptionInterface: {
+    getMySubscriptionStatus: getMySubscriptionStatusMock,
+  },
 }));
 
 vi.mock('../../../src/modules/users/donor.repository.js', () => ({
   createDonor: createDonorMock,
   findDonorByUserId: findDonorByUserIdMock,
-  findDonorUserIdsByCompanyName: findDonorUserIdsByCompanyNameMock,
   updateDonor: updateDonorMock,
+  findDonorUserIdsByCompanyName: findDonorUserIdsByCompanyNameMock,
 }));
 
 vi.mock('../../../src/modules/security/security.interface.js', () => ({
   securityInterface: {
     hashPassword: hashPasswordMock,
     revokeToken: revokeTokenMock,
+    revokeAllTokensForUser: revokeAllTokensForUserMock,
   },
 }));
 
@@ -89,6 +112,10 @@ import {
   changePassword,
   changeEmail,
   searchRecipientsByEmail,
+  findRecipientByStripeCustomerId,
+  setRecipientTier,
+  listUsersForAdmin,
+  updateAccountStatusForAdmin,
   findDonorIdsMatchingSearch,
 } from '../../../src/modules/users/user.service.js';
 
@@ -106,6 +133,7 @@ describe('user.service', () => {
     hashPasswordMock.mockResolvedValue('hashed-value');
     findUserByEmailMock.mockResolvedValue(null);
     createUserMock.mockResolvedValue({ _id: 'u1' });
+    getMySubscriptionStatusMock.mockResolvedValue({ tier: 'STANDARD', subscription: null });
   });
 
   describe('searchRecipientsByEmail', () => {
@@ -130,26 +158,116 @@ describe('user.service', () => {
   });
 
   describe('findDonorIdsMatchingSearch', () => {
-    it('combines username, company-name, and exact-id matches without duplicates', async () => {
+    it('combines username, company, and exact ObjectId matches without duplicates', async () => {
       const exactId = '507f1f77bcf86cd799439011';
       findDonorUserIdsByUsernameMock.mockResolvedValue([
-        { _id: exactId },
-        { _id: '507f1f77bcf86cd799439012' },
+        { _id: exactId }, { _id: '507f1f77bcf86cd799439012' },
       ]);
       findDonorUserIdsByCompanyNameMock.mockResolvedValue([
-        { userId: '507f1f77bcf86cd799439012' },
-        { userId: '507f1f77bcf86cd799439013' },
+        { userId: exactId }, { userId: '507f1f77bcf86cd799439013' },
       ]);
 
-      const result = await findDonorIdsMatchingSearch(exactId);
-
-      expect(findDonorUserIdsByUsernameMock).toHaveBeenCalledWith(exactId);
-      expect(findDonorUserIdsByCompanyNameMock).toHaveBeenCalledWith(exactId);
-      expect(result).toEqual([
+      await expect(findDonorIdsMatchingSearch(exactId)).resolves.toEqual([
         exactId,
         '507f1f77bcf86cd799439012',
         '507f1f77bcf86cd799439013',
       ]);
+      expect(findDonorUserIdsByUsernameMock).toHaveBeenCalledWith(exactId);
+      expect(findDonorUserIdsByCompanyNameMock).toHaveBeenCalledWith(exactId);
+    });
+  });
+
+  describe('listUsersForAdmin', () => {
+    it('maps a mixed account page to role-appropriate response DTOs', async () => {
+      const createdAt = new Date('2026-09-13T00:00:00.000Z');
+      findUsersForAdminMock.mockResolvedValue({
+        page: 1,
+        limit: 20,
+        total: 2,
+        items: [
+          {
+            _id: 'admin-1',
+            username: 'admin',
+            email: 'admin@aff.com',
+            role: 'ADMIN',
+            status: 'ACTIVE',
+            avatarUrl: null,
+            createdAt,
+          },
+          {
+            _id: 'courier-1',
+            username: 'courier_01',
+            email: 'courier@aff.com',
+            role: 'COURIER',
+            status: 'ACTIVE',
+            avatarUrl: null,
+            createdAt,
+            courierProfile: { fullName: 'Nguyen Van A' },
+          },
+        ],
+      });
+
+      const result = await listUsersForAdmin({ page: 1, limit: 20 });
+
+      expect(findUsersForAdminMock).toHaveBeenCalledWith({ page: 1, limit: 20 });
+      expect(result).toMatchObject({
+        page: 1,
+        limit: 20,
+        total: 2,
+        items: [
+          { id: 'admin-1', role: 'ADMIN', username: 'admin' },
+          { id: 'courier-1', role: 'COURIER', fullName: 'Nguyen Van A' },
+        ],
+      });
+    });
+  });
+
+  describe('updateAccountStatusForAdmin', () => {
+    it('revokes every recorded session when an account is deactivated', async () => {
+      updateAccountStatusMock.mockResolvedValue({
+        _id: 'u1',
+        username: 'alice',
+        email: 'alice@example.com',
+        role: 'RECIPIENT',
+        status: 'DEACTIVATED',
+        avatarUrl: null,
+        createdAt: new Date('2026-09-15T00:00:00.000Z'),
+      });
+
+      const result = await updateAccountStatusForAdmin('u1', 'DEACTIVATED');
+
+      expect(updateAccountStatusMock).toHaveBeenCalledWith('u1', 'DEACTIVATED');
+      expect(revokeAllTokensForUserMock).toHaveBeenCalledWith(
+        'u1',
+        'ADMIN_DEACTIVATE',
+      );
+      expect(result).toMatchObject({ id: 'u1', status: 'DEACTIVATED' });
+    });
+
+    it('does not restore or revoke old sessions when an account is reactivated', async () => {
+      updateAccountStatusMock.mockResolvedValue({
+        _id: 'u1',
+        username: 'alice',
+        email: 'alice@example.com',
+        role: 'RECIPIENT',
+        status: 'ACTIVE',
+        avatarUrl: null,
+        createdAt: new Date('2026-09-15T00:00:00.000Z'),
+      });
+
+      await updateAccountStatusForAdmin('u1', 'ACTIVE');
+
+      expect(revokeAllTokensForUserMock).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 when the account no longer exists', async () => {
+      updateAccountStatusMock.mockResolvedValue(null);
+
+      await expect(updateAccountStatusForAdmin('missing', 'ACTIVE')).rejects.toMatchObject({
+        message: 'User not found.',
+        statusCode: 404,
+      });
+      expect(revokeAllTokensForUserMock).not.toHaveBeenCalled();
     });
   });
 
@@ -276,6 +394,23 @@ describe('user.service', () => {
     expect(createRecipientMock).toHaveBeenCalledWith({ userId: 'u1' });
   });
 
+  it('findRecipientByStripeCustomerId delegates to the recipient repository', async () => {
+    findRecipientByStripeCustomerIdMock.mockResolvedValue({ userId: 'u1', stripeCustomerId: 'cus_123' });
+
+    const result = await findRecipientByStripeCustomerId('cus_123');
+
+    expect(findRecipientByStripeCustomerIdMock).toHaveBeenCalledWith('cus_123');
+    expect(result).toEqual({ userId: 'u1', stripeCustomerId: 'cus_123' });
+  });
+
+  it('setRecipientTier delegates to the change-guarded repository setter', async () => {
+    setRecipientTierIfChangedMock.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+    await setRecipientTier('u1', 'PREMIUM');
+
+    expect(setRecipientTierIfChangedMock).toHaveBeenCalledWith('u1', 'PREMIUM');
+  });
+
   it('createDonorProfile delegates to the donor repository', async () => {
     createDonorMock.mockResolvedValue({ userId: 'u1' });
     const input = {
@@ -307,14 +442,26 @@ describe('user.service', () => {
       expect(dto).toMatchObject({ companyName: 'Fresh Foods Ltd', taxCode: '0123456789' });
     });
 
-    it('returns the Recipient DTO for a RECIPIENT', async () => {
+    it('returns the Recipient DTO for a RECIPIENT, with tier derived from the subscription status (not recipient.tier)', async () => {
       findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
-      findRecipientByUserIdMock.mockResolvedValue({ tier: 'PREMIUM' });
+      findRecipientByUserIdMock.mockResolvedValue({});
+      getMySubscriptionStatusMock.mockResolvedValue({ tier: 'PREMIUM', subscription: null });
 
       const dto = await getMyProfileDto('u1');
 
       expect(findRecipientByUserIdMock).toHaveBeenCalledWith('u1');
+      expect(getMySubscriptionStatusMock).toHaveBeenCalledWith('u1');
       expect(dto).toMatchObject({ tier: 'PREMIUM' });
+    });
+
+    it('derives STANDARD for a RECIPIENT with no active subscription', async () => {
+      findUserByIdMock.mockResolvedValue({ _id: 'u1', role: 'RECIPIENT', username: 'alice' });
+      findRecipientByUserIdMock.mockResolvedValue({});
+      getMySubscriptionStatusMock.mockResolvedValue({ tier: 'STANDARD', subscription: null });
+
+      const dto = await getMyProfileDto('u1');
+
+      expect(dto).toMatchObject({ tier: 'STANDARD' });
     });
 
     it('returns the base DTO for an ADMIN', async () => {

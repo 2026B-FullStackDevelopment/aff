@@ -1,11 +1,8 @@
 // Contains Courier profile database queries so services do not call Mongoose directly.
-import Courier, { type CourierDocument } from './courier.model.js';
+import Courier from './courier.model.js';
+import type { CourierDocument } from './courier.types.js';
 import type { Types } from 'mongoose';
-
-interface CreateCourierInput {
-  userId: string | Types.ObjectId;
-  fullName: string;
-}
+import type { CreateCourierInput } from './courier.types.js';
 
 function createCourier(data: CreateCourierInput) {
   return Courier.create(data);
@@ -24,4 +21,4 @@ function findCouriersByUserIds(userIds: Array<string | Types.ObjectId>) {
 }
 
 export { createCourier, findCourierByUserId, findCouriersByUserIds };
-export type { CreateCourierInput };
+export type { CreateCourierInput } from './courier.types.js';

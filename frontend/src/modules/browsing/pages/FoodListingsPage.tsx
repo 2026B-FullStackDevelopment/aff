@@ -10,18 +10,16 @@ import { FoodFilter } from '../components/FoodFilter';
 import { FoodFilterPanel } from '../components/FoodFilterPanel';
 import { useFoodListings } from '../hooks/useFoodListings';
 import { DEFAULT_FILTERS, type ListingFilters } from '../hooks/useFoodFilter';
+import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
 import { getStoredUser } from '@/services/authStorage';
 
-// TODO: source from the authenticated Recipient's session/profile once
-// that context exists (avatarUrl, notification state, tier) instead of
-// these placeholder values.
+// TO-DO: (SRS 5.3.2) implement the notification bell panel
+// and premium upsell panel in the top nav once
+// the notification:premium_match and subscription:premium endpoints
+// are implemented, respectively.
+// Until then, the bell will be a no-op and the upsell panel
+// will not be rendered.
 const RECIPIENT_HAS_UNREAD_NOTIFICATIONS = false;
-const RECIPIENT_IS_PREMIUM = false;
-
-// DEVIATION NOTE: there's no "cities with active listings" endpoint in
-// api_design.md, so the filter panel's city chips use the full province
-// list rather than a data-driven, listings-first ordering. Swap this for
-// a real aggregation if that becomes a graded requirement.
 const CITY_OPTIONS = VIETNAM_PROVINCES;
 
 function hasActiveFilters(filters: ListingFilters): boolean {
@@ -35,6 +33,7 @@ export function FoodListingsPage() {
   const [filters, setFilters] = useState<ListingFilters>(DEFAULT_FILTERS);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const { listings, total, isLoading, error } = useFoodListings(filters);
+  const { tier } = useSubscription();
 
   function updateFilters(patch: Partial<ListingFilters>) {
     setFilters((prev) => ({
@@ -54,7 +53,7 @@ export function FoodListingsPage() {
         avatarUrl={user?.avatarUrl ?? null}
         onNotificationsClick={() => {}}
         hasUnreadNotifications={RECIPIENT_HAS_UNREAD_NOTIFICATIONS}
-        isPremium={RECIPIENT_IS_PREMIUM}
+        isPremium={tier === 'PREMIUM'}
       />
 
       <div className="mx-auto max-w-7xl px-6 py-6">

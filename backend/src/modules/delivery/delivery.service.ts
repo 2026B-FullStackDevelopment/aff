@@ -1,6 +1,6 @@
 // Contains Courier Delivery business rules. See docs/api_design.md section 9.
 import type { ClientSession } from 'mongoose';
-import type { DeliveryDocument, DeliveryStage } from './delivery.model.js';
+import type { DeliveryDocument, DeliveryStage } from './delivery.types.js';
 import * as deliveryRepository from './delivery.repository.js';
 import { orderInterface } from '../orders/order.interface.js';
 import { listingInterface } from '../listings/listing.interface.js';
@@ -9,35 +9,15 @@ import { notificationInterface } from '../notifications/notification.interface.j
 import type {
   AdminDeliveryFilter,
   DeliveryPage,
-} from './delivery.repository.js';
+} from './delivery.types.js';
 import type {
   MarkDeliveredPayload,
   DeliveryQueueQuery,
 } from './delivery.schemas.js';
 import { toQueueDeliveryResponseDto, requiresCashCollection } from './delivery.dto.js';
-import type { QueueDeliveryResponseDto, DeliveryOrderSource } from './delivery.dto.js';
+import type { DeliveryOrderSource } from './delivery.dto.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-
-/** A Delivery plus its resolved pickup address (E5). */
-interface DeliveryWithPickupAddress {
-  delivery: DeliveryDocument;
-  pickupAddressText: string | undefined;
-  pickupAddressLocation: GeoLocation | undefined;
-  // The Order fields the Courier's own Delivery response derives from (destination,
-  // requiresCashCollection) — null when the Order behind this Delivery could not be loaded.
-  order: DeliveryOrderSource | null;
-}
-
-/** One page of hydrated queue rows. */
-interface QueueDeliveryPage {
-  items: QueueDeliveryResponseDto[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-/** The roles `GET /deliveries/:id` accepts, per the route's own guard. */
-type DeliveryViewerRole = 'RECIPIENT' | 'ADMIN';
+import type { DeliveryContext, DeliveryViewerRole, DeliveryWithPickupAddress, QueueDeliveryPage } from './delivery.types.js';
 
 /** Collects the distinct, defined ids in `values`, preserving first-seen order. */
 function distinctIds(values: Array<unknown>): string[] {
@@ -218,17 +198,6 @@ async function resolvePickupAddress(listingId: string): Promise<{
     pickupAddressText: listingSource?.donor.addressText,
     pickupAddressLocation: listingSource?.donor.location,
   };
-}
-
-/** A Delivery's public view plus the Order behind it, loaded once. */
-interface DeliveryContext {
-  view: DeliveryWithPickupAddress;
-  // Union with null explicitly: `findOrderById` uses `.lean<OrderDocument>()`,
-  // so its inferred return type is not nullable even though it resolves to
-  // null for a missing row. Importing `OrderDocument` to say so directly would
-  // cross a module boundary (docs/api_design.md A.3.1), so derive it from the
-  // interface and widen it here.
-  order: Awaited<ReturnType<typeof orderInterface.findOrderById>> | null;
 }
 
 /**
@@ -585,4 +554,4 @@ export {
   markDelivered,
   getDeliveryById,
 };
-export type { QueueDeliveryPage, DeliveryViewerRole };
+export type { QueueDeliveryPage, DeliveryViewerRole } from './delivery.types.js';

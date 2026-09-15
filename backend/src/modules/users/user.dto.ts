@@ -1,7 +1,7 @@
 // Shapes user data before sending it to the frontend or another module.
-import type { UserDocument, Role, AccountStatus } from './user.model.js';
-import type { RecipientDocument } from './recipient.model.js';
-import type { DonorDocument } from './donor.model.js';
+import type { UserDocument, Role, AccountStatus } from './user.types.js';
+import type { RecipientDocument } from './recipient.types.js';
+import type { DonorDocument } from './donor.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
 
 interface UserResponseDto {
@@ -18,7 +18,7 @@ interface UserResponseDto {
 
 /** The shape returned for a Recipient — base fields plus tier, notification preferences, and Stripe card status. */
 interface RecipientResponseDto extends UserResponseDto {
-  tier: string;
+  tier: 'STANDARD' | 'PREMIUM';
   hasStripeCard: boolean;
 }
 
@@ -58,15 +58,19 @@ function toUserResponseDto(user: UserDocument | null): UserResponseDto | null {
 /**
  * Maps a User plus their Recipient profile to the Recipient response shape.
  * `hasStripeCard` is derived from `stripeCustomerId` — the raw Stripe ID is
- * never sent to the client (`docs/api_design.md` §3).
+ * never sent to the client (`docs/api_design.md` §3). `tier` is likewise never read off
+ * `recipient.tier` — the caller must derive it (e.g. via `subscriptionInterface.getMySubscriptionStatus`)
+ * and pass it in explicitly, since tier is computed from SUBSCRIPTION rows, not a stored column
+ * anyone writes (F1, `backend/SUBSCRIPTION.md`).
  */
 function toRecipientResponseDto(
   user: UserDocument,
-  recipient: Partial<RecipientDocument>
+  recipient: Partial<RecipientDocument>,
+  tier: 'STANDARD' | 'PREMIUM'
 ): RecipientResponseDto {
   return {
     ...toUserResponseDto(user),
-    tier: recipient.tier,
+    tier,
     hasStripeCard: Boolean(recipient.stripeCustomerId),
   };
 }

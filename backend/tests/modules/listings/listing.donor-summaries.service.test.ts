@@ -5,7 +5,7 @@ const { findListingsByIdsMock, findDonorsByUserIdsMock } = vi.hoisted(() => ({
   findDonorsByUserIdsMock: vi.fn(),
 }));
 
-vi.mock('../../../src/modules/listings/listing.repository.js', () => ({
+vi.mock('../../../src/modules/listings/listing.query.repository.js', () => ({
   findListingsByIds: findListingsByIdsMock,
 }));
 
@@ -26,9 +26,9 @@ vi.mock('../../../src/realtime/socket.js', () => ({
   emitToOrder: vi.fn(),
 }));
 
-import { findDonorSummariesByListingIds } from '../../../src/modules/listings/listing.service.js';
+import { findDonorSummariesByListingIds } from '../../../src/modules/listings/listing.query.service.js';
 
-describe('listing.service.findDonorSummariesByListingIds', () => {
+describe('listing.query.service.findDonorSummariesByListingIds', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

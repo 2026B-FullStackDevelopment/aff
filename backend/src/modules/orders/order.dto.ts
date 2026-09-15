@@ -1,8 +1,8 @@
 // Shapes order data before sending it to the frontend or another module, and the request/response bodies for the module's other endpoints.
-import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.model.js';
+import type { OrderDocument, IntakePath, PaymentMethod, PaymentStatus, OrderStatus, OrderFeedback } from './order.types.js';
 import type { GeoLocation } from '../../shared/dtos/geo-location.dto.js';
-import type { DeliveryStage } from '../delivery/delivery.model.js';
-import { FoodCategory } from '../listings/listing.model.js';
+import type { DeliveryStage } from '../delivery/delivery.types.js';
+import type { FoodCategory } from '../listings/listing.types.js';
 
 interface OrderListingSummary {
   id: string;
@@ -32,7 +32,7 @@ interface OrderResponseDto {
 
 interface CancelOrderResponseDto extends OrderResponseDto {
   // NOT_APPLICABLE: free/cash/never-paid order, no Stripe call made. REFUND_PENDING: Stripe refund
-  // call succeeded synchronously, awaiting the charge.refunded webhook for final confirmation.
+  // call succeeded synchronously, awaiting the refund.updated webhook for final confirmation.
   // FAILED: the Stripe refund call itself errored — cancellation still proceeded regardless.
   refundStatus: 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED';
 }
@@ -130,7 +130,7 @@ interface RecipientOrderResponseDto extends OrderResponseDto {
 
 /**
  * Maps a joined Order row into the shape returned by `GET /orders/mine` — same
- * "build the base DTO, then override/extend" shape as `listing.dto.ts#toListingOrderResponseDto`.
+ * "build the base DTO, then override/extend" shape as `listing.response.dto.ts#toListingOrderResponseDto`.
  */
 function toRecipientOrderResponseDto(
   source: RecipientOrderDtoSource,

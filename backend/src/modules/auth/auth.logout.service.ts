@@ -1,12 +1,6 @@
 // Contains the logout business rules, revoking the presented token server-side.
 import { securityInterface } from '../security/security.interface.js';
-
-/** Everything needed to revoke the token that was presented on this request. */
-interface LogoutInput {
-  userId: string;
-  jti: string;
-  expiresAt: Date;
-}
+import type { LogoutInput } from './auth.logout.types.js';
 
 /**
  * Logs a user out by revoking their current token server-side. Story #50 —
@@ -31,4 +25,4 @@ async function logout(input: LogoutInput): Promise<void> {
 }
 
 export { logout };
-export type { LogoutInput };
+export type { LogoutInput } from './auth.logout.types.js';
