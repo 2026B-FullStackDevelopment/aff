@@ -21,7 +21,6 @@ import { ListingDetailPage } from '../modules/browsing/pages/ListingDetailPage';
 import { ActiveDeliveryPage } from '../modules/delivery/pages/ActiveDeliveryPage';
 import { DeliveryQueuePage } from '../modules/delivery/pages/DeliveryQueuePage';
 import { DonorDonationsPage } from '../modules/donations/pages/DonorDonationsPage';
-import { DonorReservationsPage } from '../modules/donations/pages/DonorReservationsPage';
 import { FoodListingCreationPage } from '../modules/donations/pages/FoodListingCreationPage';
 import { ManualDonationPage } from '../modules/donations/pages/ManualDonationPage';
 import { OrderTrackingPage } from '../modules/reservations/pages/OrderTrackingPage';
@@ -178,17 +177,6 @@ export function AppRouter() {
               allowedRoles={['DONOR']}
             >
               <DonorDonationsPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/donor/reservations"
-          element={
-            <ProtectedRoute
-              allowedRoles={['DONOR']}
-            >
-              <DonorReservationsPage />
             </ProtectedRoute>
           }
         />

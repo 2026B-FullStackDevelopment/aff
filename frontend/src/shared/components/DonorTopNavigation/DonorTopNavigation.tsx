@@ -22,10 +22,6 @@ const DONOR_NAV_ITEMS:
       to: '/donor/donations',
     },
     {
-      label: 'Reservations',
-      to: '/donor/reservations',
-    },
-    {
       label: 'Analytics',
       to: '/donor/analytics',
     },
