@@ -1,6 +1,6 @@
 // Handles admin HTTP requests and returns admin DTOs.
 import type { Request, Response, NextFunction } from 'express';
-import { created, ok, paginated, notImplemented } from '../../shared/http/response.js';
+import { created, ok, paginated } from '../../shared/http/response.js';
 import { parseBody } from '../../shared/validation/parse-body.js';
 import {
   createCourierSchema,
@@ -9,6 +9,8 @@ import {
   adminUsersQuerySchema,
   adminUserIdParamsSchema,
   updateUserStatusSchema,
+  adminListingsQuerySchema,
+  adminListingParamsSchema,
 } from './admin.schemas.js';
 import * as adminService from './admin.service.js';
 
@@ -73,14 +75,26 @@ async function updateUserStatus(req: Request, res: Response, next: NextFunction)
   }
 }
 
-// Still unwired: the Admin listing directory and cancellation (G3/G4).
-// See docs/api_design.md §11.
-async function cancelListing(_req: Request, res: Response) {
-  return notImplemented(res);
+/** `PATCH /admin/listings/:id/cancel` — shared safe cancellation cascade (G3/G5). */
+async function cancelListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = parseBody(adminListingParamsSchema, req.params);
+    const result = await adminService.cancelListing(id, req.user!.id);
+    return ok(res, result);
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function listAllListings(_req: Request, res: Response) {
-  return notImplemented(res);
+/** `GET /admin/listings` — searchable directory across every Listing status (G4). */
+async function listAllListings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = parseBody(adminListingsQuerySchema, req.query);
+    const result = await adminService.listListings(query);
+    return paginated(res, result.items, result.page, result.limit, result.total);
+  } catch (error) {
+    return next(error);
+  }
 }
 
 export {

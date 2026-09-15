@@ -4,6 +4,10 @@ import type { DonorDocument } from './donor.types.js';
 import type { Types } from 'mongoose';
 import type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function createDonor(data: CreateDonorInput) {
   return Donor.create({
     userId: data.userId,
@@ -21,6 +25,14 @@ function createDonor(data: CreateDonorInput) {
 
 function findDonorByUserId(userId: string | Types.ObjectId) {
   return Donor.findOne({ userId }).lean<DonorDocument>();
+}
+
+/** Finds Donor user ids whose company name partially matches an Admin search term. */
+function findDonorUserIdsByCompanyName(search: string) {
+  return Donor.find(
+    { companyName: { $regex: escapeRegExp(search), $options: 'i' } },
+    { userId: 1 },
+  ).lean<Array<{ userId: Types.ObjectId }>>();
 }
 
 function updateDonor(userId: string | Types.ObjectId, data: UpdateDonorInput) {
@@ -61,5 +73,11 @@ function findDonorsByUserIds(userIds: Array<string | Types.ObjectId>) {
   >();
 }
 
-export { createDonor, findDonorByUserId, updateDonor, findDonorsByUserIds };
+export {
+  createDonor,
+  findDonorByUserId,
+  findDonorUserIdsByCompanyName,
+  updateDonor,
+  findDonorsByUserIds,
+};
 export type { CreateDonorInput, UpdateDonorInput } from './donor.types.js';

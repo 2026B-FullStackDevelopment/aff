@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { AnyUserDTO, UpdateProfilePayload } from '@/types/api';
-import { validateUsername, validatePassword } from '@/shared/utils/validation';
+import { validateUsername, validatePassword, validateEmail } from '@/shared/utils/validation';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import { userService } from '../services/user.service';
 import { clearSession, updateStoredUser } from '@/services/authStorage';
@@ -95,8 +95,11 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     const emailTrimmed = form.email.trim();
     if (!emailTrimmed) {
       nextErrors.email = 'Email is required';
-    } else if (!emailTrimmed.includes('@') || !emailTrimmed.includes('.')) {
-      nextErrors.email = 'Please enter a valid email address';
+    } else {
+      const emailResult = validateEmail(emailTrimmed);
+      if (!emailResult.isValid) {
+        nextErrors.email = emailResult.errors[0];
+      }
     }
 
     if (form.password && form.password.trim().length > 0) {
@@ -193,6 +196,8 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
     setSubmitSuccess(false);
 
     try {
+      let latestUserData: AnyUserDTO | undefined;
+
       // 5. Update normal profile fields
       if (Object.keys(patch).length > 0) {
         const response = await userService.updateProfile(patch);
@@ -205,7 +210,7 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
         }
 
         if (response.data) {
-          updateStoredUser(response.data);
+          latestUserData = response.data;
         }
       }
 
@@ -221,8 +226,12 @@ export function useProfileEditForm(profile: AnyUserDTO | null) {
         }
 
         if (response.data) {
-          updateStoredUser(response.data);
+          latestUserData = response.data;
         }
+      }
+
+      if (latestUserData) {
+        updateStoredUser(latestUserData);
       }
 
       // 7. Update password LAST

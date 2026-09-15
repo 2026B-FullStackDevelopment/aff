@@ -11,15 +11,19 @@ import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { cn } from '@/shared/utils';
 import WarningCallout from '@/shared/components/WarningCallout/WarningCallout';
 
+import type { AnyUserDTO } from '@/types/api';
+import type { ProfileFormData } from '../hooks/useProfileEditForm';
+import type { useAvatarUpload } from '@/shared/hooks/useAvatarUpload';
+
 interface ProfileEditFormProps {
-  profile: any;
-  form: any;
-  errors: any;
+  profile: AnyUserDTO;
+  form: ProfileFormData;
+  errors: Partial<Record<keyof ProfileFormData, string>>;
   isSubmitting: boolean;
   submitError: string | null;
-  updateField: (field: string, value: any) => void;
-  handleAddressSelect: (address: any) => void;
-  avatarUpload: any;
+  updateField: <K extends keyof ProfileFormData>(field: K, value: ProfileFormData[K]) => void;
+  handleAddressSelect: (data: { addressText: string; latitude: number; longitude: number; municipality?: string }) => void;
+  avatarUpload: ReturnType<typeof useAvatarUpload>;
   theme: ThemeRole;
   isDonor: boolean;
   isPremium: boolean;

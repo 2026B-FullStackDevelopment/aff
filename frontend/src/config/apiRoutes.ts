@@ -71,5 +71,8 @@ export const API_ROUTES = {
     users: '/admin/users',
     userStatus: (userId: string) => `/admin/users/${userId}/status`,
     couriers: '/admin/couriers',
+    listings: '/admin/listings',
+    cancelListing: (listingId: string) => `/admin/listings/${listingId}/cancel`,
+    deliveries: '/admin/deliveries',
   },
 };

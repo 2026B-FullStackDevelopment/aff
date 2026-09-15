@@ -3,8 +3,10 @@ import { DisplayField } from '@/shared/components/DisplayField/DisplayField';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 import { cn } from '@/shared/utils';
 
+import type { AnyUserDTO } from '@/types/api';
+
 interface ProfileViewProps {
-  profile: any;
+  profile: AnyUserDTO;
   isDonor: boolean;
   isPremium: boolean;
 }

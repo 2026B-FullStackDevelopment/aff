@@ -12,6 +12,8 @@ import { RootRedirect } from './RootRedirect';
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage';
 import { CreateCourierPage } from '../modules/admin/pages/CreateCourierPage';
 import { AdminProfilePage } from '../modules/admin/pages/AdminProfilePage';
+import { AdminListingsPage } from '../modules/admin/pages/AdminListingsPage';
+import { AdminDeliveriesPage } from '../modules/admin/pages/AdminDeliveriesPage';
 import { AdminLayout } from '../modules/admin/components/AdminLayout/AdminLayout';
 import { DonorRegisterPage } from '../modules/auth/pages/DonorRegisterPage';
 import { LoginPage } from '../modules/auth/pages/LoginPage';
@@ -212,6 +214,14 @@ export function AppRouter() {
           <Route
             path="/admin/profile"
             element={<AdminProfilePage />}
+          />
+          <Route
+            path="/admin/listings"
+            element={<AdminListingsPage />}
+          />
+          <Route
+            path="/admin/deliveries"
+            element={<AdminDeliveriesPage />}
           />
         </Route>
 

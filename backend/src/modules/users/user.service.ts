@@ -15,7 +15,7 @@ import type {
 import type { UpdateUserRequestDto } from './user.schemas.js';
 import type { AccountStatus, Role, UserDocument } from './user.types.js';
 import type { Tier } from './recipient.types.js';
-import type { Types } from 'mongoose';
+import { isValidObjectId, type Types } from 'mongoose';
 import type {
   CourierAccount, CourierAccountPage, CourierAccountSummary,
   CreateCourierAccountInput, RequestAuth,
@@ -117,6 +117,23 @@ async function searchRecipientsByEmail(email: string) {
 
 async function setRecipientStripeCustomerId(userId: string | Types.ObjectId, stripeCustomerId: string) {
   return recipientRepository.setStripeCustomerId(userId, stripeCustomerId);
+}
+
+/** Resolves Donor ids matching an id, username, or company-name search term. */
+async function findDonorIdsMatchingSearch(search: string): Promise<string[]> {
+  const [users, donors] = await Promise.all([
+    userRepository.findDonorUserIdsByUsername(search),
+    donorRepository.findDonorUserIdsByCompanyName(search),
+  ]);
+
+  const ids = new Set<string>([
+    ...users.map((user) => String(user._id)),
+    ...donors.map((donor) => String(donor.userId)),
+  ]);
+
+  if (isValidObjectId(search)) ids.add(search);
+
+  return [...ids];
 }
 
 async function findRecipientByStripeCustomerId(stripeCustomerId: string) {
@@ -415,6 +432,7 @@ export {
   updateAccountStatusForAdmin,
   findCourierProfilesByUserIds,
   findDonorsByUserIds,
+  findDonorIdsMatchingSearch,
   getDonorByUserId,
   findRecipientByUserId,
   searchRecipientsByEmail,

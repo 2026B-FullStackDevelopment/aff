@@ -1,7 +1,9 @@
 // Contains Listing creation, cloning, and lifecycle command workflows.
 import { orderInterface } from '../orders/order.interface.js';
 import { deliveryInterface } from '../delivery/delivery.interface.js';
+import { notificationInterface } from '../notifications/notification.interface.js';
 import * as listingCommandRepository from './listing.command.repository.js';
+import * as listingQueryRepository from './listing.query.repository.js';
 import * as listingTransactionRepository from './listing.transaction.repository.js';
 import { getListingDonorData, requireOwnedListing } from './listing.access.service.js';
 import { createHttpError } from './listing.service.errors.js';
@@ -95,86 +97,127 @@ async function updateListingStatus(
   donorId: string,
   nextStatus: RequestedListingStatus,
 ): Promise<UpdateListingStatusServiceResult> {
-  let updatedListing: ListingDocument;
-  let cancelledOrderCount = 0;
-  let refundableOrderIds: string[] = [];
-
   if (nextStatus === 'CANCELLED') {
-    const transactionResult = await listingTransactionRepository.withTransaction(
-      async (session) => {
-        const current = await requireOwnedListing(listingId, donorId, session);
-        assertValidStatusTransition(current.status, nextStatus);
-
-        const candidateOrderIds = await orderInterface.findNonCancelledOrderIdsByListing(
-          listingId,
-          session,
-        );
-        const protectedOrderIds = await deliveryInterface.findProtectedOrderIds(
-          candidateOrderIds,
-          session,
-        );
-        const protectedOrderIdSet = new Set(protectedOrderIds);
-        const cancellableOrderIds = candidateOrderIds.filter(
-          (orderId) => !protectedOrderIdSet.has(orderId),
-        );
-        const cancelledAt = new Date();
-
-        await deliveryInterface.cancelAwaitingDeliveriesByOrderIds(
-          cancellableOrderIds,
-          cancelledAt,
-          session,
-        );
-        const cancellation = await orderInterface.cancelOrdersForListingCancellation(
-          cancellableOrderIds,
-          donorId,
-          cancelledAt,
-          session,
-        );
-        const listing = assertStatusUpdated(
-          await listingCommandRepository.updateListingStatusIfCurrent(
-            listingId,
-            donorId,
-            current.status,
-            nextStatus,
-            { session, closedAt: cancelledAt },
-          ),
-        );
-
-        return {
-          listing,
-          cancelledOrderCount: cancellation.cancelledCount,
-          refundableOrderIds: cancellation.refundableOrderIds,
-        };
-      },
-    );
-
-    updatedListing = transactionResult.listing;
-    cancelledOrderCount = transactionResult.cancelledOrderCount;
-    refundableOrderIds = transactionResult.refundableOrderIds;
-  } else {
-    const current = await requireOwnedListing(listingId, donorId);
-    assertValidStatusTransition(current.status, nextStatus);
-    updatedListing = assertStatusUpdated(
-      await listingCommandRepository.updateListingStatusIfCurrent(
-        listingId,
-        donorId,
-        current.status,
-        nextStatus,
-      ),
-    );
+    return cancelListingAndOrders(listingId, donorId, donorId);
   }
 
-  // Stripe is an external network dependency, so refunds must run only after
-  // the MongoDB cancellation transaction has committed successfully.
-  const refundOutcomes = refundableOrderIds.length
-    ? await orderInterface.refundCancelledOrders(refundableOrderIds)
-    : [];
+  const current = await requireOwnedListing(listingId, donorId);
+  assertValidStatusTransition(current.status, nextStatus);
+  const updatedListing = assertStatusUpdated(
+    await listingCommandRepository.updateListingStatusIfCurrent(
+      listingId,
+      donorId,
+      current.status,
+      nextStatus,
+    ),
+  );
 
   return {
     listing: { listing: updatedListing, donor: await getListingDonorData(donorId) },
-    cancelledOrderCount,
+    cancelledOrderCount: 0,
+    refundOutcomes: [],
+  };
+}
+
+/**
+ * Runs the shared Donor/Admin cancellation cascade. Protected orders remain
+ * untouched; cancellable orders and awaiting deliveries are closed together.
+ */
+async function cancelListingAndOrders(
+  listingId: string,
+  actorId: string,
+  ownerDonorId?: string,
+): Promise<UpdateListingStatusServiceResult> {
+  const transactionResult = await listingTransactionRepository.withTransaction(
+    async (session) => {
+      const current = ownerDonorId
+        ? await requireOwnedListing(listingId, ownerDonorId, session)
+        : await listingQueryRepository.findListingById(listingId, session);
+
+      if (!current) throw createHttpError(404, 'Listing not found.');
+      assertValidStatusTransition(current.status, 'CANCELLED');
+
+      const candidateOrderIds = await orderInterface.findNonCancelledOrderIdsByListing(
+        listingId,
+        session,
+      );
+      const protectedOrderIds = new Set(
+        await deliveryInterface.findProtectedOrderIds(candidateOrderIds, session),
+      );
+      const cancellableOrderIds = candidateOrderIds.filter(
+        (orderId) => !protectedOrderIds.has(orderId),
+      );
+      const cancellableOrders = await orderInterface.findOrdersByIds(
+        cancellableOrderIds,
+        session,
+      );
+      const cancelledAt = new Date();
+
+      await deliveryInterface.cancelAwaitingDeliveriesByOrderIds(
+        cancellableOrderIds,
+        cancelledAt,
+        session,
+      );
+      const cancellation = await orderInterface.cancelOrdersForListingCancellation(
+        cancellableOrderIds,
+        actorId,
+        cancelledAt,
+        session,
+      );
+      const listing = assertStatusUpdated(
+        await listingCommandRepository.updateListingStatusIfCurrent(
+          listingId,
+          current.donorId,
+          current.status,
+          'CANCELLED',
+          { session, closedAt: cancelledAt },
+        ),
+      );
+
+      return {
+        listing,
+        cancellableOrders,
+        cancelledOrderCount: cancellation.cancelledCount,
+        refundableOrderIds: cancellation.refundableOrderIds,
+      };
+    },
+  );
+
+  // Stripe is external, so refunds and notifications run only after the
+  // MongoDB transaction commits. Notification failures never fail the action.
+  const refundOutcomes = transactionResult.refundableOrderIds.length
+    ? await orderInterface.refundCancelledOrders(transactionResult.refundableOrderIds)
+    : [];
+
+  for (const order of transactionResult.cancellableOrders) {
+    void notificationInterface.sendNotification({
+      userId: String(order.recipientId),
+      type: 'ADMIN_CANCEL',
+      orderId: String(order._id),
+      listingId,
+      payload: {
+        orderId: String(order._id),
+        listingName: transactionResult.listing.name,
+      },
+    });
+  }
+
+  return {
+    listing: {
+      listing: transactionResult.listing,
+      donor: await getListingDonorData(String(transactionResult.listing.donorId)),
+    },
+    cancelledOrderCount: transactionResult.cancelledOrderCount,
     refundOutcomes,
   };
 }
 
-export { createListing, cloneListing, updateListingStatus };
+/** Cancels any active or paused Listing on behalf of an Admin. */
+async function cancelListingAsAdmin(
+  listingId: string,
+  adminId: string,
+): Promise<UpdateListingStatusServiceResult> {
+  return cancelListingAndOrders(listingId, adminId);
+}
+
+export { createListing, cloneListing, updateListingStatus, cancelListingAsAdmin };
