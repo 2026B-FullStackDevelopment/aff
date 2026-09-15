@@ -1,25 +1,6 @@
 // Defines the MongoDB shape for a durable, fetchable notification (docs/database_design.md § NOTIFICATION).
 import mongoose, { Schema } from 'mongoose';
-
-type NotificationType =
-  | 'SOLD_OUT'
-  | 'PREMIUM_MATCH'
-  | 'ADMIN_CANCEL'
-  | 'PAYMENT_SUCCESS'
-  | 'PAYMENT_REFUNDED'
-  | 'DELIVERY_STATUS';
-
-interface NotificationAttrs {
-  userId: mongoose.Types.ObjectId;
-  type: NotificationType;
-  message: string;
-  orderId: mongoose.Types.ObjectId | null;
-  listingId: mongoose.Types.ObjectId | null;
-}
-
-interface NotificationDocument extends NotificationAttrs, mongoose.Document {
-  createdAt: Date;
-}
+import type { NotificationDocument } from './notification.types.js';
 
 const notificationSchema = new Schema<NotificationDocument>(
   {
@@ -39,4 +20,4 @@ const notificationSchema = new Schema<NotificationDocument>(
 notificationSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model<NotificationDocument>('Notification', notificationSchema);
-export type { NotificationAttrs, NotificationDocument, NotificationType };
+export type { NotificationAttrs, NotificationDocument, NotificationType } from './notification.types.js';

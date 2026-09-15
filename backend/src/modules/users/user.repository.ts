@@ -1,43 +1,18 @@
 // Contains user database queries so services do not call Mongoose directly.
-import User, { type UserDocument, type Role } from './user.model.js';
+import User from './user.model.js';
+import Recipient from './recipient.model.js';
+import Donor from './donor.model.js';
+import Courier from './courier.model.js';
+import type { AccountStatus, Role, UserDocument } from './user.types.js';
 import type { PipelineStage, Types } from 'mongoose';
-
-/** Pagination for an Admin-facing account listing. */
-interface RolePageQuery {
-  page: number;
-  limit: number;
-}
-
-/** One page of accounts holding a role, plus the total in that role. */
-interface UserPage {
-  items: UserDocument[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-interface UserPageAggregationResult {
-  items: UserDocument[];
-  metadata: Array<{ total: number }>;
-}
+import type {
+  AdminUserDocument, AdminUserPage, AdminUsersQuery, CreateUserInput,
+  LoginStateUpdate, RecipientSearchResult, RolePageQuery, UserPage,
+  UserPageAggregationResult,
+} from './user.types.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-interface CreateUserInput {
-  username: string;
-  email: string;
-  passwordHash: string;
-  role: Role;
-  country?: string;
-  city?: string;
-}
-
-interface RecipientSearchResult {
-  _id: Types.ObjectId;
-  username: string;
-  email: string;
 }
 
 function createUser(data: CreateUserInput) {
@@ -78,10 +53,16 @@ function updateUser(
   return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
 }
 
-interface LoginStateUpdate {
-  failedLoginCount: number;
-  windowStartedAt: Date | null;
-  lockedUntil: Date | null;
+/** Updates only the account lifecycle state and returns the persisted row. */
+function updateAccountStatus(
+  id: string | Types.ObjectId,
+  status: AccountStatus,
+) {
+  return User.findByIdAndUpdate(
+    id,
+    { $set: { status } },
+    { new: true, runValidators: true },
+  ).lean<UserDocument>();
 }
 
 function updateLoginState(id: string | Types.ObjectId, state: LoginStateUpdate) {
@@ -147,23 +128,123 @@ async function findUsersByRole(role: Role, query: RolePageQuery): Promise<UserPa
   };
 }
 
+/**
+ * Reads the Admin account directory with composable role, status, text, and
+ * pagination filters. Profile lookups happen before text filtering so a
+ * Donor's company name and a Courier's full name are searchable alongside
+ * USER.username and USER.email (G1).
+ */
+async function findUsersForAdmin(query: AdminUsersQuery): Promise<AdminUserPage> {
+  const baseMatch: Record<string, unknown> = {};
+
+  if (query.role) baseMatch.role = query.role;
+  if (query.status) baseMatch.status = query.status;
+
+  const pipeline: PipelineStage[] = [
+    { $match: baseMatch },
+    {
+      $lookup: {
+        from: Recipient.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'recipientProfiles',
+      },
+    },
+    {
+      $lookup: {
+        from: Donor.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'donorProfiles',
+      },
+    },
+    {
+      $lookup: {
+        from: Courier.collection.name,
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'courierProfiles',
+      },
+    },
+    {
+      $set: {
+        recipientProfile: { $arrayElemAt: ['$recipientProfiles', 0] },
+        donorProfile: { $arrayElemAt: ['$donorProfiles', 0] },
+        courierProfile: { $arrayElemAt: ['$courierProfiles', 0] },
+        profileName: {
+          $switch: {
+            branches: [
+              {
+                case: { $eq: ['$role', 'DONOR'] },
+                then: {
+                  $ifNull: [{ $arrayElemAt: ['$donorProfiles.companyName', 0] }, '$username'],
+                },
+              },
+              {
+                case: { $eq: ['$role', 'COURIER'] },
+                then: {
+                  $ifNull: [{ $arrayElemAt: ['$courierProfiles.fullName', 0] }, '$username'],
+                },
+              },
+            ],
+            default: '$username',
+          },
+        },
+      },
+    },
+  ];
+
+  if (query.search) {
+    const search = { $regex: escapeRegExp(query.search), $options: 'i' };
+    pipeline.push({
+      $match: {
+        $or: [{ username: search }, { email: search }, { profileName: search }],
+      },
+    });
+  }
+
+  pipeline.push(
+    { $sort: { createdAt: -1, _id: -1 } },
+    {
+      $facet: {
+        items: [
+          { $skip: (query.page - 1) * query.limit },
+          { $limit: query.limit },
+          { $unset: ['passwordHash', 'recipientProfiles', 'donorProfiles', 'courierProfiles'] },
+        ],
+        metadata: [{ $count: 'total' }],
+      },
+    },
+  );
+
+  const [result] = await User.aggregate<UserPageAggregationResult<AdminUserDocument>>(
+    pipeline,
+  );
+
+  return {
+    items: result?.items ?? [],
+    page: query.page,
+    limit: query.limit,
+    total: result?.metadata[0]?.total ?? 0,
+  };
+}
+
 export {
   createUser,
   findUserByEmail,
   searchActiveRecipientsByEmail,
   findUserById,
   updateUser,
+  updateAccountStatus,
   updateLoginState,
   incrementFailedLoginInWindow,
   startFailedLoginWindow,
   lockAccount,
   deleteUser,
   findUsersByRole,
+  findUsersForAdmin,
 };
 export type {
-  CreateUserInput,
-  LoginStateUpdate,
-  RecipientSearchResult,
-  RolePageQuery,
-  UserPage,
-};
+  CreateUserInput, LoginStateUpdate, RecipientSearchResult, RolePageQuery,
+  UserPage, AdminUsersQuery, AdminUserDocument, AdminUserPage,
+} from './user.types.js';

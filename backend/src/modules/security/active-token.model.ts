@@ -1,5 +1,6 @@
 // Defines the MongoDB shape for currently-live JWTs (docs/database_design.md § ACTIVE_TOKEN).
 import mongoose, { Schema } from 'mongoose';
+import type { ActiveTokenDocument } from './active-token.types.js';
 
 /**
  * A single live JWT, keyed by its `jti`. `expiresAt` mirrors the token's own
@@ -8,15 +9,6 @@ import mongoose, { Schema } from 'mongoose';
  * `revoked-token.repository.ts#revokeToken`) — so a row's presence always
  * means "this token is still usable."
  */
-interface ActiveTokenAttrs {
-  jti: string;
-  userId: mongoose.Types.ObjectId;
-  issuedAt: Date;
-  expiresAt: Date;
-}
-
-interface ActiveTokenDocument extends ActiveTokenAttrs, mongoose.Document {}
-
 const activeTokenSchema = new Schema<ActiveTokenDocument>({
   jti: { type: String, required: true, unique: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -28,4 +20,4 @@ const activeTokenSchema = new Schema<ActiveTokenDocument>({
 activeTokenSchema.index({ userId: 1 });
 
 export default mongoose.model<ActiveTokenDocument>('ActiveToken', activeTokenSchema);
-export type { ActiveTokenAttrs, ActiveTokenDocument };
+export type { ActiveTokenAttrs, ActiveTokenDocument } from './active-token.types.js';

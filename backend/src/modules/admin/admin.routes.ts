@@ -7,14 +7,12 @@ import { requireRole } from '../../middleware/role.middleware.js';
 
 const router = express.Router();
 
-router.use(requireAuth, requireRole('ADMIN'));
-
-router.post('/couriers', adminController.createCourier);
-router.get('/couriers', adminController.listCouriers);
-router.get('/deliveries', adminController.listDeliveries);
-router.get('/users', adminController.listUsers);
-router.patch('/users/:id/status', adminController.updateUserStatus);
-router.patch('/listings/:id/cancel', adminController.cancelListing);
-router.get('/listings', adminController.listAllListings);
+router.post('/couriers', requireAuth, requireRole('ADMIN'), adminController.createCourier);
+router.get('/couriers', requireAuth, requireRole('ADMIN'),adminController.listCouriers);
+router.get('/deliveries', requireAuth, requireRole('ADMIN'),adminController.listDeliveries);
+router.get('/users', requireAuth, requireRole('ADMIN'),adminController.listUsers);
+router.patch('/users/:id/status', requireAuth, requireRole('ADMIN'),adminController.updateUserStatus);
+router.patch('/listings/:id/cancel', requireAuth, requireRole('ADMIN'),adminController.cancelListing);
+router.get('/listings', requireAuth, requireRole('ADMIN'),adminController.listAllListings);
 
 export default router;

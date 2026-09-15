@@ -1,10 +1,8 @@
 // Contains recipient profile database queries so services do not call Mongoose directly.
-import Recipient, { type RecipientDocument, type Tier } from './recipient.model.js';
+import Recipient from './recipient.model.js';
+import type { RecipientDocument, Tier } from './recipient.types.js';
 import type { Types } from 'mongoose';
-
-interface CreateRecipientInput {
-  userId: string | Types.ObjectId;
-}
+import type { CreateRecipientInput } from './recipient.types.js';
 
 function createRecipient(data: CreateRecipientInput) {
   return Recipient.create({ userId: data.userId });
@@ -38,4 +36,4 @@ export {
   findRecipientByStripeCustomerId,
   setRecipientTierIfChanged,
 };
-export type { CreateRecipientInput };
+export type { CreateRecipientInput } from './recipient.types.js';

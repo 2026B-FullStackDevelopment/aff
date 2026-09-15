@@ -2,9 +2,10 @@
 // Matches docs/api_design.md §5A.
 import { randomUUID } from 'node:crypto';
 import { createUploadUrl, getPublicUrl } from '../../integrations/storage/storage.provider.js';
-import type { Role } from '../users/user.model.js';
+import type { Role } from '../users/user.types.js';
 import type { UploadUrlRequest } from './media.schemas.js';
 import type { UploadUrlResponseDto } from './media.dto.js';
+import type { RequestUploadUrlInput } from './media.types.js';
 
 const EXPIRES_IN_SECONDS = 60;
 
@@ -15,11 +16,6 @@ const EXTENSION_BY_CONTENT_TYPE: Record<UploadUrlRequest['contentType'], string>
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
 };
-
-interface RequestUploadUrlInput extends UploadUrlRequest {
-  userId: string;
-  role: Role;
-}
 
 function forbiddenError(message: string): Error {
   const error: Error = new Error(message);

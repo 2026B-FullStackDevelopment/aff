@@ -70,6 +70,28 @@ export interface ManagedListingDTO
   revenue: number;
 }
 
+export interface DonorAnalyticsCategory {
+  category: FoodCategory;
+  listingCount: number;
+  revenue: number;
+}
+
+export interface DonorAnalyticsTopListing {
+  id: string;
+  name: string;
+  revenue: number;
+}
+
+// Response returned by GET /listings/analytics.
+export interface DonorAnalyticsSnapshot {
+  totalRevenue: number;
+  totalListings: number;
+  currentListings: number;
+  soldOutListings: number;
+  categories: DonorAnalyticsCategory[];
+  topListings: DonorAnalyticsTopListing[];
+}
+
 export type DonorListingStatusUpdate =
   Exclude<ListingStatus, 'SOLD_OUT'>;
 
@@ -80,6 +102,10 @@ export interface UpdateListingStatusPayload {
 export interface UpdateListingStatusResponse {
   listing: ListingDTO;
   cancelledOrderCount: number;
+  refundOutcomes: Array<{
+    orderId: string;
+    refundStatus: 'REFUND_PENDING' | 'FAILED';
+  }>;
 }
 
 export type ListingOrderDTO =

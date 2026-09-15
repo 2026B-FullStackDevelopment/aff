@@ -3,7 +3,7 @@ import { Upload, UserRound } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 
-export type ThemeRole = 'recipient' | 'donor';
+export type ThemeRole = 'recipient' | 'donor' | 'admin';
 
 interface AvatarUploadProps {
   /** Current persisted avatar URL from the profile DTO */
@@ -35,6 +35,8 @@ const themeUploadStyles: Record<ThemeRole, string> = {
     'border-[#3D6852] text-[#3D6852] hover:bg-[#3D6852]/10 focus-visible:ring-[#3D6852]/30',
   donor:
     'border-[#805300] text-[#805300] hover:bg-[#805300]/10 focus-visible:ring-[#805300]/30',
+  admin:
+    'border-admin-primary text-admin-primary hover:bg-admin-primary/10 focus-visible:ring-admin-primary/30',
 };
 
 /**

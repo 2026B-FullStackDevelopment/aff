@@ -76,6 +76,28 @@ export interface AdminUserDTO extends UserDTO {
 
 export type AnyUserDTO = RecipientDTO | DonorDTO | CourierDTO | AdminUserDTO;
 
+/** Optional filters accepted by the Admin account directory. */
+export interface AdminUsersQuery {
+  page?: number;
+  limit?: number;
+  role?: UserRole;
+  status?: UserDTO['status'];
+  search?: string;
+}
+
+/** Body sent when an Admin creates a Courier account. */
+export interface CreateCourierPayload {
+  fullName: string;
+  username: string;
+  email: string;
+  tempPassword: string;
+}
+
+/** Body accepted by the Admin account-status endpoint. */
+export interface UpdateUserStatusPayload {
+  status: UserDTO['status'];
+}
+
 // --- Media upload (api_design.md §5A) ---
 
 export type UploadMediaPurpose = 'AVATAR' | 'LISTING_IMAGE';

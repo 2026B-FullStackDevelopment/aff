@@ -1,23 +1,8 @@
 // Contains payment database queries so services do not call Mongoose directly.
-import Payment, { type PaymentDocument, type PayableType, type TransactionStatus } from './payment.model.js';
+import Payment from './payment.model.js';
+import type { PayableType, PaymentDocument } from './payment.types.js';
 import mongoose, { type ClientSession, type Types} from 'mongoose';
-
-interface CreatePaymentInput {
-  payableType: PayableType;
-  payableId: string | Types.ObjectId;
-  stripeSessionId: string;
-  amount: number;
-  currency: string;
-  status?: TransactionStatus;
-}
-
-interface UpdatePaymentEventInput {
-  lastProcessedEventId: string;
-  status?: TransactionStatus;
-  paidAt?: Date;
-  refundedAt?: Date;
-  stripePaymentIntentId?: string;
-}
+import type { CreatePaymentInput, UpdatePaymentEventInput } from './payment.types.js';
 
 function createPayment(data: CreatePaymentInput) {
   return Payment.create(data);
@@ -131,4 +116,4 @@ export {
   cancelPendingPaymentByPayable,
   withTransaction,
 };
-export type { CreatePaymentInput, UpdatePaymentEventInput };
+export type { CreatePaymentInput, UpdatePaymentEventInput } from './payment.types.js';

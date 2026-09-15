@@ -5,6 +5,7 @@ import type { AnyUserDTO } from '../types/api';
 
 const USER_KEY = 'aff_user';
 const TOKEN_KEY = 'aff_token';
+export const AUTH_USER_UPDATED_EVENT = 'aff:user-updated';
 
 /** Decodes a JWT's payload and checks `exp` against the current time. */
 function isTokenExpired(token: string): boolean {
@@ -66,5 +67,6 @@ export function clearSession(): void {
  */
 export function updateStoredUser(user: AnyUserDTO): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new CustomEvent(AUTH_USER_UPDATED_EVENT, { detail: user }));
 }
 
