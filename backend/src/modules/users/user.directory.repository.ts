@@ -1,26 +1,18 @@
-// Contains user database queries so services do not call Mongoose directly.
+// Contains User-collection listing and search queries (Admin directory, Recipient search) so services do not call Mongoose directly.
 import User from './user.model.js';
 import Recipient from './recipient.model.js';
 import Donor from './donor.model.js';
 import Courier from './courier.model.js';
-import type { AccountStatus, Role, UserDocument } from './user.types.js';
+import type { Role } from './user.types.js';
 import type { PipelineStage, Types } from 'mongoose';
 import type {
-  AdminUserDocument, AdminUserPage, AdminUsersQuery, CreateUserInput,
-  LoginStateUpdate, RecipientSearchResult, RolePageQuery, UserPage,
+  AdminUserDocument, AdminUserPage, AdminUsersQuery,
+  RecipientSearchResult, RolePageQuery, UserPage,
   UserPageAggregationResult,
 } from './user.types.js';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function createUser(data: CreateUserInput) {
-  return User.create(data);
-}
-
-function findUserByEmail(email: string) {
-  return User.findOne({ email }).lean<UserDocument>();
 }
 
 // Limit autocomplete results so the endpoint does not expose a large user list.
@@ -42,10 +34,6 @@ function searchActiveRecipientsByEmail(email: string, limit = 10) {
     .lean<RecipientSearchResult[]>();
 }
 
-function findUserById(id: string | Types.ObjectId) {
-  return User.findById(id).lean<UserDocument>();
-}
-
 /** Finds Donor user ids whose username partially matches an Admin search term. */
 function findDonorUserIdsByUsername(search: string) {
   return User.find(
@@ -55,59 +43,6 @@ function findDonorUserIdsByUsername(search: string) {
     },
     { _id: 1 },
   ).lean<Array<{ _id: Types.ObjectId }>>();
-}
-
-function updateUser(
-  id: string | Types.ObjectId,
-  data: Partial<CreateUserInput> & { avatarUrl?: string | null },
-) {
-  return User.findByIdAndUpdate(id, data, { new: true }).lean<UserDocument>();
-}
-
-/** Updates only the account lifecycle state and returns the persisted row. */
-function updateAccountStatus(
-  id: string | Types.ObjectId,
-  status: AccountStatus,
-) {
-  return User.findByIdAndUpdate(
-    id,
-    { $set: { status } },
-    { new: true, runValidators: true },
-  ).lean<UserDocument>();
-}
-
-function updateLoginState(id: string | Types.ObjectId, state: LoginStateUpdate) {
-  return User.updateOne({ _id: id }, { ...state });
-}
-
-// Increments only while the current failure window is still live.
-function incrementFailedLoginInWindow(id: string | Types.ObjectId, windowStartedAfter: Date) {
-  return User.findOneAndUpdate(
-    { _id: id, windowStartedAt: { $gt: windowStartedAfter } },
-    { $inc: { failedLoginCount: 1 } },
-    { new: true },
-  ).lean<UserDocument>();
-}
-
-// Starts a fresh window when there is none, or the previous one has expired.
-function startFailedLoginWindow(id: string | Types.ObjectId, now: Date) {
-  return User.findOneAndUpdate(
-    { _id: id },
-    { $set: { failedLoginCount: 1, windowStartedAt: now } },
-    { new: true },
-  ).lean<UserDocument>();
-}
-
-// Locks the account and resets the window so it starts clean once the lock expires.
-function lockAccount(id: string | Types.ObjectId, lockedUntil: Date) {
-  return User.updateOne(
-    { _id: id },
-    { $set: { failedLoginCount: 0, windowStartedAt: null, lockedUntil } },
-  );
-}
-
-function deleteUser(id: string | Types.ObjectId) {
-  return User.deleteOne({ _id: id });
 }
 
 /**
@@ -241,22 +176,12 @@ async function findUsersForAdmin(query: AdminUsersQuery): Promise<AdminUserPage>
 }
 
 export {
-  createUser,
-  findUserByEmail,
   searchActiveRecipientsByEmail,
-  findUserById,
-  findDonorUserIdsByUsername,
-  updateUser,
-  updateAccountStatus,
-  updateLoginState,
-  incrementFailedLoginInWindow,
-  startFailedLoginWindow,
-  lockAccount,
-  deleteUser,
   findUsersByRole,
   findUsersForAdmin,
+  findDonorUserIdsByUsername,
 };
 export type {
-  CreateUserInput, LoginStateUpdate, RecipientSearchResult, RolePageQuery,
-  UserPage, AdminUsersQuery, AdminUserDocument, AdminUserPage,
+  RolePageQuery, UserPage, AdminUsersQuery, AdminUserDocument, AdminUserPage,
+  RecipientSearchResult,
 } from './user.types.js';

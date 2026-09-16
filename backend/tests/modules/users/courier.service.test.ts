@@ -3,28 +3,33 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   createUserMock,
   findUserByEmailMock,
-  findUsersByRoleMock,
   deleteUserMock,
+  hashPasswordMock,
+  findUsersByRoleMock,
   createCourierMock,
   findCouriersByUserIdsMock,
-  findDonorsByUserIdsMock,
-  hashPasswordMock,
 } = vi.hoisted(() => ({
   createUserMock: vi.fn(),
   findUserByEmailMock: vi.fn(),
-  findUsersByRoleMock: vi.fn(),
   deleteUserMock: vi.fn(),
+  hashPasswordMock: vi.fn(),
+  findUsersByRoleMock: vi.fn(),
   createCourierMock: vi.fn(),
   findCouriersByUserIdsMock: vi.fn(),
-  findDonorsByUserIdsMock: vi.fn(),
-  hashPasswordMock: vi.fn(),
 }));
 
-vi.mock('../../../src/modules/users/user.repository.js', () => ({
+vi.mock('../../../src/modules/users/user.account.repository.js', () => ({
   createUser: createUserMock,
   findUserByEmail: findUserByEmailMock,
-  findUsersByRole: findUsersByRoleMock,
   deleteUser: deleteUserMock,
+}));
+
+vi.mock('../../../src/modules/security/security.interface.js', () => ({
+  securityInterface: { hashPassword: hashPasswordMock },
+}));
+
+vi.mock('../../../src/modules/users/user.directory.repository.js', () => ({
+  findUsersByRole: findUsersByRoleMock,
 }));
 
 vi.mock('../../../src/modules/users/courier.repository.js', () => ({
@@ -32,22 +37,13 @@ vi.mock('../../../src/modules/users/courier.repository.js', () => ({
   findCouriersByUserIds: findCouriersByUserIdsMock,
 }));
 
-vi.mock('../../../src/modules/users/recipient.repository.js', () => ({}));
-vi.mock('../../../src/modules/users/donor.repository.js', () => ({
-  findDonorsByUserIds: findDonorsByUserIdsMock,
-}));
-vi.mock('../../../src/modules/security/security.interface.js', () => ({
-  securityInterface: { hashPassword: hashPasswordMock },
-}));
-
 import {
   createCourierAccount,
   listCouriers,
   findCourierProfilesByUserIds,
-  findDonorsByUserIds,
-} from '../../../src/modules/users/user.service.js';
+} from '../../../src/modules/users/courier.service.js';
 
-describe('user.service — Courier accounts', () => {
+describe('courier.service', () => {
   const input = {
     username: 'courier_01',
     email: 'courier@aff.com',
@@ -182,25 +178,6 @@ describe('user.service — Courier accounts', () => {
       const result = await findCourierProfilesByUserIds([]);
 
       expect(findCouriersByUserIdsMock).not.toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('findDonorsByUserIds', () => {
-    it('loads the requested Donor profiles in one query', async () => {
-      const donors = [{ userId: 'd1', companyName: 'Fresh Foods' }];
-      findDonorsByUserIdsMock.mockResolvedValue(donors);
-
-      const result = await findDonorsByUserIds(['d1']);
-
-      expect(findDonorsByUserIdsMock).toHaveBeenCalledWith(['d1']);
-      expect(result).toBe(donors);
-    });
-
-    it('skips the database entirely when asked for nothing', async () => {
-      const result = await findDonorsByUserIds([]);
-
-      expect(findDonorsByUserIdsMock).not.toHaveBeenCalled();
       expect(result).toEqual([]);
     });
   });
