@@ -1,24 +1,27 @@
-// Exposes safe order operations for other modules without importing order.service directly.
-import * as orderService from './order.service.js';
+// Exposes safe order operations for other modules without importing order's split services directly.
+import * as orderQueryService from './order.query.service.js';
+import * as orderCheckoutService from './order.checkout.service.js';
+import * as orderFulfillmentService from './order.fulfillment.service.js';
+import * as orderCancellationService from './order.cancellation.service.js';
 
 const orderInterface = {
-  listOrdersForRecipient: orderService.listOrdersForRecipient,
-  findOrderById: orderService.findOrderById,
-  findOrdersByIds: orderService.findOrdersByIds,
+  listOrdersForRecipient: orderQueryService.listOrdersForRecipient,
+  findOrderById: orderQueryService.findOrderById,
+  findOrdersByIds: orderQueryService.findOrdersByIds,
   findNonCancelledOrdersByListingIds:
-    orderService.findNonCancelledOrdersByListingIds,
-  verifyOrderOwnership: orderService.verifyOrderOwnership,
+    orderQueryService.findNonCancelledOrdersByListingIds,
+  verifyOrderOwnership: orderQueryService.verifyOrderOwnership,
   findNonCancelledOrderIdsByListing:
-    orderService.findNonCancelledOrderIdsByListing,
-  hasNonCancelledOrderForListing: orderService.hasNonCancelledOrderForListing,
-  createOrder: orderService.createOrder,
-  markOrderPaid: orderService.markOrderPaid,
-  markOrderDelivered: orderService.markOrderDelivered,
-  markOrderRefunded: orderService.markOrderRefunded,
+    orderQueryService.findNonCancelledOrderIdsByListing,
+  hasNonCancelledOrderForListing: orderQueryService.hasNonCancelledOrderForListing,
+  createOrder: orderCheckoutService.createOrder,
+  markOrderPaid: orderCheckoutService.markOrderPaid,
+  markOrderDelivered: orderFulfillmentService.markOrderDelivered,
+  markOrderRefunded: orderCancellationService.markOrderRefunded,
   cancelOrdersForListingCancellation:
-    orderService.cancelOrdersForListingCancellation,
-  refundCancelledOrders: orderService.refundCancelledOrders,
-  listOrdersForListing: orderService.listOrdersForListing,
+    orderCancellationService.cancelOrdersForListingCancellation,
+  refundCancelledOrders: orderCancellationService.refundCancelledOrders,
+  listOrdersForListing: orderQueryService.listOrdersForListing,
 };
 
 export { orderInterface };
