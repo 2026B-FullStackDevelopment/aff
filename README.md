@@ -1,5 +1,62 @@
 # AFF — Affordable Food Federation
 
+## GitHub Repository Link
+
+https://github.com/2026B-FullStackDevelopment/Team1
+
+## Login Credentials for Testing
+
+| Role | Username / Email | Password |
+|---|---|---|
+| Recipient | recipient01@yopmail.com | Abc@1234 |
+| Donor | donor01@yopmail.com | Abc@1234 |
+| Courier | courier@aff.com | Abc@1234 |
+| Admin | admin@aff.com | Abc@1234 |
+
+## Steps to Start and Run the Website
+
+**Prerequisites:** Node.js `>=20.19.0`, npm, and a MongoDB connection string.
+
+1. Clone the repository and install dependencies from the root:
+
+   ```bash
+   npm install
+   ```
+
+2. Set up backend environment variables:
+
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+   Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings or attach the `.env` file provided in the submission. 
+
+3. Run the backend and frontend in separate terminals:
+
+   ```bash
+   npm run dev:backend
+   npm run dev:frontend
+   ```
+
+4. Verify your setup:
+
+   ```bash
+   npm run typecheck
+   npm --workspace backend run test
+   ```
+
+## Contribution Table
+
+| Member Name | Role | Assigned Tasks | Contribution Score |
+|---|---|---|---|
+| Ngo Hoang Long | Project Manager | Donor Food Donation Management, Admin Functionality | 5 |
+| Nguyen Ngoc Hiep | Tech Lead | Authentication, Courier Delivery & Real-Time Tracking, Notifications, Image Upload, Deployment | 5 |
+| Pham Van Thanh Dat | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription, Stripe Integration | 5 |
+| Luong Trien Vinh | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription | 5 |
+| Luong Vu Gia Khang | Full Stack Engineer | Donor Food Donation Management, Admin Functionality | 5 |
+
+---
+
 ## Overview
 
 AFF is a web-based food redistribution platform that connects food-insecure **Recipients** with surplus-holding **Donors**, operated by an **Admin** and fulfilled by **Couriers**. Recipients can reserve listed food or receive a Donor-initiated donation, paying by Stripe or cash on delivery; a third, untracked "Per-Request" path lets a Recipient self-collect directly from a Donor's posted address. Every online order is fulfilled through a shared Courier delivery queue with live GPS tracking, and the platform supports a Premium Recipient subscription with location-aware, real-time listing alerts.
@@ -38,48 +95,6 @@ The project is a TypeScript full-stack monorepo: a React/Vite frontend, a Node.j
 - npm workspaces monorepo (`backend`, `frontend`)
 - Deployed on Render, with MongoDB Atlas
 
-## Getting Started
-
-**Prerequisites:** Node.js `>=20.19.0`, npm, and a MongoDB connection string.
-
-1. Clone the repository and install dependencies from the root:
-
-   ```bash
-   npm install
-   ```
-
-2. Set up backend environment variables:
-
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
-
-   Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings.
-
-3. Run the backend and frontend in separate terminals:
-
-   ```bash
-   npm run dev:backend
-   npm run dev:frontend
-   ```
-
-4. Verify your setup:
-
-   ```bash
-   npm run typecheck
-   npm --workspace backend run test
-   ```
-
-See [`AGENTS.md`](AGENTS.md) for the full architecture reference and the required development workflow.
-
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branching strategy, commit conventions, and pull request process.
-
-| Member | Role |
-|---|---|
-| Ngo Hoang Long | Project Manager |
-| Nguyen Ngoc Hiep | Tech Lead |
-| Pham Van Thanh Dat | Full Stack Engineer |
-| Luong Trien Vinh | Full Stack Engineer |
-| Luong Vu Gia Khang | Full Stack Engineer |
