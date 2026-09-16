@@ -1,6 +1,9 @@
 // Handles order HTTP requests and returns order DTOs.
 import type { Request, Response, NextFunction } from 'express';
-import * as orderService from './order.service.js';
+import * as orderQueryService from './order.query.service.js';
+import * as orderCheckoutService from './order.checkout.service.js';
+import * as orderCancellationService from './order.cancellation.service.js';
+import * as orderFeedbackService from './order.feedback.service.js';
 import {
   toOrderResponseDto,
   toCancelOrderResponseDto,
@@ -19,7 +22,7 @@ import {
 async function listMyOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const { page, limit } = parseBody(mineOrdersQuerySchema, req.query);
-    const result = await orderService.listOrdersForRecipient(
+    const result = await orderQueryService.listOrdersForRecipient(
       req.user!.id,
       page,
       limit,
@@ -40,7 +43,7 @@ async function listMyOrders(req: Request, res: Response, next: NextFunction) {
 async function getOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(orderIdParamsSchema, req.params);
-    const { order, deliveryStage, deliveryId } = await orderService.getOrderForRecipient(
+    const { order, deliveryStage, deliveryId } = await orderQueryService.getOrderForRecipient(
       id,
       req.user!.id,
     );
@@ -53,7 +56,7 @@ async function getOrder(req: Request, res: Response, next: NextFunction) {
 async function cancelOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = parseBody(orderIdParamsSchema, req.params);
-    const { order, deliveryStage, refundStatus } = await orderService.cancelOrder(
+    const { order, deliveryStage, refundStatus } = await orderCancellationService.cancelOrder(
       id,
       req.user!.id,
     );
@@ -68,7 +71,7 @@ async function submitFeedback(req: Request, res: Response, next: NextFunction) {
     const { id } = parseBody(orderIdParamsSchema, req.params);
     const { comment } = parseBody(submitFeedbackSchema, req.body);
 
-    const feedback = await orderService.submitFeedback(
+    const feedback = await orderFeedbackService.submitFeedback(
       id,
       req.user!.id,
       comment,
@@ -92,7 +95,7 @@ async function choosePaymentMethod(
       req.body,
     );
 
-    const order = await orderService.choosePaymentMethod(
+    const order = await orderCheckoutService.choosePaymentMethod(
       id,
       req.user!.id,
       paymentMethod,
@@ -111,7 +114,7 @@ async function createCheckoutSession(
 ) {
   try {
     const { id } = parseBody(orderIdParamsSchema, req.params);
-    const result = await orderService.createCheckoutSession(
+    const result = await orderCheckoutService.createCheckoutSession(
       id,
       req.user!.id,
     );
