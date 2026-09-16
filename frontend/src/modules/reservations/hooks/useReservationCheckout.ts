@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { reservationService } from '../services/reservation.service';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import type { ListingDetailDTO, PaymentMethod } from '@/types/api';
-import type { LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
+import type { LocationData } from '@/shared/components/AddressAutocomplete';
 
 interface UseReservationCheckoutResult {
   deliveryAddressText: string;

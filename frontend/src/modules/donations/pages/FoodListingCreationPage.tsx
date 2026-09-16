@@ -2,8 +2,8 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
-import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
+import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
 import { CloneListingForm } from '../components/CloneListingForm';
 import { CreateListingForm } from '../components/CreateListingForm';

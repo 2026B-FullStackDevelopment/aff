@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog/ConfirmationDialog';
+import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog';
 import { cn } from '@/shared/utils';
 import type { AnyUserDTO, UserDTO } from '@/types/api';
 

@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getResponseMessage } from '@/shared/utils/apiError';
-import { Button } from '@/shared/components/Button/Button';
-import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
+import { Button } from '@/shared/components/Button';
+import { PasswordField } from '@/shared/components/PasswordField';
+import { IconField } from '@/shared/components/IconField';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
 import { ROLE_HOME } from '@/shared/constants/roleHome';
 
 export function LoginPage() {

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/utils';
 
 type CourierButtonProps = ComponentProps<typeof Button>;

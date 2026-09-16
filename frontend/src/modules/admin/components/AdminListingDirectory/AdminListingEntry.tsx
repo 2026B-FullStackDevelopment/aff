@@ -1,6 +1,6 @@
 import { Ban, ImageOff, Leaf, MapPin } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { Button } from '@/shared/components/Button';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatUnit } from '@/shared/constants/units';
 import { formatCategory, formatDate, formatPrice } from '@/shared/utils/listingFormatting';
 import type { AdminListingDTO } from '@/types/api';

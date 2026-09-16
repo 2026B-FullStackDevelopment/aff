@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
+import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation';
 import { getStoredUser } from '@/services/authStorage';
 import { DonorListingOrdersPanel } from '../components/DonorListingOrdersPanel';
 import { DonorListingResults } from '../components/DonorListingResults';

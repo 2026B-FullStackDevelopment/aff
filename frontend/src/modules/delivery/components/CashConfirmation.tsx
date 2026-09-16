@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckboxField } from '@/shared/components/CheckboxField/CheckboxField';
+import { CheckboxField } from '@/shared/components/CheckboxField';
 import { CourierButton } from './CourierButton';
 
 interface CashConfirmationProps {

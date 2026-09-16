@@ -6,15 +6,15 @@ import {
   Scale,
 } from 'lucide-react';
 import type { ListingDTO } from '@/types/api';
-import { Button } from '@/shared/components/Button/Button';
-import { CheckboxField } from '@/shared/components/CheckboxField/CheckboxField';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { SelectField } from '@/shared/components/SelectField/SelectField';
-import { SwitchField } from '@/shared/components/SwitchField/SwitchField';
-import { TextareaField } from '@/shared/components/TextareaField/TextareaField';
-import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
+import { Button } from '@/shared/components/Button';
+import { CheckboxField } from '@/shared/components/CheckboxField';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { IconField } from '@/shared/components/IconField';
+import { Panel } from '@/shared/components/Panel';
+import { SelectField } from '@/shared/components/SelectField';
+import { SwitchField } from '@/shared/components/SwitchField';
+import { TextareaField } from '@/shared/components/TextareaField';
+import { WarningCallout } from '@/shared/components/WarningCallout';
 import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
 import { UNIT_OPTIONS } from '@/shared/constants/units';
 import { ListingImageUpload } from './ListingImageUpload';

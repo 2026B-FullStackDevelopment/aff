@@ -14,24 +14,18 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { FormSectionHeader } from '@/shared/components/FormSectionHeader/FormSectionHeader';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { SelectField } from '@/shared/components/SelectField/SelectField';
+import { Button } from '@/shared/components/Button';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { FormSectionHeader } from '@/shared/components/FormSectionHeader';
+import { IconField } from '@/shared/components/IconField';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { Panel } from '@/shared/components/Panel';
+import { SelectField } from '@/shared/components/SelectField';
 import { formatUnit } from '@/shared/constants/units';
+import { formatCurrency } from '@/shared/utils/listingFormatting';
 import { useManualDonation } from '../hooks/useManualDonation';
-
-const VND_FORMATTER =
-  new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  });
 
 const QUANTITY_FORMATTER =
   new Intl.NumberFormat('en-US', {
@@ -565,7 +559,7 @@ export function ManualDonationForm() {
                           {selectedListing.price
                             === 0
                             ? 'Free'
-                            : VND_FORMATTER.format(
+                            : formatCurrency(
                               selectedListing.price,
                             )}
                         </dd>
@@ -633,7 +627,7 @@ export function ManualDonationForm() {
                     <dt className="font-semibold text-[#414844]">Total</dt>
                     <dd className="text-base font-extrabold text-[#1B1C1C]">
                       {selectedListing
-                        ? VND_FORMATTER.format(orderTotal)
+                        ? formatCurrency(orderTotal)
                         : '—'}
                     </dd>
                   </div>
@@ -645,7 +639,7 @@ export function ManualDonationForm() {
                       <dd className="text-base font-extrabold text-[#805300]">
                         {cashChange === null
                           ? '—'
-                          : VND_FORMATTER.format(cashChange)}
+                          : formatCurrency(cashChange)}
                       </dd>
                     </div>
                   )}

@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog/ConfirmationDialog';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
+import { Button } from '@/shared/components/Button';
+import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { Pagination } from '@/shared/components/Pagination';
 import type { AdminListingDTO } from '@/types/api';
 import { useAdminListings } from '../../hooks/useAdminListings';
 import { AdminListingCard, AdminListingRow } from './AdminListingEntry';

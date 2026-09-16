@@ -5,7 +5,12 @@ import {
   PackageCheck,
   Radio,
 } from 'lucide-react';
-import { Panel } from '@/shared/components/Panel/Panel';
+import { Panel } from '@/shared/components/Panel';
+import {
+  formatCategory,
+  formatCompactCurrency,
+  formatPrice,
+} from '@/shared/utils/listingFormatting';
 import type {
   DonorAnalyticsCategory,
   DonorAnalyticsSnapshot,
@@ -29,37 +34,6 @@ interface CategoryChartProps {
     category: DonorAnalyticsCategory,
   ) => number;
   valueFormatter: (value: number) => string;
-}
-
-const currencyFormatter =
-  new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 0,
-  });
-
-const compactNumberFormatter =
-  new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  });
-
-function formatCurrency(
-  value: number,
-): string {
-  return `${currencyFormatter.format(value)} VND`;
-}
-
-function formatCompactCurrency(
-  value: number,
-): string {
-  return `${compactNumberFormatter.format(value)} VND`;
-}
-
-function formatCategoryLabel(category: DonorAnalyticsCategory['category']): string {
-  return category
-    .toLowerCase()
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 function MetricCard({
@@ -151,7 +125,7 @@ function CategoryChart({
                     }}
                     role="img"
                     aria-label={
-                      `${formatCategoryLabel(category.category)}: ${valueFormatter(value)}`
+                      `${formatCategory(category.category)}: ${valueFormatter(value)}`
                     }
                   />
                 </div>
@@ -172,7 +146,7 @@ function CategoryChart({
               key={category.category}
               className="text-center text-xs font-medium text-[#616762]"
             >
-              {formatCategoryLabel(category.category)}
+              {formatCategory(category.category)}
             </span>
           ))}
         </div>
@@ -310,14 +284,14 @@ export function DonorAnalyticsDashboard({
                           }}
                           role="img"
                           aria-label={
-                            `${listing.name}: ${formatCurrency(listing.revenue)}`
+                            `${listing.name}: ${formatPrice(listing.revenue)}`
                           }
                         />
                       </div>
                     </div>
 
                     <span className="self-end whitespace-nowrap text-sm font-semibold text-[#414844]">
-                      {formatCurrency(
+                      {formatPrice(
                         listing.revenue,
                       )}
                     </span>
@@ -371,7 +345,7 @@ export function DonorAnalyticsDashboard({
                       scope="row"
                       className="px-5 py-4 text-sm font-semibold text-[#414844]"
                     >
-                      {formatCategoryLabel(category.category)}
+                      {formatCategory(category.category)}
                     </th>
 
                     <td className="px-5 py-4 text-right text-sm text-[#414844]">
@@ -379,7 +353,7 @@ export function DonorAnalyticsDashboard({
                     </td>
 
                     <td className="px-5 py-4 text-right text-sm font-semibold text-[#414844]">
-                      {formatCurrency(
+                      {formatPrice(
                         category.revenue,
                       )}
                     </td>

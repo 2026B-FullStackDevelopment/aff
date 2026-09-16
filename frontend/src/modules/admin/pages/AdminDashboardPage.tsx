@@ -1,12 +1,12 @@
 // Dashboard page component
 
 import { Users } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
+import { Button } from '@/shared/components/Button';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { Pagination } from '@/shared/components/Pagination';
 import { UserTable } from '../components/UserTable/UserTable';
 import { UserDirectoryFilters } from '../components/UserDirectoryFilters/UserDirectoryFilters';
 import { useAdminUsers } from '../hooks/useAdminUsers';

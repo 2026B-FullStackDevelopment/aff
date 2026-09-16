@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { User, Mail, ArrowRight } from 'lucide-react';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
-import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
-import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
-import { Button } from '@/shared/components/Button/Button';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { SelectField } from '@/shared/components/SelectField/SelectField';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { FormSectionHeader } from '@/shared/components/FormSectionHeader/FormSectionHeader';
+import { PasswordStrength } from '@/shared/components/PasswordStrength';
+import { PasswordField } from '@/shared/components/PasswordField';
+import { Button } from '@/shared/components/Button';
+import { IconField } from '@/shared/components/IconField';
+import { SelectField } from '@/shared/components/SelectField';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { FormSectionHeader } from '@/shared/components/FormSectionHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useRegistrationForm } from '../hooks/useRegistrationForm';
 

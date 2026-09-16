@@ -5,7 +5,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Apple, Beef, Calendar, Droplet, Leaf, Package, UtensilsCrossed, Wheat } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import {
   CATEGORY_LABELS,
   UNIT_LABELS,
