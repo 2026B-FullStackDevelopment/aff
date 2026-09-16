@@ -1,7 +1,7 @@
-import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
+import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { Panel } from '@/shared/components/Panel';
+import { Pagination } from '@/shared/components/Pagination';
 import { CollectionHistoryTable } from '../components/CollectionHistoryTable';
 import { useOrderHistory } from '../hooks/useOrderHistory';
 import { getStoredUser } from '@/services/authStorage';

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { NavigationHeader } from '@/shared/components/NavigationHeader/NavigationHeader';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { NavigationHeader } from '@/shared/components/NavigationHeader';
 import { PaywallPanel } from '../components/PaywallPanel';
 import { PremiumSuccessPanel } from '../components/PremiumSuccessPanel';
 import { useSubscription } from '../hooks/useSubscription';

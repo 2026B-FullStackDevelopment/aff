@@ -5,7 +5,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 import { ACCEPTED_IMAGE_TYPES } from '@/shared/services/media.service';
 import { cn } from '@/shared/utils';
 

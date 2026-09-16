@@ -1,5 +1,5 @@
 import { Store } from 'lucide-react';
-import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantityStepper';
+import { QuantityStepper } from '@/shared/components/QuantityStepper';
 import { UNIT_LABELS, shortCityLabel } from '@/shared/utils/listingFormatting';
 import type { ListingDetailDTO } from '@/types/api';
 

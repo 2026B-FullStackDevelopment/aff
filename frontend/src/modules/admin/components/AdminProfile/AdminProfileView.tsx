@@ -1,5 +1,5 @@
 import { UserRound } from 'lucide-react';
-import { DisplayField } from '@/shared/components/DisplayField/DisplayField';
+import { DisplayField } from '@/shared/components/DisplayField';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 import type { AdminUserDTO } from '@/types/api';
 

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog/ConfirmationDialog';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
+import { Button } from '@/shared/components/Button';
+import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { WarningCallout } from '@/shared/components/WarningCallout';
 import { formatDate } from '@/shared/utils/listingFormatting';
 import type { SubscriptionDTO } from '@/types/api';
 

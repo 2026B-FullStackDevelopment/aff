@@ -1,4 +1,4 @@
-import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog/ConfirmationDialog';
+import { ConfirmationDialog } from '@/shared/components/ConfirmationDialog';
 import type { PendingListingCancellation } from '../hooks/useListingActions';
 
 interface DonorListingCancellationDialogProps {

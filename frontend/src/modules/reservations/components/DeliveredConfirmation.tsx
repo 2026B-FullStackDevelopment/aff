@@ -1,5 +1,5 @@
 import { CircleCheckBig } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 
 interface DeliveredConfirmationProps {
   deliveredAt: string | null;

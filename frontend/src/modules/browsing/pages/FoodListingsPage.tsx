@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
-import { Button } from '@/shared/components/Button/Button';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { Pagination } from '@/shared/components/Pagination';
+import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation';
+import { Button } from '@/shared/components/Button';
 import { VIETNAM_PROVINCES } from '@/shared/constants/locations';
 import { FoodCard } from '../components/FoodCard';
 import { FoodFilter } from '../components/FoodFilter';

@@ -1,14 +1,14 @@
 # LocationMap Component Documentation
 
-The `LocationMap` component is a reusable, high-level map rendering component built on top of **Leaflet** and **React-Leaflet**. It is located at `frontend/src/shared/components/LocationMap/` and provides both static location pin display and dynamic real-time delivery tracking visualization.
+The `LocationMap` component is a reusable, high-level map rendering component built on top of **Leaflet** and **React-Leaflet**. It is located at `frontend/src/shared/components/LocationMap.tsx` and provides both static location pin display and dynamic real-time delivery tracking visualization.
 
 ---
 
 ## 1. Overview & Architecture
 
 ### File Structure
-- [LocationMap.tsx](file:///frontend/src/shared/components/LocationMap/LocationMap.tsx) — Main React component handling Leaflet map lifecycle, markers, bounding-box auto-fitting, and polylines.
-- [LocationMap.css](file:///frontend/src/shared/components/LocationMap/LocationMap.css) — Scoped CSS overrides for Leaflet's internal DOM elements (e.g. muted desaturated basemap styling).
+- [LocationMap.tsx](../frontend/src/shared/components/LocationMap.tsx) — Main React component handling Leaflet map lifecycle, markers, bounding-box auto-fitting, and polylines.
+- [LocationMap.css](../frontend/src/shared/components/LocationMap.css) — Scoped CSS overrides for Leaflet's internal DOM elements (e.g. muted desaturated basemap styling).
 
 ### Where It Is Used
 1. **[ListingDetailPage.tsx](file:///frontend/src/modules/browsing/pages/ListingDetailPage.tsx)**: Displays the physical location/pickup point of a food listing.
@@ -70,7 +70,7 @@ The `LocationMap` component is a reusable, high-level map rendering component bu
 
 ### Example 1: Static Listing Location
 ```tsx
-import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
+import { LocationMap } from '@/shared/components/LocationMap';
 
 <LocationMap
   latitude={listing.location.coordinates[1]}
@@ -82,7 +82,7 @@ import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
 
 ### Example 2: Live Courier Delivery Tracking
 ```tsx
-import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
+import { LocationMap } from '@/shared/components/LocationMap';
 
 <LocationMap
   latitude={courierLat}

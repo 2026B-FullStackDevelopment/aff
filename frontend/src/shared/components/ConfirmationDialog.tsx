@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { Modal } from '@/shared/components/Modal/Modal';
-import type { ThemeRole } from '@/shared/components/WarningCallout/WarningCallout';
+import { Button } from '@/shared/components/Button';
+import { Modal } from '@/shared/components/Modal';
+import type { ThemeRole } from '@/shared/components/WarningCallout';
 
 type ConfirmationTone = 'default' | 'danger';
 

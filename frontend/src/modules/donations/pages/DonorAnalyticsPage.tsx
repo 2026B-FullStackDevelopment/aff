@@ -2,12 +2,12 @@ import {
   BarChart3,
   RefreshCw,
 } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
+import { Button } from '@/shared/components/Button';
+import { DonorTopNavigation } from '@/shared/components/DonorTopNavigation';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { PageHeader } from '@/shared/components/PageHeader';
 import { getStoredUser } from '@/services/authStorage';
 import { DonorAnalyticsDashboard } from '../components/DonorAnalyticsDashboard';
 import { useDonorAnalytics } from '../hooks/useDonorAnalytics';

@@ -1,9 +1,9 @@
 import { ClipboardList } from 'lucide-react';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
-import { Panel } from '@/shared/components/Panel/Panel';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { Pagination } from '@/shared/components/Pagination';
+import { Panel } from '@/shared/components/Panel';
 import type { ListingUnit } from '@/types/api';
 import type { ListingOrderDTO } from '../../types';
 import { ListingOrderDesktopRow } from './ListingOrderDesktopRow';

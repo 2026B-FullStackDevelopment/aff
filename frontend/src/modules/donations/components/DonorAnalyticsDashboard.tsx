@@ -5,7 +5,7 @@ import {
   PackageCheck,
   Radio,
 } from 'lucide-react';
-import { Panel } from '@/shared/components/Panel/Panel';
+import { Panel } from '@/shared/components/Panel';
 import {
   formatCategory,
   formatCompactCurrency,

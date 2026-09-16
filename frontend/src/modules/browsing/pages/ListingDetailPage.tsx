@@ -1,16 +1,16 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Calendar, Store } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { QuantityStepper } from '@/shared/components/QuantityStepper/QuantityStepper';
+import { Button } from '@/shared/components/Button';
+import { LocationMap } from '@/shared/components/LocationMap';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { Panel } from '@/shared/components/Panel';
+import { QuantityStepper } from '@/shared/components/QuantityStepper';
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, shortCityLabel } from '@/shared/utils/listingFormatting';
 import { getStoredUser } from '@/services/authStorage';
 import type { ListingDetailDTO } from '@/types/api';
-import { NavigationHeader } from '@/shared/components/NavigationHeader/NavigationHeader';
+import { NavigationHeader } from '@/shared/components/NavigationHeader';
 import { useListingDetail } from '../hooks/useListingDetail';
 import { useReserveListing } from '../hooks/useReserveListing';
 

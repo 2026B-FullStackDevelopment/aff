@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { SelectField } from '@/shared/components/SelectField/SelectField';
+import { Button } from '@/shared/components/Button';
+import { SelectField } from '@/shared/components/SelectField';
 import { Input } from '@/shared/components/ui/input';
 import type { UserDTO, UserRole } from '@/types/api';
 

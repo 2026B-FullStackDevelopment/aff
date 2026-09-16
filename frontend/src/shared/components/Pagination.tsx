@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/utils';
 
 type PageItem = number | 'ellipsis-start' | 'ellipsis-end';

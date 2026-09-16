@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   PortalTopNavigation,
   type PortalNavItem,
-} from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
+} from '@/shared/components/PortalTopNavigation';
 import { useCourierSession } from '@/modules/delivery/hooks/useCourierSession';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 

@@ -11,7 +11,7 @@ import {
   MapPin,
 } from 'lucide-react';
 
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 

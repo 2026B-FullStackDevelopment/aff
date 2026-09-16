@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { IconField } from '@/shared/components/IconField/IconField';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { IconField } from '@/shared/components/IconField';
 
 export type ThemeRole = 'admin' | 'recipient' | 'donor';
 

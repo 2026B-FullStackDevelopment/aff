@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   PortalTopNavigation,
   type PortalNavItem,
-} from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
-import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
+} from '@/shared/components/PortalTopNavigation';
+import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel';
 import { PremiumUpsellPanel } from '@/modules/notifications/components/PremiumUpsellPanel';
 import { NotificationList } from '@/modules/notifications/components/NotificationList';
 import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';

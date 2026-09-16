@@ -6,8 +6,8 @@
 // (top-of-page filtering entry point) instead of growing into one
 // oversized component.
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { IconField } from '@/shared/components/IconField/IconField';
+import { Button } from '@/shared/components/Button';
+import { IconField } from '@/shared/components/IconField';
 import { cn } from '@/shared/utils';
 
 interface FoodFilterProps {

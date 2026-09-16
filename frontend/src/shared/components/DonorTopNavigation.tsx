@@ -1,8 +1,8 @@
 import {
   PortalTopNavigation,
   type PortalNavItem,
-} from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
-import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel/NotificationBellPanel';
+} from '@/shared/components/PortalTopNavigation';
+import { NotificationBellPanel } from '@/shared/components/NotificationBellPanel';
 import { NotificationList } from '@/modules/notifications/components/NotificationList';
 import { useNotificationBell } from '@/modules/notifications/hooks/useNotificationBell';
 

@@ -1,7 +1,7 @@
 import { PackageSearch } from 'lucide-react';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
 import { CollectionHistoryRow } from './CollectionHistoryRow';
 import type { RecipientOrderDTO } from '@/types/api';
 

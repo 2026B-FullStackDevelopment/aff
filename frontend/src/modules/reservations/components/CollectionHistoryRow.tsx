@@ -1,6 +1,6 @@
 import { Check, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatPrice, UNIT_LABELS, formatCategory } from '@/shared/utils/listingFormatting';
 import type { RecipientOrderDTO } from '@/types/api';
 

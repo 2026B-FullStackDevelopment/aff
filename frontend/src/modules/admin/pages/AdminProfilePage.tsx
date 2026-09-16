@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
-import { Button } from '@/shared/components/Button/Button';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
+import { Button } from '@/shared/components/Button';
+import { ErrorState } from '@/shared/components/ErrorState';
 import { toast } from '@/shared/components/ui/sonner';
 import { AdminProfileEditForm } from '../components/AdminProfile/AdminProfileEditForm';
 import { AdminProfileSkeleton } from '../components/AdminProfile/AdminProfileSkeleton';

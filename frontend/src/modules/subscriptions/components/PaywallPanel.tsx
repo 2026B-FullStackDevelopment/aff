@@ -1,7 +1,7 @@
 import { ArrowRight, CheckCircle2, Lock, RefreshCw } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { FormSectionHeader } from '@/shared/components/FormSectionHeader/FormSectionHeader';
+import { Button } from '@/shared/components/Button';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { FormSectionHeader } from '@/shared/components/FormSectionHeader';
 import { formatDate } from '@/shared/utils/listingFormatting';
 import type { SubscriptionDTO } from '@/types/api';
 

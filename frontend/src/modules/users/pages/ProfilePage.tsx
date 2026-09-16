@@ -7,15 +7,15 @@ import { useProfileEditForm } from '../hooks/useProfileEditForm';
 import { ProfileView } from '../components/ProfileView';
 import { ProfileEditForm } from '../components/ProfileEditForm';
 import { ProfileSkeleton } from '../components/ProfileSkeleton';
-import { Button } from '@/shared/components/Button/Button';
-import RecipientTopNavigation from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
-import DonorTopNavigation from '@/shared/components/DonorTopNavigation/DonorTopNavigation';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
+import { Button } from '@/shared/components/Button';
+import RecipientTopNavigation from '@/shared/components/RecipientTopNavigation';
+import DonorTopNavigation from '@/shared/components/DonorTopNavigation';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
 import { toast } from '@/shared/components/ui/sonner';
 import { getAvatarDisplayUrl } from '@/shared/utils/avatar';
 import { getStoredUser } from '@/services/authStorage';
 import { cn } from '@/shared/utils';
-import type { ThemeRole } from '@/shared/components/AvatarUpload/AvatarUpload';
+import type { ThemeRole } from '@/shared/components/AvatarUpload';
 
 export function ProfilePage() {
   const navigate = useNavigate();

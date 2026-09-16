@@ -1,5 +1,5 @@
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
 import { useCloneListing } from '..//hooks/useCloneListing';
 import { CreateListingForm } from './CreateListingForm';
 

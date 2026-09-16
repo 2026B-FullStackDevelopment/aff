@@ -5,8 +5,8 @@ import {
     Play,
     X,
 } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { Button } from '@/shared/components/Button';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import { CATEGORY_LABELS, UNIT_LABELS, formatDate, formatPrice, formatCurrency } from '@/shared/utils/listingFormatting';
 import { ListingDetailField } from './ListingDetailField';
 import type {

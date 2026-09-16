@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DeliveryStage, GeoLocation, OrderDTO } from '@/types/api';
-import { LocationMap } from '@/shared/components/LocationMap/LocationMap';
+import { LocationMap } from '@/shared/components/LocationMap';
 import { DeliveryStepper } from './DeliveryStepper';
 import { DeliveredConfirmation } from './DeliveredConfirmation';
 

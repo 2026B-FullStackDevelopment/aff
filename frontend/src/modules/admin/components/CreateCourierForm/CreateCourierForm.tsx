@@ -1,11 +1,11 @@
 import { AtSign, BadgeCheck, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button, buttonVariants } from '@/shared/components/Button/Button';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { FormSectionHeader } from '@/shared/components/FormSectionHeader/FormSectionHeader';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
-import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
+import { Button, buttonVariants } from '@/shared/components/Button';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { FormSectionHeader } from '@/shared/components/FormSectionHeader';
+import { IconField } from '@/shared/components/IconField';
+import { PasswordField } from '@/shared/components/PasswordField';
+import { PasswordStrength } from '@/shared/components/PasswordStrength';
 import { cn } from '@/shared/utils';
 import { useCreateCourierForm } from '../../hooks/useCreateCourierForm';
 
