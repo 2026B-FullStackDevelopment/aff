@@ -1,7 +1,7 @@
 // Handles the Stripe webhook HTTP request. See docs/api_design.md §8.
 import type { Request, Response, NextFunction } from 'express';
 import * as paymentProvider from '../../integrations/payment/payment.provider.js';
-import * as paymentsService from './payments.service.js';
+import { processWebhookEvent } from './payment.webhook.service.js';
 import { ok } from '../../shared/http/response.js';
 
 /**
@@ -21,7 +21,7 @@ async function handleStripeWebhook(req: Request, res: Response, next: NextFuncti
 
     const event = paymentProvider.verifyWebhookSignature(req.rawBody, signatureHeader);
 
-    await paymentsService.processWebhookEvent(event);
+    await processWebhookEvent(event);
 
     return ok(res, null);
   } catch (error) {
