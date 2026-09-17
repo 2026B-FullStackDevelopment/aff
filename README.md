@@ -6,12 +6,15 @@ https://github.com/2026B-FullStackDevelopment/Team1
 
 ## Login Credentials for Testing
 
-| Role | Username / Email | Password |
-|---|---|---|
-| Recipient | recipient01@yopmail.com | Abc@1234 |
-| Donor | donor01@yopmail.com | Abc@1234 |
-| Courier | courier@aff.com | Abc@1234 |
-| Admin | admin@aff.com | Abc@1234 |
+| Role                      | Username / Email        | Password |
+| ------------------------- | ----------------------- | -------- |
+| Recipient                 | recipient01@yopmail.com | Abc@1234 |
+| Premium Recipient         | recipient02@yopmail.com | Abc@1234 |
+| Premium Recipient         | recipient03@yopmail.com | Abc@1234 |
+| Donor                     | donor01@yopmail.com     | Abc@1234 |
+| Donor (with free listing) | donor02@yopmail.com     | Abc@1234 |
+| Courier                   | courier@aff.com         | Abc@1234 |
+| Admin                     | admin@aff.com           | Abc@1234 |
 
 ## Steps to Start and Run the Website
 
@@ -19,41 +22,41 @@ https://github.com/2026B-FullStackDevelopment/Team1
 
 1. Clone the repository and install dependencies from the root:
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 2. Set up backend environment variables:
 
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
+    ```bash
+    cp backend/.env.example backend/.env
+    ```
 
-   Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings or attach the `.env` file provided in the submission. 
+    Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings or attach the `.env` file provided in the submission.
 
 3. Run the backend and frontend in separate terminals:
 
-   ```bash
-   npm run dev:backend
-   npm run dev:frontend
-   ```
+    ```bash
+    npm run dev:backend
+    npm run dev:frontend
+    ```
 
 4. Verify your setup:
 
-   ```bash
-   npm run typecheck
-   npm --workspace backend run test
-   ```
+    ```bash
+    npm run typecheck
+    npm --workspace backend run test
+    ```
 
 ## Contribution Table
 
-| Member Name | Role | Assigned Tasks | Contribution Score |
-|---|---|---|---|
-| Ngo Hoang Long | Project Manager | Donor Food Donation Management, Admin Functionality | 5 |
-| Nguyen Ngoc Hiep | Tech Lead | Authentication, Courier Delivery & Real-Time Tracking, Notifications, Image Upload, Deployment | 5 |
-| Pham Van Thanh Dat | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription, Stripe Integration | 5 |
-| Luong Trien Vinh | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription | 5 |
-| Luong Vu Gia Khang | Full Stack Engineer | Donor Food Donation Management, Admin Functionality | 5 |
+| Member Name        | Role                | Assigned Tasks                                                                                 | Contribution Score |
+| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------- | ------------------ |
+| Ngo Hoang Long     | Project Manager     | Donor Food Donation Management, Admin Functionality                                            | 5                  |
+| Nguyen Ngoc Hiep   | Tech Lead           | Authentication, Courier Delivery & Real-Time Tracking, Notifications, Image Upload, Deployment | 5                  |
+| Pham Van Thanh Dat | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription, Stripe Integration          | 5                  |
+| Luong Trien Vinh   | Full Stack Engineer | Recipient Food Ordering, Profile Management, Premium Subscription                              | 5                  |
+| Luong Vu Gia Khang | Full Stack Engineer | Donor Food Donation Management, Admin Functionality                                            | 5                  |
 
 ---
 
@@ -76,11 +79,13 @@ The project is a TypeScript full-stack monorepo: a React/Vite frontend, a Node.j
 ## Tech Stack
 
 **Frontend**
+
 - React 19 + Vite 7, React Router 7
 - TypeScript
 - Tailwind CSS v4 + shadcn/ui (Base UI primitives), lucide icons
 
 **Backend**
+
 - Node.js + Express 5, TypeScript
 - MongoDB + Mongoose 9
 - Zod (request validation), JWT (`jsonwebtoken`) + bcryptjs (auth)
@@ -88,10 +93,12 @@ The project is a TypeScript full-stack monorepo: a React/Vite frontend, a Node.j
 - Vitest (testing)
 
 **Third-party services**
+
 - Stripe (checkout and recurring billing)
 - OpenStreetMap Nominatim (address search and geocoding)
 
 **Infrastructure**
+
 - npm workspaces monorepo (`backend`, `frontend`)
 - Deployed on Render, with MongoDB Atlas
 
