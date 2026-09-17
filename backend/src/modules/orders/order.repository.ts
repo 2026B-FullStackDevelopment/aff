@@ -21,9 +21,7 @@ function findOrderById(
   return (session ? query.session(session) : query).lean<OrderDocument>();
 }
 
-// MongoDB database session, session? means not mandatory
-// const session = await mongoose.startSession();
-// to gather multiple database operations
+// Runs inside the caller's transaction when a session is passed; otherwise a plain write.
 async function createOrder(data: CreateOrderInput, session?: ClientSession, ) {
   if (!session) { return Order.create(data); }
   // Mongoose form Model.create([data], { session });
@@ -278,11 +276,8 @@ function cancelOrderById(
 }
 
 /**
- * Flips a cancelled Order's `paymentStatus` from `PAID` to `REFUND_PENDING`
- * once a Stripe refund has actually been created for it (D4). Guarding on
- * `paymentStatus: 'PAID'` makes this a safe no-op if called twice, or if the
- * `refund.updated` webhook has already raced ahead and flipped the Order to
- * `REFUNDED` first.
+ * Flips a cancelled Order's `paymentStatus` from `PAID` to `REFUND_PENDING` once a Stripe
+ * refund has actually been created for it (D4); guarded, so calling it twice is a safe no-op.
  */
 function markOrderRefundPending(
   orderId: string | Types.ObjectId,
@@ -334,10 +329,8 @@ function markOrderRefunded(
 }
 
 /**
- * Atomically records a Recipient's one-shot feedback on a delivered Order (D7). Guarded on
- * `orderStatus: 'DELIVERED'` and no existing `feedback`, so a race between the service's
- * pre-check and this write (order un-delivered, or feedback already set by a concurrent
- * request) safely returns `null` instead of overwriting anything.
+ * Atomically records a Recipient's one-shot feedback on a delivered Order (D7), guarded on
+ * `orderStatus: 'DELIVERED'` and no existing `feedback` so it never overwrites a race.
  */
 function setFeedback(
   orderId: string | Types.ObjectId,
@@ -441,12 +434,8 @@ async function findOrdersForListing(
 }
 
 /**
- * Paginated, Donor/Listing/Delivery-enriched view of a Recipient's own Orders (D5). Extends
- * `findOrdersForListing`'s `$facet`/`$skip`/`$limit`/`$count` shape with a chained lookup —
- * `listings` off `listingId`, then `donors` off that Listing's `donorId` (matched against
- * `Donor.userId`, since Donor isn't keyed by its own `_id` cross-reference) — plus a `deliveries`
- * lookup on `_id`/`orderId` (unique per Order, so at most one match) reduced to a single
- * `stage`, `null` when no Delivery exists yet.
+ * Paginated, Donor/Listing/Delivery-enriched view of a Recipient's own Orders (D5), joining
+ * each Order to its Listing, that Listing's Donor, and its Delivery stage (if any) in one aggregation.
  */
 async function findOrdersForRecipient(
   recipientId: string | Types.ObjectId,

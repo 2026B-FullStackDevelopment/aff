@@ -6,9 +6,7 @@ import { createHttpError } from './subscription.service.errors.js';
 
 /**
  * Appends one billing-cycle row to the SUBSCRIPTION ledger (F1), called from the `invoice.paid`
- * webhook — which fires identically for both the first payment and every renewal. Idempotent on
- * `stripeInvoiceId` (unique, sparse): a re-delivered event for an invoice already recorded is a
- * no-op, so Stripe's at-least-once delivery never produces a duplicate row or a duplicate email.
+ * webhook for both the first payment and every renewal; idempotent on `stripeInvoiceId`.
  * @param stripeCustomerId - resolves the Recipient via `userInterface.findRecipientByStripeCustomerId`
  * @returns `{ created: false }` if the invoice was already recorded; otherwise
  *   `{ created: true, recipientEmail, currentPeriodEnd }` so the caller can send the confirmation email

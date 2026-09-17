@@ -22,9 +22,7 @@ function updatePaymentEvent(paymentId: string | Types.ObjectId, data: UpdatePaym
   return Payment.findByIdAndUpdate(paymentId, data, { new: true }).lean<PaymentDocument>();
 }
 
-// Sets REFUND_PENDING synchronously, right after the Stripe refund API call returns — separate
-// from updatePaymentEvent since this isn't a webhook event being reconciled, so there's no
-// lastProcessedEventId to require here.
+// Sets REFUND_PENDING synchronously right after the Stripe refund API call returns.
 function markPaymentRefundPending(paymentId: string | Types.ObjectId, stripeRefundId: string) {
   return Payment.findByIdAndUpdate(
     paymentId,
@@ -38,10 +36,8 @@ function findPaymentByRefundId(stripeRefundId: string) {
 }
 
 /**
- * Cancels a still-PENDING Payment for a payable (e.g. a Stripe order cancelled before checkout
- * completed) so a late `checkout.session.completed` webhook against its abandoned Checkout
- * Session finds `status !== 'PENDING'` and safely no-ops. No-op (returns `null`) if no PENDING
- * Payment row exists for this payable.
+ * Cancels a still-PENDING Payment for a payable so a late `checkout.session.completed` webhook
+ * safely no-ops. Returns `null` if no PENDING Payment row exists for this payable.
  */
 function cancelPendingPaymentByPayable(
   payableType: PayableType,
@@ -83,14 +79,8 @@ function markPaymentPaidIfPending(
   ).lean<PaymentDocument>();
 }
 
-// a transaction group many database changes
-// update payment to PAID, order to PAID, create delivery
-// <T> typescript syntax, T being returns different types depending on operations
-// database session is advanced, above week 9
+// Runs related Payment-domain writes in one MongoDB transaction.
 async function withTransaction<T>(
-  // operation is a function, must take a database session, 
-  // perform database CRUD, return output type
-  // : Promise<T>, promise to return after operation finishes
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
   const session = await mongoose.startSession();
@@ -101,7 +91,7 @@ async function withTransaction<T>(
     });
     return result;
   } finally {
-    await session.endSession(); // end session
+    await session.endSession();
   }
 }
 

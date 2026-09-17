@@ -9,9 +9,7 @@ import { createHttpError } from './subscription.service.errors.js';
 
 /**
  * Schedules the caller's own latest subscription to cancel at the end of the current billing
- * period (F5). Never calls Stripe's `subscriptions.cancel()`/`.del()`, so access is not revoked
- * immediately — the tier stays PREMIUM until `currentPeriodEnd`. Idempotent: a no-op `200` if
- * `cancelAtPeriodEnd` is already `true`, with no second Stripe call.
+ * period (F5); access stays PREMIUM until `currentPeriodEnd`. Idempotent — a no-op if already scheduled.
  * @param recipientId - a Recipient's USER._id; always the caller's own, never another user's
  * @throws {Error} with statusCode = 409 if there is no ACTIVE, unexpired subscription to cancel
  */
@@ -33,9 +31,8 @@ async function cancelMySubscription(recipientId: string): Promise<SubscriptionRe
 }
 
 /**
- * Undoes a pending cancellation on the caller's own latest subscription (F5) — the inverse of
- * {@link cancelMySubscription}. Valid only while `currentPeriodEnd` is still in the future.
- * Idempotent: a no-op `200` if `cancelAtPeriodEnd` is already `false`, with no second Stripe call.
+ * Undoes a pending cancellation on the caller's own latest subscription (F5), the inverse of
+ * {@link cancelMySubscription}. Idempotent — a no-op if not currently scheduled to cancel.
  * @param recipientId - a Recipient's USER._id; always the caller's own, never another user's
  * @throws {Error} with statusCode = 409 if there is no ACTIVE, unexpired subscription to resume
  */

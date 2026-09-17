@@ -13,9 +13,8 @@ function isActivePremiumRow(subscription: SubscriptionDocument | null): boolean 
 }
 
 /**
- * True iff `recipientId`'s latest SUBSCRIPTION row is ACTIVE and unexpired. Cheap boolean form of
- * {@link getMySubscriptionStatus}, used by other modules' Premium gates (e.g. notification
- * preferences) that only need a yes/no, not the full DTO.
+ * True iff `recipientId`'s latest SUBSCRIPTION row is ACTIVE and unexpired — a cheap boolean
+ * form of {@link getMySubscriptionStatus} for other modules' Premium gates.
  * @param recipientId - a Recipient's USER._id
  */
 async function isPremiumRecipient(recipientId: string): Promise<boolean> {
@@ -24,19 +23,16 @@ async function isPremiumRecipient(recipientId: string): Promise<boolean> {
 }
 
 /**
- * Derives `tier` from the latest SUBSCRIPTION row for `GET /subscriptions/me` (and, via
- * `subscriptionInterface`, `GET /users/me`) — `tier` is never a stored column, only ever computed
- * here from `status` + `currentPeriodEnd`.
+ * Derives `tier` from the latest SUBSCRIPTION row for `GET /subscriptions/me` — `tier` is
+ * never stored, only ever computed here from `status` + `currentPeriodEnd`.
  * @param recipientId - a Recipient's USER._id
  */
 async function getMySubscriptionStatus(recipientId: string): Promise<SubscriptionStatusResponseDto> {
   const subscription = await subscriptionRepository.findLatestSubscriptionByRecipientId(recipientId);
   const tier = isActivePremiumRow(subscription) ? 'PREMIUM' : 'STANDARD';
 
-  // Read-repair of the denormalized recipient.tier column. The webhooks below keep it fresh on
-  // billing events; this catches the two cases they can't — a webhook Stripe never delivered, and a
-  // subscription that simply lapsed at currentPeriodEnd with no further event. The repository
-  // filters on tier != this value, so an in-sync row is a no-op rather than a write per request.
+  // Read-repair of the denormalized recipient.tier cache, for cases a billing webhook never covers
+  // (a missed delivery, or a subscription lapsing with no further event); a no-op if already in sync.
   await userInterface.setRecipientTier(recipientId, tier);
 
   return {

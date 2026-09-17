@@ -9,13 +9,10 @@ import type Stripe from 'stripe';
 import { paymentNotFoundError, stripeApiError } from './payment.service.errors.js';
 
 /**
- * Synchronously refunds a Stripe-paid order's payment as part of cancellation (D4). Only touches
- * the PAYMENT row — sets REFUND_PENDING, not REFUNDED; final confirmation is the caller's job to
- * surface once the refund.updated webhook (see handleRefundUpdated below) settles it. Marking
- * ORDER.paymentStatus is the caller's responsibility, same division as handlePaymentCheckoutCompleted.
- * Idempotent: a payment already REFUND_PENDING or REFUNDED is not refunded again.
- * @param orderId - the cancelled ORDER._id. The caller is expected to have already confirmed the
- *   order is paymentMethod=STRIPE and paymentStatus=PAID before calling this.
+ * Synchronously refunds a Stripe-paid order's payment as part of cancellation (D4), setting the
+ * PAYMENT row to REFUND_PENDING (not REFUNDED — that's `handleRefundUpdated`'s job). Idempotent.
+ * @param orderId - the cancelled ORDER._id; the caller must have already confirmed
+ *   paymentMethod=STRIPE and paymentStatus=PAID
  * @throws {Error} with statusCode = 404 if no Payment row exists for this order
  * @throws {Error} with statusCode = 502 if the payment has no stripePaymentIntentId to refund
  *   against, or Stripe's refund API call fails
@@ -49,12 +46,8 @@ async function refundOrderPayment(orderId: string | Types.ObjectId) {
 
 /**
  * Cancels a still-PENDING Payment tied to a cancelled Order's abandoned Stripe Checkout Session
- * (D4 — cancelling a Stripe order before checkout completed). DB-only: unlike `refundOrderPayment`,
- * there is nothing to call Stripe for — a Checkout Session simply expires on its own — this just
- * stops a late `checkout.session.completed` webhook from resurrecting the cancelled Order (see
- * `handlePaymentCheckoutCompleted`'s `payment.status !== 'PENDING'` guard). No-op if no
- * PENDING Payment row exists (free/cash orders, or a Stripe order whose checkout was never
- * started).
+ * (D4), DB-only, so a late `checkout.session.completed` can't resurrect the Order. No-op if no
+ * PENDING Payment row exists.
  */
 async function cancelPendingOrderPayment(
   orderId: string | Types.ObjectId,
@@ -64,17 +57,9 @@ async function cancelPendingOrderPayment(
 }
 
 /**
- * Reconciles a verified "refund.updated" event against its Payment row (matched by
- * stripeRefundId, set synchronously by refundOrderPayment above): ignores the refund
- * until it reaches a terminal `succeeded` status, skips if already processed, otherwise
- * marks it REFUNDED. Only touches the PAYMENT row — marking ORDER.paymentStatus=REFUNDED
- * and sending the PAYMENT_REFUNDED notification (docs/api_design.md §12/§14) mirrors
- * handlePaymentCheckoutCompleted.
- *
- * Listens to the Refund object directly rather than the older `charge.refunded` event:
- * as of Stripe's 2024-10-28 API change, `charge.refunded` no longer reliably carries the
- * refund's id/status in its payload, whereas `refund.updated` (now sent for every refund
- * type, not just chargeless ones) gives both directly with no extra API call.
+ * Reconciles a verified `refund.updated` event against its Payment row (matched by
+ * `stripeRefundId`), marking it REFUNDED and flipping the linked Order once the refund
+ * reaches a terminal `succeeded` status. Idempotent via `lastProcessedEventId`.
  */
 async function handleRefundUpdated(refund: Stripe.Refund, eventId: string) {
   // Only a terminal success confirms the refund; ignore pending/failed/canceled updates.

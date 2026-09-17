@@ -6,9 +6,8 @@ import type { Types } from 'mongoose';
 import { recipientNotFoundError, stripeApiError } from './payment.service.errors.js';
 
 /**
- * Creates a fresh Stripe Customer for a Recipient and saves it as their stripeCustomerId,
- * overwriting whatever was there before (used both for first-time creation and for replacing a
- * stale id Stripe has rejected).
+ * Creates a fresh Stripe Customer for a Recipient and overwrites their saved stripeCustomerId
+ * with it — used both for first-time creation and for replacing a stale, rejected id.
  * @throws {Error} with statusCode = 502 if Stripe customer creation fails
  */
 async function createAndSaveStripeCustomer(userId: string | Types.ObjectId) {
