@@ -1,12 +1,12 @@
 import { Check, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import { formatPrice, UNIT_LABELS, formatCategory } from '@/shared/utils/listingFormatting';
 import type { RecipientOrderDTO } from '@/types/api';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  STRIPE: 'Credit Card',
-  CASH: 'Cash',
+const PAYMENT_METHOD_CONFIG: Record<string, { label: string; emoji: string }> = {
+  STRIPE: { label: 'Credit Card', emoji: '💳' },
+  CASH: { label: 'Cash', emoji: '💵' },
 };
 
 function formatCollectedAt(iso: string): { date: string; time: string } {
@@ -41,7 +41,7 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
 
   return (
     <tr className="border-b border-[#e9f5ee] last:border-b-0 hover:bg-[#f5faf7]/60 transition-colors duration-150">
-      <td className="px-4 py-3 align-middle">
+      <td className="px-4 py-2 align-middle">
         <Link
           to={`/orders/${item.id}`}
           className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D6852]/40"
@@ -65,50 +65,48 @@ export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
         </Link>
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.donor.companyName}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {formatCategory(item.listing.category)}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.quantity}
         {item.listing.unit ? ` ${UNIT_LABELS[item.listing.unit] ?? ''}` : ''}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm font-semibold text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm font-semibold text-[#1E293B]">
         {formatPrice(item.amount)}
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         <div className="flex flex-col">
           <span>{date}</span>
           <span className="text-xs text-[#6B7280]">{time}</span>
         </div>
       </td>
 
-      <td className="px-4 py-3 align-middle text-sm text-[#1E293B]">
-        {/* TODO(D5): card-last4 display needs a new Payment→PaymentMethod
-            field, not part of the documented contract — showing
-            paymentMethod instead of the mock's masked card digits. */}
+      <td className="px-4 py-2 align-middle text-sm text-[#1E293B]">
         {item.paymentMethod ? (
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true">💳</span>
-            {PAYMENT_METHOD_LABELS[item.paymentMethod] ?? item.paymentMethod}
+            <span aria-hidden="true">
+              {PAYMENT_METHOD_CONFIG[item.paymentMethod]?.emoji ?? ''}
+            </span>
+            {PAYMENT_METHOD_CONFIG[item.paymentMethod]?.label ?? item.paymentMethod}
           </span>
         ) : (
           <span className="text-[#6B7280]">Free</span>
         )}
       </td>
 
-      <td className="px-4 py-3 align-middle">
-        <div className="flex flex-col items-start gap-1">
+      <td className="px-4 py-2 align-middle">
+        <div className="flex flex-col items-start gap-1 w-max">
           <StatusBadge status={statusKey} />
 
-          {/* TODO(D7): feedback action lives on the order detail page now —
-              this is a read-only indicator, not a trigger. */}
+          {/* Read-only feedback indicator — feedback form lives on the order detail page. */}
           {isDelivered && (
             item.feedback ? (
               <span

@@ -1,4 +1,4 @@
-import { Panel } from '@/shared/components/Panel/Panel';
+import { Panel } from '@/shared/components/Panel';
 import {
   UNIT_LABELS,
   formatCategory,

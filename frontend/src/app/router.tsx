@@ -32,7 +32,7 @@ import { SubscriptionPage } from '../modules/subscriptions/pages/SubscriptionPag
 import { ProfilePage } from '../modules/users/pages/ProfilePage';
 import { DonorAnalyticsPage } from '../modules/donations/pages/DonorAnalyticsPage';
 import { Toaster } from '@/shared/components/ui/sonner';
-import { LiveNotifications } from '@/shared/components/LiveNotifications/LiveNotifications';
+import { LiveNotifications } from '@/shared/components/LiveNotifications';
 import { NotificationPreferencesPage } from '@/modules/notification-preferences/pages/NotificationPreferencesPage';
 
 export function AppRouter() {

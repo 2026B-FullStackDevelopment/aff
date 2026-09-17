@@ -44,7 +44,7 @@ Location processing follows a structured, multi-layer frontend architecture:
 | `frontend/src/shared/services/nominatim.service.ts` | Low-level REST API service | Wraps `https://nominatim.openstreetmap.org` calls (`searchPlaces` and `reverseGeocode`). Sets standard `User-Agent` headers and accepts `AbortSignal`. |
 | `frontend/src/shared/hooks/useNominatimSearch.ts` | Custom React Hook | Provides search-as-you-type behavior with 400ms debouncing, in-flight request cancellation (`AbortController`), `signal.aborted` checks, and automatic unmount cleanup. |
 | `frontend/src/shared/utils/resolveProvince.ts` | Province Normalization Engine | Converts raw Nominatim address tags and lat/lon coordinates into one of AFF's 34 canonical Vietnamese provinces. |
-| `frontend/src/shared/components/AddressAutocomplete/AddressAutocomplete.tsx` | Accessible Combobox UI Component | Renders search-as-you-type input with keyboard navigation (`ArrowUp`/`ArrowDown`/`Enter`), GPS browser geolocation button, and automatic `municipality` resolution. |
+| `frontend/src/shared/components/AddressAutocomplete.tsx` | Accessible Combobox UI Component | Renders search-as-you-type input with keyboard navigation (`ArrowUp`/`ArrowDown`/`Enter`), GPS browser geolocation button, and automatic `municipality` resolution. |
 
 ---
 
@@ -87,7 +87,7 @@ Nominatim operates under a strict [Fair Use Policy](https://operations.osmfounda
 ### Using `AddressAutocomplete` in a Form
 
 ```tsx
-import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete/AddressAutocomplete';
+import { AddressAutocomplete, LocationData } from '@/shared/components/AddressAutocomplete';
 
 function DonorForm() {
   const [address, setAddress] = useState('');

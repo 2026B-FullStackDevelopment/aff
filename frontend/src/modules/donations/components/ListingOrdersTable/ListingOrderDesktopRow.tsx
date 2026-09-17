@@ -1,4 +1,4 @@
-import { StatusBadge } from '@/shared/components/StatusBadge/StatusBadge';
+import { StatusBadge } from '@/shared/components/StatusBadge';
 import {
   formatOrderDate,
   formatOrderQuantity,

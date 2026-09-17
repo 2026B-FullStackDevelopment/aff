@@ -1,8 +1,8 @@
 import { Search } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { SelectField } from '@/shared/components/SelectField/SelectField';
+import { Button } from '@/shared/components/Button';
+import { IconField } from '@/shared/components/IconField';
+import { Panel } from '@/shared/components/Panel';
+import { SelectField } from '@/shared/components/SelectField';
 import type { FoodCategory } from '@/types/api';
 import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
 import { ORDER_OPTIONS } from '@/shared/constants/sort';

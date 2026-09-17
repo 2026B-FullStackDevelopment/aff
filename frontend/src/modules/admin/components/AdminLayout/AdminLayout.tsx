@@ -8,7 +8,7 @@ import {
 import {
   PortalTopNavigation,
   type PortalNavItem,
-} from '@/shared/components/PortalTopNavigation/PortalTopNavigation';
+} from '@/shared/components/PortalTopNavigation';
 import type { AdminUserDTO } from '@/types/api';
 
 const ADMIN_NAV_ITEMS: readonly PortalNavItem[] = [

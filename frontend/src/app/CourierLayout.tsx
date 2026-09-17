@@ -12,7 +12,7 @@
 // routes, keeps its lifetime (and the socket's) tied to the Courier's
 // session rather than to whichever page happens to be showing.
 import { Outlet } from 'react-router-dom';
-import { CourierTopNavigation } from '@/shared/components/CourierTopNavigation/CourierTopNavigation';
+import { CourierTopNavigation } from '@/shared/components/CourierTopNavigation';
 import { getStoredUser } from '@/services/authStorage';
 
 export function CourierLayout() {

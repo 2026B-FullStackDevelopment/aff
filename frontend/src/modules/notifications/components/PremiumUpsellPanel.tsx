@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
+import { Button } from '@/shared/components/Button';
 
 interface PremiumUpsellPanelProps {
   onUpgrade: () => void;

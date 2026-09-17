@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Check, Info } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { TextareaField } from '@/shared/components/TextareaField/TextareaField';
+import { Button } from '@/shared/components/Button';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { Panel } from '@/shared/components/Panel';
+import { TextareaField } from '@/shared/components/TextareaField';
 import type { OrderDTO } from '@/types/api';
 
 const MAX_COMMENT_LENGTH = 500;

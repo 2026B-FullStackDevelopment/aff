@@ -5,24 +5,6 @@ import type { NotificationDTO } from '@/types/api';
 
 const NOTIFICATIONS_PAGE_SIZE = 5;
 
-let inFlightFirstPage: ReturnType<typeof notificationService.getMyNotifications> | null = null;
-
-function fetchPage(targetPage: number) {
-  if (targetPage !== 1) {
-    return notificationService.getMyNotifications(targetPage, NOTIFICATIONS_PAGE_SIZE);
-  }
-
-  if (!inFlightFirstPage) {
-    inFlightFirstPage = notificationService
-      .getMyNotifications(1, NOTIFICATIONS_PAGE_SIZE)
-      .finally(() => {
-        inFlightFirstPage = null;
-      });
-  }
-
-  return inFlightFirstPage;
-}
-
 /**
  * Loads the authenticated user's own notification history from
  * `GET /notifications` (H2) for the bell dropdown. Fetches page 1 whenever
@@ -37,12 +19,17 @@ export function useNotifications(enabled: boolean) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (targetPage: number) => {
+  const load = useCallback(async (targetPage: number, isCurrentRequest?: () => boolean) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetchPage(targetPage);
+      const response = await notificationService.getMyNotifications(
+        targetPage,
+        NOTIFICATIONS_PAGE_SIZE,
+      );
+
+      if (isCurrentRequest && !isCurrentRequest()) return;
 
       if (!response.ok || !response.data) {
         setError(getResponseMessage(response.data, "We couldn't load your notifications. Please try again."));
@@ -54,15 +41,22 @@ export function useNotifications(enabled: boolean) {
       setTotal(page.total);
       setPage(targetPage);
     } catch {
+      if (isCurrentRequest && !isCurrentRequest()) return;
       setError("We couldn't load your notifications. Please try again.");
     } finally {
-      setIsLoading(false);
+      if (!isCurrentRequest || isCurrentRequest()) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!enabled) return;
-    void load(1);
+    let isCurrent = true;
+    void load(1, () => isCurrent);
+    return () => {
+      isCurrent = false;
+    };
   }, [enabled, load]);
 
   return {

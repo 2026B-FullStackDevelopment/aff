@@ -1,7 +1,7 @@
 import { PackageSearch } from 'lucide-react';
-import { EmptyState } from '@/shared/components/EmptyState/EmptyState';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
 import { CollectionHistoryRow } from './CollectionHistoryRow';
 import type { RecipientOrderDTO } from '@/types/api';
 
@@ -56,7 +56,7 @@ export function CollectionHistoryTable({
               <th
                 key={heading}
                 scope="col"
-                className="px-4 py-3 text-left text-[0.7rem] font-bold uppercase tracking-wider text-[#6B7280]"
+                className="px-4 py-2 text-left text-[0.7rem] font-bold uppercase tracking-wider text-[#6B7280]"
               >
                 {heading}
               </th>

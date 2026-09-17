@@ -1,13 +1,11 @@
-import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation/RecipientTopNavigation';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
-import { Panel } from '@/shared/components/Panel/Panel';
-import { Pagination } from '@/shared/components/Pagination/Pagination';
+import { RecipientTopNavigation } from '@/shared/components/RecipientTopNavigation';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { Panel } from '@/shared/components/Panel';
+import { Pagination } from '@/shared/components/Pagination';
 import { CollectionHistoryTable } from '../components/CollectionHistoryTable';
 import { useOrderHistory } from '../hooks/useOrderHistory';
 import { getStoredUser } from '@/services/authStorage';
 import { useSubscription } from '@/modules/subscriptions/hooks/useSubscription';
-
-const RECIPIENT_HAS_UNREAD_NOTIFICATIONS = false;
 
 export function ReservationsPage() {
   const user = getStoredUser();
@@ -27,12 +25,10 @@ export function ReservationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#f5faf7] to-[#e9f5ee]">
       <RecipientTopNavigation
         avatarUrl={user?.avatarUrl ?? null}
-        onNotificationsClick={() => {}}
-        hasUnreadNotifications={RECIPIENT_HAS_UNREAD_NOTIFICATIONS}
         isPremium={tier === 'PREMIUM'}
       />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 lg:px-8">
         <PageHeader title="Reservation History" />
 
         <Panel contentClassName="p-0">

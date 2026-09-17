@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { CheckboxField } from '@/shared/components/CheckboxField/CheckboxField';
-import { FilterChip } from '@/shared/components/FilterChip/FilterChip';
-import { FormSectionHeader } from '@/shared/components/FormSectionHeader/FormSectionHeader';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { Panel } from '@/shared/components/Panel/Panel';
+import { Button } from '@/shared/components/Button';
+import { CheckboxField } from '@/shared/components/CheckboxField';
+import { FilterChip } from '@/shared/components/FilterChip';
+import { FormSectionHeader } from '@/shared/components/FormSectionHeader';
+import { IconField } from '@/shared/components/IconField';
+import { Panel } from '@/shared/components/Panel';
 import { CATEGORY_OPTIONS } from '@/shared/constants/categories';
 import { ORDER_OPTIONS } from '@/shared/constants/sort';
 import { cn } from '@/shared/utils';

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { AvatarUpload } from '@/shared/components/AvatarUpload/AvatarUpload';
-import { FormErrorAlert } from '@/shared/components/FormErrorAlert/FormErrorAlert';
-import { IconField } from '@/shared/components/IconField/IconField';
-import { PasswordField } from '@/shared/components/PasswordField/PasswordField';
-import { PasswordStrength } from '@/shared/components/PasswordStrength/PasswordStrength';
-import WarningCallout from '@/shared/components/WarningCallout/WarningCallout';
+import { AvatarUpload } from '@/shared/components/AvatarUpload';
+import { FormErrorAlert } from '@/shared/components/FormErrorAlert';
+import { IconField } from '@/shared/components/IconField';
+import { PasswordField } from '@/shared/components/PasswordField';
+import { PasswordStrength } from '@/shared/components/PasswordStrength';
+import WarningCallout from '@/shared/components/WarningCallout';
 import type { AdminUserDTO } from '@/types/api';
 import type { useAdminProfileForm } from '../../hooks/useAdminProfileForm';
 

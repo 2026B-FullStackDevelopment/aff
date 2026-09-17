@@ -8,6 +8,7 @@ import { listingService } from '../services/listing.service';
 import { recipientService } from '../services/recipient.service';
 import { getResponseMessage } from '@/shared/utils/apiError';
 import { toast } from '@/shared/components/ui/sonner';
+import { formatCurrency } from '@/shared/utils/listingFormatting';
 import type {
     ManagedListingDTO,
     RecipientSearchResult,
@@ -43,13 +44,6 @@ const INITIAL_FORM: ManualDonationFormState = {
     quantity: '1',
     cashReceivedAmount: '',
 };
-
-// format money to VND
-const VND_FORMATTER = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-});
 
 function parseQuantity(
     value: string,
@@ -886,7 +880,7 @@ export function useManualDonation() {
                 // temporary success notification
                 toast.success('Cash donation recorded', {
                     description: `${selectedListing.name} was paid and completed in person with ${
-                        VND_FORMATTER.format(cashChange ?? 0)
+                        formatCurrency(cashChange ?? 0)
                     } change.`,
                 });
             }

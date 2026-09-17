@@ -1,8 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { buttonVariants } from '@/shared/components/Button/Button';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
-import { Panel } from '@/shared/components/Panel/Panel';
+import { buttonVariants } from '@/shared/components/Button';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { Panel } from '@/shared/components/Panel';
 import { cn } from '@/shared/utils';
 import { CreateCourierForm } from '../components/CreateCourierForm/CreateCourierForm';
 

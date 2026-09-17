@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/shared/components/Button/Button';
-import { ErrorState } from '@/shared/components/ErrorState/ErrorState';
-import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton/LoadingSkeleton';
-import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
-import { WarningCallout } from '@/shared/components/WarningCallout/WarningCallout';
+import { Button } from '@/shared/components/Button';
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { WarningCallout } from '@/shared/components/WarningCallout';
 import { toast } from '@/shared/components/ui/sonner';
 import { ListingOrderSummary } from './ListingOrderSummary';
 import { ListingOrdersTable } from './ListingOrdersTable/ListingOrdersTable';
