@@ -34,14 +34,33 @@ https://github.com/2026B-FullStackDevelopment/Team1
 
     Fill in `backend/.env` with your own MongoDB URI, JWT secret, Stripe keys, Supabase credentials, and email settings or attach the `.env` file provided in the submission.
 
-3. Run the backend and frontend in separate terminals:
+3. Install and Set Up Stripe CLI
+
+    Stripe CLI is required for forwarding Stripe webhook events to the local backend during payment and subscription testing.
+    
+    Install the [Stripe CLI](https://docs.stripe.com/stripe-cli) by following the official installation instructions for your operating system.
+    
+    The provided environment file contains the project's required Stripe configuration. No separate Stripe account setup is required for the provided testing configuration.
+
+4. Run the backend and frontend in separate terminals:
 
     ```bash
     npm run dev:backend
     npm run dev:frontend
     ```
+5. Start the Stripe Webhook Listener
 
-4. Verify your setup:
+    In another terminal, run:
+    
+    ```bash
+    stripe listen --forward-to localhost:5000/api/webhooks/stripe
+    ```
+    
+    Keep the Stripe CLI listener running while testing Stripe payments or recurring subscriptions locally.
+    
+    > **Note:** The Stripe CLI displays a webhook signing secret (`whsec_...`) when the listener starts. If the backend requires a local webhook signing secret, use the     secret displayed by the active Stripe CLI listener in the corresponding backend environment variable.
+
+6. Verify your setup:
 
     ```bash
     npm run typecheck
