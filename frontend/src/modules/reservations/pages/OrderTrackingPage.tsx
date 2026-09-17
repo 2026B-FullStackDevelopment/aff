@@ -136,13 +136,15 @@ export function OrderTrackingPage() {
               </WarningCallout>
             )}
 
-            <DeliveryTrackingPanel
-              order={order}
-              isAwaitingPayment={isAwaitingPayment}
-              stage={stage}
-              courierPosition={courierPosition}
-              deliveredAt={deliveredAt}
-            />
+            {order.delivery && (
+              <DeliveryTrackingPanel
+                order={order}
+                isAwaitingPayment={isAwaitingPayment}
+                stage={stage}
+                courierPosition={courierPosition}
+                deliveredAt={deliveredAt}
+              />
+            )}
 
             <Panel title="Order Details">
               <div className="flex flex-col gap-4">
@@ -183,12 +185,14 @@ export function OrderTrackingPage() {
                   <span className="text-[#414844]">{formatDate(order.createdAt)}</span>
                 </div>
 
-                <div className="pt-1 text-sm">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Delivery Address
-                  </p>
-                  <p className="text-[#414844]">{order.deliveryAddressText}</p>
-                </div>
+                {order.deliveryAddressText && (
+                  <div className="pt-1 text-sm">
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Delivery Address
+                    </p>
+                    <p className="text-[#414844]">{order.deliveryAddressText}</p>
+                  </div>
+                )}
 
                 {canCancelOrder && (
                   <div className="flex flex-col items-end gap-3 border-t border-slate-100 pt-4">

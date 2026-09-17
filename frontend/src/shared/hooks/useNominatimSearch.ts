@@ -17,6 +17,7 @@ export function useNominatimSearch(options: UseNominatimSearchOptions = {}) {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Search for places as the user types
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < minQueryLength) {
@@ -42,6 +43,7 @@ export function useNominatimSearch(options: UseNominatimSearchOptions = {}) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // Search for places
       try {
         const places = await nominatimService.searchPlaces(trimmed, {
           countrycodes,
@@ -65,6 +67,8 @@ export function useNominatimSearch(options: UseNominatimSearchOptions = {}) {
       }
     }, debounceMs);
 
+    // Clear the timeout and abort any in-flight request 
+    // if the component unmounts or query changes
     return () => {
       clearTimeout(timer);
       if (abortControllerRef.current) {
@@ -74,7 +78,7 @@ export function useNominatimSearch(options: UseNominatimSearchOptions = {}) {
     };
   }, [query, debounceMs, minQueryLength, countrycodes, limit, addressdetails]);
 
-
+  // Clear the search results and error
   const clear = useCallback(() => {
     setQuery('');
     setResults([]);

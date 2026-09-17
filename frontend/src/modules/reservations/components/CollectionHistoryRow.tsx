@@ -37,7 +37,7 @@ interface CollectionHistoryRowProps {
 export function CollectionHistoryRow({ item }: CollectionHistoryRowProps) {
   const { date, time } = formatCollectedAt(item.createdAt);
   const statusKey = resolveStatusKey(item);
-  const isDelivered = item.delivery?.stage === 'DELIVERED';
+  const isDelivered = item.delivery?.stage === 'DELIVERED' || item.orderStatus === 'DELIVERED';
 
   return (
     <tr className="border-b border-[#e9f5ee] last:border-b-0 hover:bg-[#f5faf7]/60 transition-colors duration-150">

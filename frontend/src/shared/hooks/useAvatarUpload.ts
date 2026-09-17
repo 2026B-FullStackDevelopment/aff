@@ -11,19 +11,23 @@ export function useAvatarUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
 
+  // Cleanup uploaded file URL when the component unmounts
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  // Handle file selection and upload
   async function selectFile(file: File) {
     setUploadError(undefined);
     setIsRemoved(false);
 
+    // Validate file type
     if (!ACCEPTED_TYPES.includes(file.type)) {
       setUploadError('Invalid file type. Please upload a PNG, JPEG, or WEBP image.');
       return;
     }
 
+    // Create local preview URL for immediate display
     const localPreviewUrl = URL.createObjectURL(file);
     setPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current);
@@ -32,6 +36,7 @@ export function useAvatarUpload() {
     setIsUploading(true);
 
     try {
+      // Request upload URL from backend
       const response = await mediaService.requestUploadUrl('AVATAR', file.type);
       if (!response.ok || !response.data) {
         setUploadError('Failed to prepare image upload. Please try again.');
@@ -52,6 +57,7 @@ export function useAvatarUpload() {
     }
   }
 
+  // Reset upload state
   function clear(removed: boolean) {
     setPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current);
