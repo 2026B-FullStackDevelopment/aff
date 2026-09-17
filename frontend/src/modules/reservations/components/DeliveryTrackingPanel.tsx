@@ -61,7 +61,7 @@ export function DeliveryTrackingPanel({
   courierPosition,
   deliveredAt,
 }: DeliveryTrackingPanelProps) {
-  if (isAwaitingPayment || order.orderStatus === 'CANCELLED') {
+  if (isAwaitingPayment || order.orderStatus === 'CANCELLED' || !order.delivery) {
     return null;
   }
 

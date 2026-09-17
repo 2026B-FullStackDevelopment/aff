@@ -24,6 +24,8 @@ export function useCurrentLocation() {
       setIsLoading(true);
       setError(null);
 
+      // Use getCurrentPosition to get the current location, 
+      // this will show a dialog asking for location permission
       try {
         const position = await new Promise<GeolocationPosition>(
           (resolve, reject) => {

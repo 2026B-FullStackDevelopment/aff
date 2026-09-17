@@ -120,6 +120,7 @@ export function AddressAutocomplete({
   const [focusedIndex, setFocusedIndex] =
     useState(-1);
 
+  // Close the suggestion dropdown when clicking outside the component.
   const containerRef =
     useRef<HTMLDivElement>(null);
 
@@ -129,6 +130,7 @@ export function AddressAutocomplete({
   const previousValueRef =
     useRef(value);
 
+  // Search for places as the user types
   const {
     setQuery,
     results: suggestions,
@@ -141,6 +143,7 @@ export function AddressAutocomplete({
     minQueryLength: 3,
   });
 
+  // Get current location
   const {
     getCurrentLocation,
     isLoading: isGpsLoading,
@@ -217,6 +220,7 @@ export function AddressAutocomplete({
     setFocusedIndex(-1);
   }, [clear, input, setQuery]);
 
+  // Apply the selected location
   function applyLocation(
     addressText: string,
     latitude: number,
@@ -246,6 +250,7 @@ export function AddressAutocomplete({
     });
   }
 
+  // Handle the selection of a place
   function handleSelect(
     item: NominatimPlace,
   ) {
@@ -260,6 +265,7 @@ export function AddressAutocomplete({
     );
   }
 
+  // Handle the input change
   function handleInputChange(
     nextValue: string,
   ) {
@@ -321,6 +327,7 @@ export function AddressAutocomplete({
     }
   }
 
+  // Handle the use of current location
   async function handleUseCurrentLocation() {
     const location =
       await getCurrentLocation();

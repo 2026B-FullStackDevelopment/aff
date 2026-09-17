@@ -111,9 +111,12 @@ export function useOrderTracking(orderId: string | undefined) {
   // Eligible iff there's no Delivery yet, or it hasn't been claimed by a
   // Courier yet — orderStatus stays PREPARING through claim/pickup, so it
   // is deliberately not used here (see docs/api_design.md §9).
+  // A terminal DELIVERED order or DONOR_INITIATED in-person order can never be cancelled.
   const canCancelOrder = Boolean(
     order &&
     order.orderStatus !== 'CANCELLED' &&
+    order.orderStatus !== 'DELIVERED' &&
+    order.intakePath !== 'DONOR_INITIATED' &&
     (!order.delivery || order.delivery.stage === 'AWAITING_COURIER'),
   );
 

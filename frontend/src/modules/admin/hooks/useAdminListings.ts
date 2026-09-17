@@ -4,7 +4,7 @@ import { getResponseMessage } from '@/shared/utils/apiError';
 import type { AdminListingDTO } from '@/types/api';
 import { adminOversightService } from '../services/adminOversight.service';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 /** Owns Admin listing-directory queries, paging, search, and cancellation. */
 export function useAdminListings() {
