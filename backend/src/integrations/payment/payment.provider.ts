@@ -56,10 +56,7 @@ async function createCheckoutSession({
   const session = await getClient().checkout.sessions.create({
     mode: 'payment',
     customer: customerId,
-    // TODO: this sends one generic line item covering the whole order amount, not the
-    // order's actual itemized contents. Fine for now since this helper is intentionally
-    // generic (no order-specific logic per the payments-foundation ticket) — revisit if
-    // D2/C3 want real per-item names/quantities to show on the Stripe checkout page.
+    
     line_items: [
       {
         quantity: 1,
@@ -103,9 +100,8 @@ async function createSubscriptionCheckoutSession({
   const session = await getClient().checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
-    // Fixed $5/month price built inline rather than referencing a pre-created Stripe
-    // Price object — confirmed design decision, not a gap (test-mode only, no Dashboard
-    // setup needed). Unlike the one-off checkout above, there's nothing to itemize here.
+    // Fixed $5/month price built inline rather than a pre-created Stripe Price object —
+    // a confirmed design decision, not a gap.
     line_items: [
       {
         quantity: 1,
@@ -151,10 +147,8 @@ async function updateSubscriptionCancelAtPeriodEnd(subscriptionId: string, cance
 }
 
 /**
- * Fully refunds a previously captured payment. The returned status reflects Stripe's synchronous
- * response only — for most card refunds this is `succeeded` immediately, but it is not guaranteed
- * final; the caller should treat this as provisional and rely on the `refund.updated` webhook
- * (docs/api_design.md §8) for confirmation, not this return value alone.
+ * Fully refunds a previously captured payment. The returned status is Stripe's synchronous
+ * response only — treat it as provisional and rely on the `refund.updated` webhook to confirm.
  * @param paymentIntentId - the Stripe PaymentIntent id backing the original checkout session
  */
 async function createRefund({ paymentIntentId }: { paymentIntentId: string }) {

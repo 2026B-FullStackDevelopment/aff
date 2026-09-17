@@ -22,11 +22,8 @@ async function findOrderById(
 }
 
 /**
- * Fetches a single Order for its owning Recipient, alongside its Delivery
- * stage (if any) so the client can gate the "Cancel Order" button (D4)
- * without a second request. Never distinguishes a nonexistent order from
- * one owned by someone else — both are `404` — so this endpoint can't be
- * used to probe for another Recipient's order ids.
+ * Fetches a single Order for its owning Recipient, alongside its Delivery stage (if any), so
+ * the client can gate the "Cancel Order" button (D4) without a second request.
  */
 async function getOrderForRecipient(
   orderId: string,

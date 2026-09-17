@@ -1,7 +1,5 @@
 // Defines the MongoDB shape for a Recipient's premium subscription billing cycle (docs/database_design.md § SUBSCRIPTION).
-// The ledger is append-only: one row per billing cycle, never mutated once written — except
-// `status` and `cancelAtPeriodEnd`, which the Stripe webhook and the cancel/resume handler update
-// in place on the latest row (F1/F5, backend/SUBSCRIPTION.md).
+// Append-only ledger: one row per billing cycle, except `status`/`cancelAtPeriodEnd` which mutate in place on the latest row.
 import mongoose, { Schema } from 'mongoose';
 import type { SubscriptionDocument } from './subscription.types.js';
 

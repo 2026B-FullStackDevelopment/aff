@@ -31,9 +31,8 @@ interface OrderResponseDto {
 }
 
 interface CancelOrderResponseDto extends OrderResponseDto {
-  // NOT_APPLICABLE: free/cash/never-paid order, no Stripe call made. REFUND_PENDING: Stripe refund
-  // call succeeded synchronously, awaiting the refund.updated webhook for final confirmation.
-  // FAILED: the Stripe refund call itself errored — cancellation still proceeded regardless.
+  // NOT_APPLICABLE: no Stripe call made. REFUND_PENDING: refund started, awaiting webhook
+  // confirmation. FAILED: the refund call itself errored; cancellation still proceeded.
   refundStatus: 'NOT_APPLICABLE' | 'REFUND_PENDING' | 'FAILED';
 }
 

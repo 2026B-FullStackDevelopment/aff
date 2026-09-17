@@ -5,9 +5,8 @@ import { processWebhookEvent } from './payment.webhook.service.js';
 import { ok } from '../../shared/http/response.js';
 
 /**
- * Verifies the Stripe-Signature header against the raw request body, then routes the event
- * to payments.service#processWebhookEvent. Always responds 200 once the event is durably
- * processed or recognized as a duplicate, so Stripe does not retry it (docs/api_design.md §8).
+ * Verifies the Stripe-Signature header against the raw request body, then routes the event to
+ * `processWebhookEvent`. Always responds 200 so Stripe doesn't retry (docs/api_design.md §8).
  */
 async function handleStripeWebhook(req: Request, res: Response, next: NextFunction) {
   try {

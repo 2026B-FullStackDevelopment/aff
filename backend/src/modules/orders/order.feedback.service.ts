@@ -4,10 +4,7 @@ import * as orderRepository from './order.repository.js';
 import { createHttpError } from './order.service.errors.js';
 
 /**
- * Records a Recipient's one-shot feedback on their own delivered Order (D7). Ownership uses the
- * same non-distinguishing 404 as `cancelOrder`/`getOrderForRecipient`. The pre-checks below exist
- * only for a better error message on the common path — `orderRepository.setFeedback`'s atomic
- * guard is the real correctness guarantee against a race between this read and that write.
+ * Records a Recipient's one-shot feedback on their own delivered Order (D7).
  * @throws {Error} with statusCode = 404 if the Order doesn't exist or isn't this Recipient's
  * @throws {Error} with statusCode = 409 if the Order isn't `DELIVERED` yet
  * @throws {Error} with statusCode = 409, carrying `.feedback`, if feedback was already submitted

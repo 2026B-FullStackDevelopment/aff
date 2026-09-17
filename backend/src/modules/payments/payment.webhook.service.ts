@@ -11,8 +11,7 @@ import type Stripe from 'stripe';
 
 /**
  * Resolves a Stripe id field to its plain string id, whether Stripe sent it un-expanded (a
- * string) or expanded (an object with an `id`) — mirrors the `payment_intent` handling in
- * handlePaymentCheckoutCompleted below.
+ * string) or expanded (an object with an `id`).
  */
 function resolveStripeId(value: string | { id: string } | null | undefined): string {
   return typeof value === 'string' ? value : (value?.id ?? '');
@@ -128,10 +127,8 @@ async function processWebhookEvent(event: Stripe.Event) {
       });
 
       if (result.created) {
-        // The ledger row above is already committed — an email failure (bad SMTP creds, a
-        // provider rate-limit, a timeout) must never turn into a non-2xx response here. A non-2xx
-        // would make Stripe retry this same event, and the retry's appendBillingCycle would find
-        // the row already recorded and return created:false, silently skipping the email forever.
+        // The ledger row is already committed, so an email failure must not become a non-2xx
+        // response — that would make Stripe retry and silently skip the email forever.
         try {
           await emailInterface.sendSubscriptionConfirmation({
             to: result.recipientEmail,

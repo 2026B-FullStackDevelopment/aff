@@ -9,8 +9,7 @@ import { stripeApiError } from './payment.service.errors.js';
 
 /**
  * True when a thrown Stripe SDK error means "the customer id we sent no longer exists on
- * Stripe" (StripeInvalidRequestError, code=resource_missing, param=customer) — the shape Stripe
- * returns when a saved stripeCustomerId was deleted/invalidated since it was last used.
+ * Stripe" (`code: 'resource_missing'`, `param: 'customer'`).
  */
 function isStripeMissingCustomerError(error: unknown): boolean {
   return (
@@ -22,8 +21,8 @@ function isStripeMissingCustomerError(error: unknown): boolean {
 }
 
 /**
- * Starts a one-off Stripe Checkout for a single payable (an order or a donor-initiated donation),
- * recording a PENDING Payment row so the webhook can later find it by session id.
+ * Starts a one-off Stripe Checkout for a single payable, recording a PENDING Payment row so the
+ * webhook can later find it by session id.
  * @param payableType - what this payment is for ("ORDER" today; kept generic for future payables)
  * @param payableId - the id of that payable document
  * @param amount - total charge in the currency's smallest unit (e.g. cents)
@@ -31,10 +30,8 @@ function isStripeMissingCustomerError(error: unknown): boolean {
  * @param customerId - the paying Recipient's Stripe Customer id (from getOrCreateStripeCustomer)
  * @param successUrl - where Stripe redirects the browser after a successful payment
  * @param cancelUrl - where Stripe redirects the browser if the customer backs out
- * @param userId - the paying Recipient's USER._id. When Stripe rejects `customerId` because that
- *   customer no longer exists (e.g. deleted from the Stripe dashboard, or stale from a prior
- *   STRIPE_SECRET_KEY), this is used to mint a fresh customer, save it, and retry once. Omit only
- *   for callers with no Recipient to self-heal against.
+ * @param userId - the paying Recipient's USER._id, used to mint a fresh Stripe customer and
+ *   retry once if `customerId` turns out stale; omit only when there's no Recipient to self-heal against
  * @throws {Error} with statusCode = 502 if Stripe checkout-session creation fails (including a
  *   failed self-heal retry)
  */
@@ -103,10 +100,8 @@ async function startOneTimeCheckout({
 }
 
 /**
- * Starts a Stripe Checkout for the $5/month Premium subscription.
- * No Payment row is created here — there's nothing to reference as payableId until the
- * webhook's "checkout.session.completed" (subscription mode) handler creates the SUBSCRIPTION
- * row (F1's job; see the TODO in processWebhookEvent below).
+ * Starts a Stripe Checkout for the $5/month Premium subscription. No Payment row is created
+ * here — the SUBSCRIPTION row is created later, by the `invoice.paid` webhook (F1).
  * @param customerId - the subscribing Recipient's Stripe Customer id (from getOrCreateStripeCustomer)
  * @param successUrl - where Stripe redirects the browser after a successful subscribe
  * @param cancelUrl - where Stripe redirects the browser if the customer backs out

@@ -8,19 +8,8 @@ import { paymentInterface } from '../payments/payment.interface.js';
 import { createHttpError } from './order.service.errors.js';
 
 /**
- * Cancels a Recipient's own Order while its Delivery is still
- * `AWAITING_COURIER` (or doesn't exist yet), restoring the Listing's stock
- * and — for a Stripe-paid Order — synchronously starting a refund (D4).
- * Ownership and ordering: a mismatched recipient simply isn't found (404,
- * same non-distinguishing behavior as `getOrderForRecipient`); a Delivery
- * already past `AWAITING_COURIER` — whether seen on the pre-check or only
- * discovered by the atomic update losing a claim race — is a `409`, and the
- * Order is left untouched. The Stripe refund call happens only after the
- * cancellation transaction commits (it's a network call) and never rolls
- * the cancellation back if it fails. A Stripe Order still `PAYMENT_PENDING`
- * (checkout started, never completed) has its dangling `PENDING` Payment row
- * cancelled inside the same transaction, so a late `checkout.session.completed`
- * against that abandoned Checkout Session can't resurrect a cancelled Order.
+ * Cancels a Recipient's own Order while its Delivery is still `AWAITING_COURIER` (or absent),
+ * restoring the Listing's stock and, for a Stripe-paid Order, starting a refund afterward (D4).
  * @throws {Error} with statusCode = 404 if the Order doesn't exist or isn't this Recipient's
  * @throws {Error} with statusCode = 409 if the Delivery has moved past `AWAITING_COURIER`,
  *   including a claim that wins the race between the pre-check and the atomic update
@@ -123,22 +112,10 @@ async function markOrderRefunded(
 }
 
 /**
- * Cancels a batch of Orders as part of a Listing being cancelled out from
- * under them (Donor `PATCH /listings/:id/status`, and Admin's equivalent
- * cascade once G3 ships) — the DB-only half of the same rules `cancelOrder`
- * applies to a single self-cancelled Order (D4). Runs inside the caller's
- * transaction: restores each cancelled Order's Listing stock and cancels a
- * dangling `PAYMENT_PENDING` row, exactly like `cancelOrder` does, but keeps
- * the bulk atomic `updateMany` instead of looping `cancelOrder` — a cascade
- * has no per-order ownership or delivery-state check to re-run; those were
- * already applied when the caller computed `orderIds` and bulk-cancelled the
- * awaiting Deliveries a moment earlier in the same transaction.
- *
- * A refund is a network call and must never run inside a DB transaction, so
- * it is deliberately not attempted here — this only returns which of the
- * cancelled Orders are refundable (`STRIPE` + `PAID`); the caller is
- * responsible for refunding them via `refundCancelledOrders` after the
- * transaction commits.
+ * Cancels a batch of Orders inside the caller's transaction as part of a Listing being
+ * cancelled out from under them, restoring stock and cancelling dangling Stripe payments (D4).
+ * Returns which cancelled Orders are refundable; the caller refunds them via
+ * `refundCancelledOrders` after the transaction commits.
  */
 async function cancelOrdersForListingCancellation(
   orderIds: string[],
@@ -181,11 +158,8 @@ async function cancelOrdersForListingCancellation(
 }
 
 /**
- * Refunds a batch of Orders left `STRIPE` + `PAID` by a Listing-cancellation
- * cascade, after that cascade's transaction has committed (D4's `cancelOrder`
- * uses the same post-commit shape for its single-order refund). One Order's
- * Stripe failure never stops the rest — each outcome is reported back so the
- * caller can surface which Orders still need manual reconciliation.
+ * Refunds a batch of Orders left `STRIPE` + `PAID` after a Listing-cancellation cascade commits (D4).
+ * One Order's Stripe failure never stops the rest; each outcome is reported back individually.
  */
 async function refundCancelledOrders(
   orderIds: string[],
